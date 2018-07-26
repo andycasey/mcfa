@@ -1,14 +1,14 @@
 
 import logging as logger # todo: don't be lazy
 import numpy as np
+from copy import deepcopy
 from scipy.special import logsumexp
-
 from sklearn.cluster import KMeans
 
         
 class MCFA(object):
 
-    def __init__(self, g, q, itmax=10000, nkmeans=5, nrandom=20, tol=1e-5,
+    def __init__(self, g, q, itmax=500, nkmeans=5, nrandom=20, tol=1e-5,
         init_method=None, conv_measure="diff", warn_messages=True, **kwargs):
 
         self.g, self.q = (int(g), int(q))
@@ -49,24 +49,28 @@ class MCFA(object):
         return None
 
 
-    def fit(self, Y, init_params=None, init_clust=None):
+    def fit(self, Y, init_params=None):
+        """
+        Fit the model to the data, :math:`Y`.
+
+        :param Y:
+            The data, :math:`Y`, which is expected to be an array of shape
+            [n_samples, n_features].
+
+        :param init_params: [optional]
+            A dictionary of initial values to run expectation-maximization from.
+        """
 
         Y = _validate_data_array(Y, self.q)
 
         if init_params is None:
-
-            # Get initial parameters.
             init_params = self._initial_parameters(Y)
 
-            raise a
-
-
-        theta = _unpack(**init_params)
+        theta = _unpack(**init_params) if isinstance(init_params, dict) \
+                                       else deepcopy(init_params)
 
         # Calculate initial log-likelihood.
         prev_ll, tau = _mcfa_expectation(Y, *theta)
-
-        print("initial {}".format(prev_ll))
 
         # Do E-M iterations.
         for i in range(self.itmax):
@@ -82,18 +86,39 @@ class MCFA(object):
             if converged:
                 break
 
-            
+        # Make A.T @ A = I
+        # TODO: use the pack/unpack
+        g, q, pi, A, xi, omega, D = theta
 
-        raise a
+        CH = np.linalg.cholesky(A.T @ A)
+        A = A @ np.linalg.solve(CH, np.eye(self.q))
+        xi = CH @ xi
+
+        for i in range(self.g):
+            omega[:, :, i] = CH @ omega[:, :, i] @ CH.T
+
+
+        theta = [g, q, pi, A, xi, omega, D]
+
+        # TODO: use the pack/unpack.
+        # TODO: [g, q] should not be part of theta.
+        self.theta_ = theta
+        self.log_likelihood_ = ll
+
+        return self
 
 
     def _check_convergence(self, previous, current):
+
+        assert np.isfinite(current)
+        assert current > previous # depends on objective function
+
         if self.conv_measure == "diff":
             value = current - previous
+        
         elif self.conv_measure:
             value = (current - previous)/current
 
-        print(value)
         return (current, value < self.tol)
 
 
@@ -104,7 +129,8 @@ class MCFA(object):
         initial_partitions = _initial_partitions(Y, self.g,
                                                  self.nkmeans, self.nrandom)
 
-        
+        best_model, best_log_likelihood = (None, -np.inf)
+
         for i, partition in enumerate(initial_partitions):
 
             for j, init_method in enumerate(self.init_method):
@@ -113,10 +139,9 @@ class MCFA(object):
                     params = _initial_parameters(Y, self.g, self.q,
                                                  partition, init_method)
 
-                except:
+                except (ValueError, AssertionError):
                     logger.exception("Exception in initial trial {} using {}:"\
                                      .format(i, init_method))
-                    raise
 
                 else:
 
@@ -125,15 +150,22 @@ class MCFA(object):
                                            tol=self.tol, 
                                            itmax=self.itmax,
                                            conv_measure=self.conv_measure)
-                    model.fit(Y, init_params=params)
+
+                    try:
+                        model.fit(Y, init_params=params)
+
+                    except (ValueError, AssertionError):
+                        logger.exception("Exception in fitting model {} using {}"\
+                                         .format(i, init_method))
+
+                    else:
+                        if model.log_likelihood_ > best_log_likelihood:
+                            best_model = model
+                            best_log_likelihood = model.log_likelihood_
 
 
+        return best_model.theta_
 
-        raise a
-
-
-
-        p, n = Y.shape
 
 
 _pack_order = ("g", "q", "pi", "A", "xi", "omega", "D")
@@ -229,7 +261,7 @@ def _initial_parameters_by_rand_a(Y, g, q, partition):
         xi[:, i] = np.mean(Y[match] @ A, axis=0)
         
         # w, v = lambda, H
-        w, v = np.linalg.eigh(inv_sqrt_D @ np.coy(Y[match].T) @ inv_sqrt_D)
+        w, v = np.linalg.eigh(inv_sqrt_D @ np.cov(Y[match].T) @ inv_sqrt_D)
 
         if q == p:
             var = 0
