@@ -8,7 +8,7 @@ from sklearn.cluster import KMeans
         
 class MCFA(object):
 
-    def __init__(self, g, q, itmax=500, nkmeans=5, nrandom=20, tol=1e-5,
+    def __init__(self, g, q, itmax=500, nkmeans=5, nrandom=1, tol=1e-5,
         init_method=None, conv_measure="diff", warn_messages=True, **kwargs):
 
         self.g, self.q = (int(g), int(q))
@@ -102,10 +102,56 @@ class MCFA(object):
 
         # TODO: use the pack/unpack.
         # TODO: [g, q] should not be part of theta.
+        self.tau_ = tau
         self.theta_ = theta
         self.log_likelihood_ = ll
 
         return self
+
+
+    def factor_scores(self, Y):
+        """
+        Calculate the factor scores, given the model parameters.
+        """
+
+        try:
+            _, __, pi, A, xi, omega, D = self.theta_
+
+        except AttributeError:
+            raise AttributeError("you must run fit(Y) first")
+
+        n, p = Y.shape
+
+        U = np.zeros((n, self.q, self.g))
+        gamma = np.zeros((p, self.q, self.g))
+
+        inv_D = np.diag(1.0/np.diag(D))
+
+        I = np.eye(self.q)
+
+        for i in range(self.g):
+
+            C = np.linalg.solve(np.linalg.solve(omega[:, :, i], I) \
+                                + A.T @ inv_D @ A, I)
+            gamma[:, :, i] = (inv_D - inv_D @ A @ C @ A.T @ inv_D) @ A \
+                           @ omega[:, :, i]
+
+
+            U[:, :, i] = np.repeat(xi[:, [i]], n).reshape((self.q, n)).T \
+                       + (Y - (A @ xi[:, [i]]).T) @ gamma[:, :, i]
+
+
+        cluster = np.argmax(self.tau_, axis=1)
+
+        UC = np.zeros((n, self.q))
+        Umean = np.zeros((n, self.q))
+
+        for i in range(n):
+            UC[i] = U[i, :, cluster[i]]
+            Umean[i] = self.tau_[i] @ U[i].T
+
+        return dict(scores=U, Uclust=UC, Umean=Umean)
+
 
 
     def _check_convergence(self, previous, current):
@@ -478,12 +524,26 @@ def _validate_str_input(descriptor, input_value, acceptable_inputs,
 
 
 if __name__ == "__main__":
+
+    import matplotlib.pyplot as plt
     from sklearn.datasets import load_iris
 
-    iris = load_iris()
+    Y = load_iris().data
+
+
 
 
     model = MCFA(g=3, q=2)
-    model.fit(iris.data)
+    model.fit(Y)
+
+    foo = model.factor_scores(Y)
+
+    scores = foo["Umean"]
+
+    fig, ax = plt.subplots()
+    ax.scatter(scores.T[0], scores.T[1],
+               c=np.argmax(model.tau_, axis=1))
+
+
 
     raise a
