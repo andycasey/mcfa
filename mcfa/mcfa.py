@@ -1,6 +1,7 @@
 
 import logging as logger # todo: don't be lazy
 import numpy as np
+import warnings
 from copy import deepcopy
 from scipy.special import logsumexp
 from sklearn.cluster import KMeans
@@ -8,145 +9,281 @@ from sklearn.cluster import KMeans
         
 class MCFA(object):
 
-    def __init__(self, g, q, itmax=500, nkmeans=5, nrandom=1, tol=1e-5,
-        init_method=None, conv_measure="diff", warn_messages=True, **kwargs):
+    def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=5, 
+        n_random_init=1, init_method=None, tol=1e-5, verbose=0, **kwargs):
+        """
+        A mixture of common factor analyzers model.
 
-        self.g, self.q = (int(g), int(q))
-        self.itmax = int(itmax)
-        self.nkmeans = int(nkmeans)
-        self.nrandom = int(nrandom)
+        :param n_components:
+            The number of components (clusters) in the mixture.
+
+        :param n_latent_factors:
+            The number of common latent factors.
+
+        :param max_iter: [optional]
+            The maximum number of expectation-maximization iterations.
+
+        :param n_init: [optional]
+            The number of initialisations to run using the k-means algorithm.
+
+        :param n_random_init: [optional]
+            The number of random initialisations to run.
+
+        :param init_method: [optional]
+            The initialisation method(s) to use. Available options are 'eigen-A'
+            or 'rand-A'.
+
+        :param tol: [optional]
+            Relative tolerance before declaring convergence.
+
+        :param verbose: [optional]
+            Show warning messages.
+        """
+
+        self.n_components = int(n_components)
+        self.n_latent_factors = int(n_latent_factors)
+        self.max_iter = int(max_iter)
+        self.n_init = int(n_init)
+        self.n_random_init = int(n_random_init)
         self.tol = float(tol)
 
-        if self.q < 1:
-            raise ValueError("q must be a positive integer")
+        if self.n_latent_factors < 1:
+            raise ValueError("n_latent_factors must be a positive integer")
 
-        if self.g < 1:
-            raise ValueError("p must be a positive integer")
+        if self.n_components < 1:
+            raise ValueError("n_components must be a positive integer")
 
-        if self.itmax < 1:
-            raise ValueError("max number of iterations must be greater than one")
+        if self.max_iter < 1:
+            raise ValueError("number of iterations must be greater than one")
 
-        if self.nkmeans < 1:
-            raise ValueError("nkmeans must be a positive integer")
+        if self.n_init < 1:
+            raise ValueError("n_init must be a positive integer")
 
-        if self.nrandom < 1:
-            raise ValueError("nrandom must be a positive integer")
+        if self.n_random_init < 1:
+            raise ValueError("n_random_init must be a positive integer")
 
-        if self.tol < 0:
+        if self.tol <= 0:
             raise ValueError("tol must be greater than zero")
 
-        methods = ("eigen-A", "rand-A", )#"gmf")
-        init_method = _validate_str_input("init_method", init_method, methods,
-                                          allow_none=True)
+        methods = ("eigen-A", "rand-A", )
+        if init_method is None:
+            init_method = methods
 
-        self.init_method = methods if init_method is None else (init_method, )
+        else:
+            for method in methods:
+                if method.lower().startswith(init_method.lower()):
+                    init_method = (method, )
+                    break
+            else:
+                raise ValueError("init_method must be in {}".format(methods))
 
-        self.conv_measure = _validate_str_input("conv_measure", conv_measure,
-            ("diff", "ratio"))
-
-        self.warn_messages = bool(warn_messages)
-
+        self.init_method = init_method
+        self.verbose = int(verbose)
         return None
 
 
-    def fit(self, Y, init_params=None):
+    def _check_data(self, X):
+        """ 
+        Verify that the latent space has lower dimensionality than the data
+        space.
+        """
+
+        X = np.atleast_2d(X)
+        if not np.all(np.isfinite(X)):
+            raise ValueError("data has non-finite entries")
+
+        N, D = X.shape
+        if D <= self.n_latent_factors:
+            raise ValueError("there are more factors than dimensions ({} >= {})"\
+                             .format(self.n_latent_factors, D))
+        return X
+
+
+    def expectation(self, X, pi, A, xi, omega, psi):
+
+        N, D = X.shape
+
+        with warnings.catch_warnings():
+            if 1 > self.verbose:
+                warnings.simplefilter("ignore")
+            _, slogdet_psi = np.linalg.slogdet(psi)
+
+        inv_D = np.diag(1.0/np.diag(psi))
+        inv_D_A = inv_D @ A
+
+        I = np.eye(self.n_latent_factors)
+        log_prob = np.zeros((N, self.n_components))
+        
+
+        for i in range(self.n_components):
+
+            try:
+                C = np.linalg.solve(omega[:, :, i], I)
+                W = C + inv_D_A.T @ A
+                inv_O = np.linalg.solve(W, I)
+
+                inv_S = inv_D - inv_D_A @ inv_O @ inv_D_A.T
+        
+            except np.linalg.LinAlgError:
+                raise np.linalg.LinAlgError(
+                    "ill-conditioned or singular Sigma[:, :, {}]".format(i))
+
+            with warnings.catch_warnings():
+                if 1 > self.verbose:
+                    warnings.simplefilter("ignore")
+
+                logdetD = np.log(np.linalg.det(omega[:, :, i])) \
+                        + slogdet_psi - np.log(np.linalg.det(inv_O))
+
+            diff = X - (A @ xi[:, i])
+            dist = np.diag(diff @ inv_S @ diff.T)
+
+            log_prob[:, i] = - 0.5 * dist - 0.5 * D * np.log(2 * np.pi) \
+                             - 0.5 * logdetD
+
+        weighted_log_prob = log_prob + np.log(pi)
+        log_likelihood = logsumexp(weighted_log_prob, axis=1)
+        with np.errstate(under="ignore"):
+            log_tau = weighted_log_prob - log_likelihood[:, np.newaxis]
+
+        tau = np.exp(log_tau)
+
+        return (sum(log_likelihood), tau)
+
+
+
+    def maximization(self, X, tau, pi, A, xi, omega, psi):
+
+        N, D = X.shape
+
+        inv_D = np.diag(1.0/np.diag(psi))
+
+        A1 = np.zeros((D, self.n_latent_factors))
+        A2 = np.zeros((self.n_latent_factors, self.n_latent_factors))
+        Di = np.zeros(D)
+
+        inv_D_A = inv_D @ A
+
+        I = np.eye(self.n_latent_factors)
+
+        for i in range(self.n_components):
+
+            W = np.linalg.solve(omega[:, :, i], I)
+            C = np.linalg.solve(W + A.T @ inv_D_A, I)
+            gamma = (inv_D - inv_D_A @ C @ inv_D_A.T) @ A @ omega[:, :, i]
+
+            ti = np.sum(tau[:, i])
+            xi_ = np.copy(xi[:, [i]])
+
+            tY = X * tau[:, [i]]
+            Y_Axi_i = X.T - A @ xi_
+            tY_Axi_i = Y_Axi_i * tau[:, [i]].T
+
+            xi[:, i] += gamma.T @ (np.sum(tY_Axi_i, axis=1) / ti)
+
+            diff = (xi_ - xi[:, [i]])
+
+            omega[:, :, i] = (I - gamma.T @ A) @ omega[:, :, i] \
+                           + gamma.T @ Y_Axi_i @ tY_Axi_i.T @ gamma / ti \
+                           - diff @ diff.T
+
+            A1 += np.atleast_2d(np.sum(tY, axis=0)).T @ xi_.T \
+                + X.T @ tY_Axi_i.T @ gamma
+            A2 += (omega[:, :, i] + xi[:, [i]] @ xi[:, [i]].T) * ti
+            Di += np.sum(X * tY, axis=0)
+
+            pi[i] = ti / N
+
+        A = A1 @ np.linalg.solve(A2, I)
+        psi = np.diag(Di - np.sum((A @ A2) * A, axis=1)) / N
+
+        return (pi, A, xi, omega, psi)
+
+
+    def fit(self, X, init_params=None):
         """
         Fit the model to the data, :math:`Y`.
 
-        :param Y:
-            The data, :math:`Y`, which is expected to be an array of shape
+        :param X:
+            The data, :math:`X`, which is expected to be an array of shape
             [n_samples, n_features].
 
         :param init_params: [optional]
             A dictionary of initial values to run expectation-maximization from.
         """
 
-        Y = _validate_data_array(Y, self.q)
-
-        if init_params is None:
-            init_params = self._initial_parameters(Y)
-
-        theta = _unpack(**init_params) if isinstance(init_params, dict) \
-                                       else deepcopy(init_params)
+        X = self._check_data(X)
+        theta = self._initial_parameters(X) if init_params is None \
+                                            else deepcopy(init_params) 
 
         # Calculate initial log-likelihood.
-        prev_ll, tau = _mcfa_expectation(Y, *theta)
+        prev_ll, tau = self.expectation(X, *theta)
 
         # Do E-M iterations.
-        for i in range(self.itmax):
+        for i in range(self.max_iter):
 
-            # Do M-step.
-            theta = _mcfa_maximization(Y, tau, *theta)
+            theta = self.maximization(X, tau, *theta)
 
-            # Do E-step.
-            ll, tau = _mcfa_expectation(Y, *theta)
+            ll, tau = self.expectation(X, *theta)
 
-            prev_ll, converged = self._check_convergence(prev_ll, ll)
+            converged, prev_ll, ratio = self._check_convergence(prev_ll, ll)
 
             if converged:
                 break
 
         # Make A.T @ A = I
-        # TODO: use the pack/unpack
-        g, q, pi, A, xi, omega, D = theta
+        pi, A, xi, omega, psi = theta
 
         CH = np.linalg.cholesky(A.T @ A)
-        A = A @ np.linalg.solve(CH, np.eye(self.q))
+        A = A @ np.linalg.solve(CH, np.eye(self.n_latent_factors))
         xi = CH @ xi
 
-        for i in range(self.g):
+        for i in range(self.n_components):
             omega[:, :, i] = CH @ omega[:, :, i] @ CH.T
 
-
-        theta = [g, q, pi, A, xi, omega, D]
-
-        # TODO: use the pack/unpack.
-        # TODO: [g, q] should not be part of theta.
         self.tau_ = tau
-        self.theta_ = theta
+        self.theta_ = [pi, A, xi, omega, psi]
         self.log_likelihood_ = ll
 
         return self
 
 
-    def factor_scores(self, Y):
+    def factor_scores(self, X):
         """
         Calculate the factor scores, given the model parameters.
         """
 
         try:
-            _, __, pi, A, xi, omega, D = self.theta_
+            pi, A, xi, omega, psi = self.theta_
 
         except AttributeError:
-            raise AttributeError("you must run fit(Y) first")
+            raise AttributeError("you must run fit() first")
 
-        n, p = Y.shape
+        N, D = X.shape
+        F, C = (self.n_latent_factors, self.n_components)
 
-        U = np.zeros((n, self.q, self.g))
-        gamma = np.zeros((p, self.q, self.g))
+        U = np.zeros((N, F, C))
+        gamma = np.zeros((D, F, C))
 
-        inv_D = np.diag(1.0/np.diag(D))
+        inv_D = np.diag(1.0/np.diag(psi))
 
-        I = np.eye(self.q)
+        I = np.eye(self.n_latent_factors)
 
-        for i in range(self.g):
+        for i in range(self.n_components):
 
             C = np.linalg.solve(np.linalg.solve(omega[:, :, i], I) \
                                 + A.T @ inv_D @ A, I)
-            gamma[:, :, i] = (inv_D - inv_D @ A @ C @ A.T @ inv_D) @ A \
-                           @ omega[:, :, i]
-
-
-            U[:, :, i] = np.repeat(xi[:, [i]], n).reshape((self.q, n)).T \
-                       + (Y - (A @ xi[:, [i]]).T) @ gamma[:, :, i]
-
+            gamma[:, :, i] = (inv_D - inv_D @ A @ C @ A.T @ inv_D) \
+                           @ A @ omega[:, :, i]
+            U[:, :, i] = np.repeat(xi[:, [i]], N).reshape((F, N)).T \
+                       + (X - (A @ xi[:, [i]]).T) @ gamma[:, :, i]
 
         cluster = np.argmax(self.tau_, axis=1)
 
-        UC = np.zeros((n, self.q))
-        Umean = np.zeros((n, self.q))
+        UC = np.zeros((N, F))
+        Umean = np.zeros((N, F))
 
-        for i in range(n):
+        for i in range(N):
             UC[i] = U[i, :, cluster[i]]
             Umean[i] = self.tau_[i] @ U[i].T
 
@@ -159,97 +296,88 @@ class MCFA(object):
         assert np.isfinite(current)
         assert current > previous # depends on objective function
 
-        if self.conv_measure == "diff":
-            value = current - previous
-        
-        elif self.conv_measure:
-            value = (current - previous)/current
+        ratio = abs((current - previous)/current)
+        converged = self.tol >= ratio
 
-        return (current, value < self.tol)
+        return (converged, current, ratio)
 
 
 
-    def _initial_parameters(self, Y):
+    def _initial_parameters(self, X):
 
         # Do initial partitions.
-        initial_partitions = _initial_partitions(Y, self.g,
-                                                 self.nkmeans, self.nrandom)
+        initial_partitions = _initial_partitions(X, 
+                                                 self.n_components, 
+                                                 self.n_init, 
+                                                 self.n_random_init)
 
         best_model, best_log_likelihood = (None, -np.inf)
 
         for i, partition in enumerate(initial_partitions):
-
+            
             for j, init_method in enumerate(self.init_method):
 
                 try:
-                    params = _initial_parameters(Y, self.g, self.q,
-                                                 partition, init_method)
+                    params = _initial_parameters(X, init_method,
+                                                 self.n_components, 
+                                                 self.n_latent_factors,
+                                                 partition)
 
                 except (ValueError, AssertionError):
-                    logger.exception("Exception in initial trial {} using {}:"\
-                                     .format(i, init_method))
+                    if self.verbose > 0:
+                        logger.exception("Exception in initializing {} with {}:"\
+                                         .format(i, init_method))
 
                 else:
 
                     # Run E-M.
-                    model = self.__class__(self.g, self.q, 
-                                           tol=self.tol, 
-                                           itmax=self.itmax,
-                                           conv_measure=self.conv_measure)
+                    model = self.__class__(self.n_components, 
+                                           self.n_latent_factors, 
+                                           tol=self.tol, max_iter=self.max_iter)
 
                     try:
-                        model.fit(Y, init_params=params)
+                        model.fit(X, init_params=params)
 
                     except (ValueError, AssertionError):
-                        logger.exception("Exception in fitting model {} using {}"\
-                                         .format(i, init_method))
+                        if self.verbose > 0:                        
+                            logger.exception("Exception in fitting {} using {}"\
+                                             .format(i, init_method))
 
                     else:
                         if model.log_likelihood_ > best_log_likelihood:
                             best_model = model
                             best_log_likelihood = model.log_likelihood_
 
-
         return best_model.theta_
 
 
 
-_pack_order = ("g", "q", "pi", "A", "xi", "omega", "D")
-def _unpack(**param_dict):
-    return [param_dict[k] for k in _pack_order]
 
 
-def _pack(*param_args):
-    return dict(zip(_pack_order, param_args))
+def _initial_partitions(X, n_components, n_init, n_random_init, n_checks=10):
 
+    N, D = X.shape
+    n_partitions = n_random_init + n_init
 
+    partitions = np.empty((n_partitions, N))
 
+    for i in range(n_init):
+        partitions[i] = KMeans(n_components).fit(X).labels_
 
-def _initial_partitions(Y, g, nkmeans, nrandom, n_duplicate_checks=10):
-
-    n, p = Y.shape
-    n_partitions = nrandom + nkmeans
-
-    partitions = np.empty((n_partitions, n))
-
-    for i in range(nkmeans):
-        partitions[i] = KMeans(g).fit(Y).labels_
-
-    partitions[nkmeans:] = np.random.choice(np.arange(g), size=(nrandom, n))
+    partitions[n_init:] = np.random.choice(np.arange(n_components),
+                                           size=(n_random_init, N))
 
     # TODO: Check for duplicate initial partitions. Don't allow them.
-    for i in range(n_duplicate_checks):
+    for i in range(n_checks):
         unique_partitions = np.unique(partitions, axis=0)
 
         u_partitions, _ = unique_partitions.shape
-
         if u_partitions < n_partitions:
-
             # Fill up the remainder with random partitions.
             k = n_partitions - u_partitions
             partitions = np.vstack([
                 unique_partitions,
-                np.random.choice(np.arange(g), size=(k, n))
+                np.random.choice(np.arange(n_components), size=(k, N))
             ])
             
         else:
@@ -258,13 +386,13 @@ def _initial_partitions(Y, g, nkmeans, nrandom, n_duplicate_checks=10):
     partitions = np.unique(partitions, axis=0).astype(int)
     if partitions.shape[0] < n_partitions:
         logger.warn("Duplicate initial partitions exist after {} trials"\
-                    .format(n_duplicate_checks))
+                    .format(n_checks))
 
     return partitions
 
 
 
-def _initial_parameters(Y, g, q, partitions, method):
+def _initial_parameters(X, method, *args):
 
     func = dict([
         ("rand-A", _initial_parameters_by_rand_a),
@@ -275,250 +403,79 @@ def _initial_parameters(Y, g, q, partitions, method):
     if func is None:
         raise ValueError("unknown initialisation method '{}'".format(method))
 
-    return func(Y, g, q, partitions)
+    return func(Y, *args)
 
 
-def _initial_parameters_by_rand_a(Y, g, q, partition):
+def _initial_parameters_by_rand_a(X, n_components, n_latent_factors, partition):
 
-    n, p = Y.shape
-    xi = np.empty((q, g))
-    omega = np.empty((q, q, g))
-    pi = np.empty(g)
+    N, D = X.shape
+    xi = np.empty((n_latent_factors, n_components))
+    omega = np.empty((n_latent_factors, n_latent_factors, n_components))
+    pi = np.empty(n_components)
 
-    A = np.random.normal(0, 1, size=(p, q))
+    A = np.random.normal(0, 1, size=(D, n_latent_factors))
     C = np.linalg.cholesky(A.T @ A).T
-    A = A @ np.linalg.solve(C, np.eye(q))
+    A = A @ np.linalg.solve(C, np.eye(n_latent_factors))
 
-    D = np.zeros(p, dtype=float)
-    for i in range(g):
+    psi = np.zeros(D, dtype=float)
+    for i in range(n_components):
         match = (partition == i)
-        D += (sum(match) - 1) * np.var(Y[match], axis=0) / (n - g)
+        psi += (sum(match) - 1) * np.var(X[match], axis=0) / (N - n_components)
         
-    _ = np.sqrt(D)
+    _ = np.sqrt(psi)
 
-    D = np.diag(D)
-    sqrt_D = np.diag(_)
-    inv_sqrt_D = np.diag(1.0/_)
+    psi = np.diag(psi)
+    sqrt_psi = np.diag(_)
+    inv_sqrt_psi = np.diag(1.0/_)
 
-    for i in range(g):
+    for i in range(n_components):
         match = (partition == i)
 
-        pi[i] = float(sum(match)) / n
-        xi[:, i] = np.mean(Y[match] @ A, axis=0)
+        pi[i] = float(sum(match)) / N
+        xi[:, i] = np.mean(X[match] @ A, axis=0)
         
         # w, v = lambda, H
-        w, v = np.linalg.eigh(inv_sqrt_D @ np.cov(Y[match].T) @ inv_sqrt_D)
+        w, v = np.linalg.eigh(inv_sqrt_psi @ np.cov(X[match].T) @ inv_sqrt_psi)
 
-        if q == p:
+        g = D - n_latent_factors
+        if n_latent_factors == D:
             var = 0
 
         else:
-            small_w = w[:p - q]
+            small_w = w[:g]
             # Only take finite and non-zero eigenvalues
             var = np.nanmean(small_w[small_w > 0])
 
-        # FUTURE ANDY: If there is a bug here it might be due to the ordering of
-        #              the eigenvalues. R orders them in the opposite order, and
-        #              we are using p-q to get the last number of elements.
-        #              This was tested for a set of p, q but unit test++
+        omega[:, :, i] = A.T @ sqrt_psi @ v[:, :g] @ np.diag(w[:g] - var) \
+                       @ v[:, :g].T @ sqrt_psi @ A
 
-        omega[:, :, i] = A.T @ sqrt_D @ v[:, :p - q] @ np.diag(w[:p - q] - var) \
-                       @ v[:, :p - q].T @ sqrt_D @ A
-
-    return dict(g=g, q=q, pi=pi, A=A, xi=xi, omega=omega, D=D)
+    return (pi, A, xi, omega, psi)
 
 
-def _initial_parameters_by_eigen_a(Y, g, q, partition):
+def _initial_parameters_by_eigen_a(X, n_components, n_latent_factors, partition):
 
-    # Not tested.
+    N, D = X.shape
+    xi = np.empty((n_latent_factors, n_components))
+    omega = np.empty((n_latent_factors, n_latent_factors, n_components))
+    pi = np.empty(n_components)
 
-    n, p = Y.shape
-    xi = np.empty((q, g))
-    omega = np.empty((q, q, g))
-    pi = np.empty(g)
+    U, S, V = np.linalg.svd(X.T/np.sqrt(N - 1))
+    A = U[:, :n_latent_factors]
 
-    U, S, V = np.linalg.svd(Y.T/np.sqrt(n - 1))
-    A = U[:, :q]
-
-    for i in range(g):
+    for i in range(n_components):
         match = (partition == i)
-        pi[i] = float(sum(match)) / n
+        pi[i] = float(sum(match)) / N
 
-        uiT = Y[match] @ A
+        uiT = X[match] @ A
         xi[:, i] = np.mean(uiT, axis=0)
         omega[:, :, i] = np.cov(uiT.T)
 
+    small_w = S[D - n_latent_factors:]
+    psi = np.diag(np.ones(D) * np.nanmean(small_w[small_w > 0]**2))
 
-    small_w = S[p - q:]
-    D = np.diag(np.ones(p) * np.nanmean(small_w[small_w > 0]**2))
-
-    return dict(g=g, q=q, pi=pi, A=A, xi=xi, omega=omega, D=D)
-
-
-
-
-
-
-def _mcfa_expectation(Y, g, q, pi, A, xi, omega, D):
-
-    n, p = Y.shape
-
-    log_prob = np.zeros((n, g))
-
-    inv_D = np.diag(1.0/np.diag(D))
-
-    inv_D_A = inv_D @ A
-
-    I = np.eye(q)
-        
-    for i in range(g):
-
-        try:
-            C = np.linalg.solve(omega[:, :, i], I)
-            W = C + inv_D_A.T @ A
-            inv_O = np.linalg.solve(W, I)
-
-            inv_S = inv_D - inv_D_A @ inv_O @ inv_D_A.T
+    return (pi, A, xi, omega, psi)
     
-        except np.linalg.LinAlgError:
-            raise np.linalg.LinAlgError(
-                "ill-conditioned or singular Sigma[:, :, {}]".format(i))
 
-    
-        logdetD = np.log(np.linalg.det(omega[:, :, i])) \
-                + np.linalg.slogdet(D)[1] \
-                - np.log(np.linalg.det(inv_O))
-
-        diff = Y - (A @ xi[:, i])
-        dist = np.diag(diff @ inv_S @ diff.T)
-
-        log_prob[:, i] = -0.5 * dist - 0.5 * p * np.log(2 * np.pi) - 0.5 * logdetD
-
-
-    """
-    # This is the other way, but it is less (numerically) stable (I think)
-    Fji = Fji + np.log(pi)
-    Fjmax = np.max(Fji, axis=1)
-    Fji_new = Fji - Fjmax[:, np.newaxis]
-
-    ln_likelihood = np.sum(Fjmax) + logsumexp(Fji_new)
-    """
-
-
-    weighted_log_prob = log_prob + np.log(pi)
-    log_likelihood = logsumexp(weighted_log_prob, axis=1)
-    with np.errstate(under="ignore"):
-        log_tau = weighted_log_prob - log_likelihood[:, np.newaxis]
-
-    tau = np.exp(log_tau)
-
-    return (sum(log_likelihood), tau)
-
-
-
-def _mcfa_maximization(Y, tau, g, q, pi, A, xi, omega, D):
-
-    n, p = Y.shape
-
-    inv_D = np.diag(1.0/np.diag(D))
-    assert len(inv_D.shape) == 2
-
-    A1 = np.zeros((p, q))
-    A2 = np.zeros((q, q))
-    Di = np.zeros(p)
-
-    inv_D_A = inv_D @ A
-
-    I = np.eye(q)
-
-    for i in range(g):
-
-        C = np.linalg.solve(np.linalg.solve(omega[:, :, i], I) + A.T @ inv_D_A, I)
-        gamma = (inv_D - inv_D_A @ C @ inv_D_A.T) @ A @ omega[:, :, i]
-
-        ti = np.sum(tau[:, i])
-
-        xi_ = np.copy(xi[:, [i]])
-
-        tY = Y * tau[:, [i]]
-        Y_Axi_i = Y.T - A @ xi_
-        tY_Axi_i = Y_Axi_i * tau[:, [i]].T
-
-        xi[:, i] += gamma.T @ (np.sum(tY_Axi_i, axis=1) / ti)
-
-        diff = (xi_ - xi[:, [i]])
-
-        omega[:, :, i] = (I - gamma.T @ A) @ omega[:, :, i] \
-                       + gamma.T @ Y_Axi_i @ tY_Axi_i.T @ gamma / ti \
-                       - diff @ diff.T
-
-        #A1 += np.sum(tY, axis=0) @ xi_.T + Y.T @ tY_Axi_i @ gamma
-        A1 += np.atleast_2d(np.sum(tY, axis=0)).T @ xi_.T + Y.T @ tY_Axi_i.T @ gamma
-        A2 += (omega[:, :, i] + xi[:, [i]] @ xi[:, [i]].T) * ti
-        Di += np.sum(Y * tY, axis=0)
-
-        pi[i] = ti / n
-
-
-    A = A1 @ np.linalg.solve(A2, I)
-
-    D = np.diag(Di - np.sum((A @ A2) * A, axis=1)) / n
-
-    return _unpack(g=g, q=q, pi=pi, A=A, xi=xi, omega=omega, D=D)
-
-
-
-
-    # This is in mstep_mcfa.R but I think it is wrong because it is already
-    # done just above
-    # inv_D = np.diag(1 / np.diag(D))
-
-    raise a
-    #inv_D_A = 
-
-
-
-def _tau(Y, g, q, pi, A, xi, omega, D):
-
-    n, p = Y.shape
-
-    Fji = np.zeros((n, ))
-
-
-
-
-
-def _validate_data_array(Y, q):
-
-    Y = np.atleast_2d(Y)
-    if not np.all(np.isfinite(Y)):
-        raise ValueError("Y has non-finite entries")
-
-    n, p = Y.shape
-
-    if p <= q:
-        raise ValueError("the number of factors (q) "\
-                         "is less than the number of dimensions (p)")
-    return Y
-
-
-def _validate_str_input(descriptor, input_value, acceptable_inputs, 
-                        allow_none=False):
-
-    for acceptable_input in acceptable_inputs:
-        if input_value is None and allow_none:
-            break
-
-        elif input_value is not None \
-        and acceptable_input.lower().startswith(input_value.lower()):
-            input_value = acceptable_input
-            break
-
-    else:
-        raise ValueError("{} must be in: {} (not {})".format(
-            descriptor, acceptable_inputs, input_value))
-
-    return input_value
 
 
 
@@ -531,9 +488,7 @@ if __name__ == "__main__":
     Y = load_iris().data
 
 
-
-
-    model = MCFA(g=3, q=2)
+    model = MCFA(n_components=3, n_latent_factors=2)
     model.fit(Y)
 
     foo = model.factor_scores(Y)
