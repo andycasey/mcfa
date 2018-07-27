@@ -211,7 +211,7 @@ class MCFA(object):
 
 
     def maximization(self, X, tau, pi, A, xi, omega, psi):
-        """
+        r"""
         Evaluate the updated estimates of the model parameters given the data,
         the responsibility matrix :math:`\tau` and the current estimates of the
         model parameters.
@@ -248,12 +248,12 @@ class MCFA(object):
             The variance in each dimension. This should have size [n_features].
 
         :returns:
-            A five-length tuple with the updated parameter estimates for
+            A five-length tuple containing the updated parameter estimates for
             the mixing weights :math:`\pi`, the common factor loads :math:`A`,
-            the means of the components in latent space :math:`\xi`, the 
+            the means of the components in latent space :math:`\xi`, the
             covariance matrices of components in latent space :math:`\omega`,
             and the variance in each dimension :math:`\psi`.
-        """ 
+        """
 
         N, D = X.shape
 
@@ -398,8 +398,8 @@ class MCFA(object):
             UC[i] = U[i, :, cluster[i]]
             Umean[i] = self.tau_[i] @ U[i].T
 
-        return dict(scores=U, Uclust=UC, Umean=Umean)
-
+        return (U, UC, Umean)
+        
 
     def _check_convergence(self, previous, current):
         """
