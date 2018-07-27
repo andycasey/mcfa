@@ -1,12 +1,15 @@
 
-import logging as logger # todo: don't be lazy
+""" Mixture of common factor analyzers. """
+
+import inspect
+import logging as logger
 import numpy as np
 import warnings
 from copy import deepcopy
 from scipy.special import logsumexp
 from sklearn.cluster import KMeans
 
-        
+
 class MCFA(object):
 
     def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=5, 
@@ -86,6 +89,17 @@ class MCFA(object):
         """ 
         Verify that the latent space has lower dimensionality than the data
         space.
+
+        :param X:
+            The data, which is expected to be an array with shape [n_samples, 
+            n_features].
+
+        :raises ValueError:
+            If the data array has non-finite entries, or if there are more
+            latent factors than there are dimensions.
+
+        :returns:
+            The data array, ensuring it is a 2D array.
         """
 
         X = np.atleast_2d(X)
@@ -99,7 +113,52 @@ class MCFA(object):
         return X
 
 
+    @property
+    def parameter_names(self):
+        """ Return the names of the parameters in this model. """
+        args = inspect.getargspec(self.expectation).args
+        return tuple([arg for arg in args if arg not in ("self", "X")])
+
+
     def expectation(self, X, pi, A, xi, omega, psi):
+        """
+        Evaluate the conditional expectation of the complete-data log-likelihood
+        given the observed data :math:`X` and the given model parameters.
+
+        :param X:
+            The data, which is expected to be an array with shape [n_samples, 
+            n_features].
+
+        :param pi:
+            The relative weights for the components in the mixture. This should
+            have size `n_components` and the entries should sum to one.
+
+        :param A:
+            The common factor loads between mixture components. This should have
+            shape [n_features, n_latent_factors].
+
+        :param xi:
+            The mean factors for the components in the mixture. This should have 
+            shape [n_latent_factors, n_components].
+
+        :param omega:
+            The covariance matrix of the mixture components in latent space.
+            This array should have shape [n_latent_factors, n_latent_factors, 
+            n_components].
+
+        :param psi:
+            The variance in each dimension. This should have size [n_features].
+
+        :raises np.linalg.LinAlgError:
+            If the covariance matrix of any mixture component in latent space
+            is ill-conditioned or singular.
+
+        :returns:
+            A two-length tuple containing the sum of the log-likelihood for the
+            data given the model, and the responsibility matrix :math:`\tau`
+            giving the partial associations between each data point and each
+            component in the mixture.
+        """
 
         N, D = X.shape
 
@@ -151,8 +210,50 @@ class MCFA(object):
         return (sum(log_likelihood), tau)
 
 
-
     def maximization(self, X, tau, pi, A, xi, omega, psi):
+        """
+        Evaluate the updated estimates of the model parameters given the data,
+        the responsibility matrix :math:`\tau` and the current estimates of the
+        model parameters.
+
+        :param X:
+            The data, which is expected to be an array with shape [n_samples, 
+            n_features].
+
+        :param tau:
+            The responsibility matrix, which is expected to have shape
+            [n_samples, n_components]. The sum of each row is expected to equal
+            one, and the value in the i-th row (sample) of the j-th column
+            (component) indicates the partial responsibility (between zero and
+            one) that the j-th component has for the i-th sample.
+
+        :param pi:
+            The relative weights for the components in the mixture. This should
+            have size `n_components` and the entries should sum to one.
+
+        :param A:
+            The common factor loads between mixture components. This should have
+            shape [n_features, n_latent_factors].
+
+        :param xi:
+            The mean factors for the components in the mixture. This should have 
+            shape [n_latent_factors, n_components].
+
+        :param omega:
+            The covariance matrix of the mixture components in latent space.
+            This array should have shape [n_latent_factors, n_latent_factors, 
+            n_components].
+
+        :param psi:
+            The variance in each dimension. This should have size [n_features].
+
+        :returns:
+            A five-length tuple with the updated parameter estimates for
+            the mixing weights :math:`\pi`, the common factor loads :math:`A`,
+            the means of the components in latent space :math:`\xi`, the 
+            covariance matrices of components in latent space :math:`\omega`,
+            and the variance in each dimension :math:`\psi`.
+        """ 
 
         N, D = X.shape
 
@@ -210,6 +311,9 @@ class MCFA(object):
 
         :param init_params: [optional]
             A dictionary of initial values to run expectation-maximization from.
+
+        :returns:
+            The fitted model.
         """
 
         X = self._check_data(X)
@@ -250,7 +354,14 @@ class MCFA(object):
 
     def factor_scores(self, X):
         """
-        Calculate the factor scores, given the model parameters.
+        Estimate the posterior factor scores given the model parameters.
+
+        :param X:
+            The data, :math:`X`, which is expected to be an array of shape
+            [n_samples, n_features].
+
+        # TODO: Consider taking model parameters.
+        # TODO: What should we return, exactly?
         """
 
         try:
@@ -290,8 +401,23 @@ class MCFA(object):
         return dict(scores=U, Uclust=UC, Umean=Umean)
 
 
-
     def _check_convergence(self, previous, current):
+        """
+        Check whether the expectation-maximization algorithm has converged based
+        on the previous cost (e.g., log-likelihood or message length), and the
+        current cost.
+
+        :param previous:
+            The cost of the previous estimate of the model parameters.
+
+        :param current:
+            The cost of the current estimate of the model parameters.
+
+        :returns:
+            A three-length tuple containing: a boolean flag indicating whether
+            convergence has been achieved, the current cost, and the ratio of
+            the current cost relative to the previous cost.
+        """
 
         assert np.isfinite(current)
         assert current > previous # depends on objective function
@@ -304,8 +430,15 @@ class MCFA(object):
 
 
     def _initial_parameters(self, X):
+        """
+        Estimate the initial parameters of the model.
 
-        # Do initial partitions.
+        :param X:
+            The data, :math:`X`, which is expected to be an array of shape
+            [n_samples, n_features].
+        """
+
+        # Do initial partitions (either randomly or by k-means).
         initial_partitions = _initial_partitions(X, 
                                                  self.n_components, 
                                                  self.n_init, 
@@ -314,7 +447,7 @@ class MCFA(object):
         best_model, best_log_likelihood = (None, -np.inf)
 
         for i, partition in enumerate(initial_partitions):
-            
+    
             for j, init_method in enumerate(self.init_method):
 
                 try:
@@ -330,7 +463,7 @@ class MCFA(object):
 
                 else:
 
-                    # Run E-M.
+                    # Run E-M from this initial guess.
                     model = self.__class__(self.n_components, 
                                            self.n_latent_factors, 
                                            tol=self.tol, max_iter=self.max_iter)
@@ -349,9 +482,6 @@ class MCFA(object):
                             best_log_likelihood = model.log_likelihood_
 
         return best_model.theta_
-
-
-
 
 
 def _initial_partitions(X, n_components, n_init, n_random_init, n_checks=10):
@@ -403,7 +533,7 @@ def _initial_parameters(X, method, *args):
     if func is None:
         raise ValueError("unknown initialisation method '{}'".format(method))
 
-    return func(Y, *args)
+    return func(X, *args)
 
 
 def _initial_parameters_by_rand_a(X, n_components, n_latent_factors, partition):
@@ -474,31 +604,3 @@ def _initial_parameters_by_eigen_a(X, n_components, n_latent_factors, partition)
     psi = np.diag(np.ones(D) * np.nanmean(small_w[small_w > 0]**2))
 
     return (pi, A, xi, omega, psi)
-    
-
-
-
-
-
-if __name__ == "__main__":
-
-    import matplotlib.pyplot as plt
-    from sklearn.datasets import load_iris
-
-    Y = load_iris().data
-
-
-    model = MCFA(n_components=3, n_latent_factors=2)
-    model.fit(Y)
-
-    foo = model.factor_scores(Y)
-
-    scores = foo["Umean"]
-
-    fig, ax = plt.subplots()
-    ax.scatter(scores.T[0], scores.T[1],
-               c=np.argmax(model.tau_, axis=1))
-
-
-
-    raise a
