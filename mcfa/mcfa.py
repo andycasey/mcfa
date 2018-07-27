@@ -13,7 +13,7 @@ from sklearn.cluster import KMeans
 class MCFA(object):
 
     def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=5, 
-        n_random_init=1, init_method=None, tol=1e-5, verbose=0, **kwargs):
+        n_random_init=1, init_method=None, tol=1e-10, verbose=0, **kwargs):
         """
         A mixture of common factor analyzers model.
 
@@ -62,8 +62,8 @@ class MCFA(object):
         if self.n_init < 1:
             raise ValueError("n_init must be a positive integer")
 
-        if self.n_random_init < 1:
-            raise ValueError("n_random_init must be a positive integer")
+        if self.n_random_init < 0:
+            raise ValueError("n_random_init must be zero or a positive integer")
 
         if self.tol <= 0:
             raise ValueError("tol must be greater than zero")
@@ -322,6 +322,7 @@ class MCFA(object):
 
         # Calculate initial log-likelihood.
         prev_ll, tau = self.expectation(X, *theta)
+        #print("initial ll", prev_ll)
 
         # Do E-M iterations.
         for i in range(self.max_iter):
@@ -332,8 +333,16 @@ class MCFA(object):
 
             converged, prev_ll, ratio = self._check_convergence(prev_ll, ll)
 
+            #print("{}/{}: {} {}".format(i, self.max_iter, ll, ratio))
+
             if converged:
                 break
+
+        else:
+            logger.warn("Convergence not achieved after {} iterations "\
+                        "({:.1e} > {:.1e}). Consider increasing the maximum "\
+                        "number of iterations."\
+                        .format(self.max_iter, ratio, self.tol))
 
         # Make A.T @ A = I
         pi, A, xi, omega, psi = theta
@@ -399,7 +408,7 @@ class MCFA(object):
             Umean[i] = self.tau_[i] @ U[i].T
 
         return (U, UC, Umean)
-        
+
 
     def _check_convergence(self, previous, current):
         """
@@ -464,9 +473,15 @@ class MCFA(object):
                 else:
 
                     # Run E-M from this initial guess.
+                    # We only run E-M from half the number of max iterations
+                    # because we will run for the FULL number of iterations after
+                    # we pass this back as the initial point.
+
+                    # TODO: this requires a thinko
                     model = self.__class__(self.n_components, 
                                            self.n_latent_factors, 
-                                           tol=self.tol, max_iter=self.max_iter)
+                                           max_iter=self.max_iter/2,
+                                           tol=self.tol)
 
                     try:
                         model.fit(X, init_params=params)
