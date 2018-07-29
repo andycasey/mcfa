@@ -8,13 +8,15 @@ import warnings
 from copy import deepcopy
 from scipy.special import logsumexp
 from sklearn.cluster import KMeans
+from time import time
 
+from .mpl_utils import plot_latent_space
 
 class MCFA(object):
 
     def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=5, 
-        n_random_init=1, init_method=None, tol=1e-10, verbose=0, **kwargs):
-        """
+        tol=1e-10, verbose=0, **kwargs):
+        r"""
         A mixture of common factor analyzers model.
 
         :param n_components:
@@ -29,13 +31,6 @@ class MCFA(object):
         :param n_init: [optional]
             The number of initialisations to run using the k-means algorithm.
 
-        :param n_random_init: [optional]
-            The number of random initialisations to run.
-
-        :param init_method: [optional]
-            The initialisation method(s) to use. Available options are 'eigen-A'
-            or 'rand-A'.
-
         :param tol: [optional]
             Relative tolerance before declaring convergence.
 
@@ -47,7 +42,6 @@ class MCFA(object):
         self.n_latent_factors = int(n_latent_factors)
         self.max_iter = int(max_iter)
         self.n_init = int(n_init)
-        self.n_random_init = int(n_random_init)
         self.tol = float(tol)
 
         if self.n_latent_factors < 1:
@@ -62,31 +56,15 @@ class MCFA(object):
         if self.n_init < 1:
             raise ValueError("n_init must be a positive integer")
 
-        if self.n_random_init < 0:
-            raise ValueError("n_random_init must be zero or a positive integer")
-
         if self.tol <= 0:
             raise ValueError("tol must be greater than zero")
 
-        methods = ("eigen-A", "rand-A", )
-        if init_method is None:
-            init_method = methods
-
-        else:
-            for method in methods:
-                if method.lower().startswith(init_method.lower()):
-                    init_method = (method, )
-                    break
-            else:
-                raise ValueError("init_method must be in {}".format(methods))
-
-        self.init_method = init_method
         self.verbose = int(verbose)
         return None
 
 
     def _check_data(self, X):
-        """ 
+        r""" 
         Verify that the latent space has lower dimensionality than the data
         space.
 
@@ -113,15 +91,65 @@ class MCFA(object):
         return X
 
 
+    def _initial_parameters(self, X):
+        """
+        Estimate the initial parameters of the model.
+
+        :param X:
+            The data, :math:`X`, which is expected to be an array of shape
+            [n_samples, n_features].
+        """
+
+        # Do initial partitions (either randomly or by k-means).
+        assignments = _initial_assignments(X, self.n_components, self.n_init)
+
+        best_model, best_log_likelihood = (None, -np.inf)
+
+        for i, assignment in enumerate(assignments):
+            try:
+                params = _initial_parameters(X, 
+                                             self.n_components, 
+                                             self.n_latent_factors,
+                                             assignment)
+
+            except ValueError:
+                if self.verbose > 0:
+                    logger.exception("Exception in initializing:")
+
+            else:
+
+                # Run E-M from this initial guess.
+                model = self.__class__(self.n_components, 
+                                       self.n_latent_factors, 
+                                       max_iter=self.max_iter,
+                                       tol=self.tol,
+                                       verbose=-1)
+
+                try:
+                    model.fit(X, init_params=params)
+
+                except ValueError:
+                    raise
+                    if self.verbose > 0:
+                        logger.exception("Exception in fitting:")
+
+                else:
+                    if model.log_likelihood_ > best_log_likelihood:
+                        best_model = model
+                        best_log_likelihood = model.log_likelihood_
+
+        return best_model.theta_
+
+
     @property
     def parameter_names(self):
-        """ Return the names of the parameters in this model. """
+        r""" Return the names of the parameters in this model. """
         args = inspect.getargspec(self.expectation).args
         return tuple([arg for arg in args if arg not in ("self", "X")])
 
 
     def expectation(self, X, pi, A, xi, omega, psi):
-        """
+        r"""
         Evaluate the conditional expectation of the complete-data log-likelihood
         given the observed data :math:`X` and the given model parameters.
 
@@ -159,29 +187,34 @@ class MCFA(object):
             giving the partial associations between each data point and each
             component in the mixture.
         """
+        times = [time()]
 
         N, D = X.shape
 
-        with warnings.catch_warnings():
-            if 1 > self.verbose:
-                warnings.simplefilter("ignore")
-            _, slogdet_psi = np.linalg.slogdet(psi)
+        # calculate constant terms.
+        log_prob_constants = -0.5 * (np.sum(np.log(psi)) + D * np.log(2*np.pi))
 
-        inv_D = np.diag(1.0/np.diag(psi))
+        inv_D = np.diag(1.0/psi)
         inv_D_A = inv_D @ A
 
         I = np.eye(self.n_latent_factors)
         log_prob = np.zeros((N, self.n_components))
         
+        times.append(time())
 
         for i in range(self.n_components):
 
+            sub_time = [time()]
+
             try:
-                C = np.linalg.solve(omega[:, :, i], I)
-                W = C + inv_D_A.T @ A
+                W = np.linalg.solve(omega[:, :, i], I) + inv_D_A.T @ A
+                
+                sub_time.append(time())
                 inv_O = np.linalg.solve(W, I)
 
+                sub_time.append(time())
                 inv_S = inv_D - inv_D_A @ inv_O @ inv_D_A.T
+                sub_time.append(time())
         
             except np.linalg.LinAlgError:
                 raise np.linalg.LinAlgError(
@@ -191,15 +224,26 @@ class MCFA(object):
                 if 1 > self.verbose:
                     warnings.simplefilter("ignore")
 
+                sub_time.append(time())
                 logdetD = np.log(np.linalg.det(omega[:, :, i])) \
-                        + slogdet_psi - np.log(np.linalg.det(inv_O))
+                        - np.log(np.linalg.det(inv_O))
+                sub_time.append(time())
 
+            sub_time.append(time())
             diff = X - (A @ xi[:, i])
-            dist = np.diag(diff @ inv_S @ diff.T)
+            sub_time.append(time())
+            dist = (diff @ inv_S @ diff.T)
+            sub_time.append(time())
+            dist = np.diag(dist)
+            sub_time.append(time())
 
-            log_prob[:, i] = - 0.5 * dist - 0.5 * D * np.log(2 * np.pi) \
-                             - 0.5 * logdetD
+            log_prob[:, i] = -0.5 * dist - 0.5 * logdetD + log_prob_constants
+            sub_time.append(time())
 
+            print(np.diff(sub_time))
+
+        times.append(time())
+        
         weighted_log_prob = log_prob + np.log(pi)
         log_likelihood = logsumexp(weighted_log_prob, axis=1)
         with np.errstate(under="ignore"):
@@ -207,6 +251,9 @@ class MCFA(object):
 
         tau = np.exp(log_tau)
 
+        times.append(time())
+        
+        print("expectation: {:.2f}s {}".format(np.ptp(times), np.diff(times)))
         return (sum(log_likelihood), tau)
 
 
@@ -255,9 +302,11 @@ class MCFA(object):
             and the variance in each dimension :math:`\psi`.
         """
 
+        t_i = time()
+
         N, D = X.shape
 
-        inv_D = np.diag(1.0/np.diag(psi))
+        inv_D = np.diag(1.0/psi)
 
         A1 = np.zeros((D, self.n_latent_factors))
         A2 = np.zeros((self.n_latent_factors, self.n_latent_factors))
@@ -296,122 +345,15 @@ class MCFA(object):
             pi[i] = ti / N
 
         A = A1 @ np.linalg.solve(A2, I)
-        psi = np.diag(Di - np.sum((A @ A2) * A, axis=1)) / N
+        psi = (Di - np.sum((A @ A2) * A, axis=1)) / N
+
+        print("maximization: {:.2f}s".format(time() - t_i))
 
         return (pi, A, xi, omega, psi)
 
 
-    def fit(self, X, init_params=None):
-        """
-        Fit the model to the data, :math:`Y`.
-
-        :param X:
-            The data, :math:`X`, which is expected to be an array of shape
-            [n_samples, n_features].
-
-        :param init_params: [optional]
-            A dictionary of initial values to run expectation-maximization from.
-
-        :returns:
-            The fitted model.
-        """
-
-        X = self._check_data(X)
-        theta = self._initial_parameters(X) if init_params is None \
-                                            else deepcopy(init_params) 
-
-        # Calculate initial log-likelihood.
-        prev_ll, tau = self.expectation(X, *theta)
-        #print("initial ll", prev_ll)
-
-        # Do E-M iterations.
-        for i in range(self.max_iter):
-
-            theta = self.maximization(X, tau, *theta)
-
-            ll, tau = self.expectation(X, *theta)
-
-            converged, prev_ll, ratio = self._check_convergence(prev_ll, ll)
-
-            #print("{}/{}: {} {}".format(i, self.max_iter, ll, ratio))
-
-            if converged:
-                break
-
-        else:
-            logger.warn("Convergence not achieved after {} iterations "\
-                        "({:.1e} > {:.1e}). Consider increasing the maximum "\
-                        "number of iterations."\
-                        .format(self.max_iter, ratio, self.tol))
-
-        # Make A.T @ A = I
-        pi, A, xi, omega, psi = theta
-
-        CH = np.linalg.cholesky(A.T @ A)
-        A = A @ np.linalg.solve(CH, np.eye(self.n_latent_factors))
-        xi = CH @ xi
-
-        for i in range(self.n_components):
-            omega[:, :, i] = CH @ omega[:, :, i] @ CH.T
-
-        self.tau_ = tau
-        self.theta_ = [pi, A, xi, omega, psi]
-        self.log_likelihood_ = ll
-
-        return self
-
-
-    def factor_scores(self, X):
-        """
-        Estimate the posterior factor scores given the model parameters.
-
-        :param X:
-            The data, :math:`X`, which is expected to be an array of shape
-            [n_samples, n_features].
-
-        # TODO: Consider taking model parameters.
-        # TODO: What should we return, exactly?
-        """
-
-        try:
-            pi, A, xi, omega, psi = self.theta_
-
-        except AttributeError:
-            raise AttributeError("you must run fit() first")
-
-        N, D = X.shape
-        F, C = (self.n_latent_factors, self.n_components)
-
-        U = np.zeros((N, F, C))
-        gamma = np.zeros((D, F, C))
-
-        inv_D = np.diag(1.0/np.diag(psi))
-
-        I = np.eye(self.n_latent_factors)
-
-        for i in range(self.n_components):
-
-            C = np.linalg.solve(np.linalg.solve(omega[:, :, i], I) \
-                                + A.T @ inv_D @ A, I)
-            gamma[:, :, i] = (inv_D - inv_D @ A @ C @ A.T @ inv_D) \
-                           @ A @ omega[:, :, i]
-            U[:, :, i] = np.repeat(xi[:, [i]], N).reshape((F, N)).T \
-                       + (X - (A @ xi[:, [i]]).T) @ gamma[:, :, i]
-
-        cluster = np.argmax(self.tau_, axis=1)
-
-        UC = np.zeros((N, F))
-        Umean = np.zeros((N, F))
-
-        for i in range(N):
-            UC[i] = U[i, :, cluster[i]]
-            Umean[i] = self.tau_[i] @ U[i].T
-
-        return (U, UC, Umean)
-
-
     def _check_convergence(self, previous, current):
-        """
+        r"""
         Check whether the expectation-maximization algorithm has converged based
         on the previous cost (e.g., log-likelihood or message length), and the
         current cost.
@@ -437,167 +379,98 @@ class MCFA(object):
         return (converged, current, ratio)
 
 
-
-    def _initial_parameters(self, X):
-        """
-        Estimate the initial parameters of the model.
+    def fit(self, X, init_params=None):
+        r"""
+        Fit the model to the data, :math:`Y`.
 
         :param X:
             The data, :math:`X`, which is expected to be an array of shape
             [n_samples, n_features].
+
+        :param init_params: [optional]
+            A dictionary of initial values to run expectation-maximization from.
+
+        :returns:
+            The fitted model.
         """
 
-        # Do initial partitions (either randomly or by k-means).
-        initial_partitions = _initial_partitions(X, 
-                                                 self.n_components, 
-                                                 self.n_init, 
-                                                 self.n_random_init)
+        X = self._check_data(X)
+        theta = self._initial_parameters(X) if init_params is None \
+                                            else deepcopy(init_params) 
 
-        best_model, best_log_likelihood = (None, -np.inf)
+        # Calculate initial log-likelihood.
+        prev_ll, tau = self.expectation(X, *theta)
 
-        for i, partition in enumerate(initial_partitions):
-    
-            for j, init_method in enumerate(self.init_method):
+        # Do E-M iterations.
+        for i in range(self.max_iter):
 
-                try:
-                    params = _initial_parameters(X, init_method,
-                                                 self.n_components, 
-                                                 self.n_latent_factors,
-                                                 partition)
+            theta = self.maximization(X, tau, *theta)
+            ll, tau = self.expectation(X, *theta)
 
-                except (ValueError, AssertionError):
-                    if self.verbose > 0:
-                        logger.exception("Exception in initializing {} with {}:"\
-                                         .format(i, init_method))
+            converged, prev_ll, ratio = self._check_convergence(prev_ll, ll)
 
-                else:
+            if converged:
+                break
 
-                    # Run E-M from this initial guess.
-                    # We only run E-M from half the number of max iterations
-                    # because we will run for the FULL number of iterations after
-                    # we pass this back as the initial point.
+        else:
+            if self.verbose >= 0:
+                logger.warning("Convergence not achieved after more than {} "
+                               "iterations ({:.1e} > {:.1e}). Consider "
+                               "increasing the maximum number of iterations."\
+                               .format(self.max_iter, ratio, self.tol))
 
-                    # TODO: this requires a thinko
-                    model = self.__class__(self.n_components, 
-                                           self.n_latent_factors, 
-                                           max_iter=self.max_iter/2,
-                                           tol=self.tol)
+        # Make A.T @ A = I
+        pi, A, xi, omega, psi = theta
 
-                    try:
-                        model.fit(X, init_params=params)
+        CH = np.linalg.cholesky(A.T @ A)
+        A = A @ np.linalg.solve(CH, np.eye(self.n_latent_factors))
+        xi = CH @ xi
 
-                    except (ValueError, AssertionError):
-                        if self.verbose > 0:                        
-                            logger.exception("Exception in fitting {} using {}"\
-                                             .format(i, init_method))
+        for i in range(self.n_components):
+            omega[:, :, i] = CH @ omega[:, :, i] @ CH.T
 
-                    else:
-                        if model.log_likelihood_ > best_log_likelihood:
-                            best_model = model
-                            best_log_likelihood = model.log_likelihood_
+        self.tau_ = tau
+        self.theta_ = [pi, A, xi, omega, psi]
+        self.log_likelihood_ = ll
 
-        return best_model.theta_
+        return self
 
 
-def _initial_partitions(X, n_components, n_init, n_random_init, n_checks=10):
+    def factor_scores(self, X):
+        r"""
+        Estimate the posterior factor scores given the model parameters.
 
-    N, D = X.shape
-    n_partitions = n_random_init + n_init
+        :param X:
+            The data, :math:`X`, which is expected to be an array of shape
+            [n_samples, n_features].
+        # TODO: What should we return, exactly?
+        """
 
-    partitions = np.empty((n_partitions, N))
+        return _factor_scores(X, self.tau_, *self.theta_)
 
+
+    def plot_latent_space(self, X, **kwargs):
+        r"""
+        Plot the latent space.
+        """
+        return plot_latent_space(self, X, **kwargs)
+
+
+
+
+
+
+def _initial_assignments(X, n_components, n_init):
+ 
+    assignments = np.empty((n_init, X.shape[0]))
     for i in range(n_init):
-        partitions[i] = KMeans(n_components).fit(X).labels_
+        assignments[i] = KMeans(n_components).fit(X).labels_
 
-    partitions[n_init:] = np.random.choice(np.arange(n_components),
-                                           size=(n_random_init, N))
-
-    # TODO: Check for duplicate initial partitions. Don't allow them.
-    for i in range(n_checks):
-        unique_partitions = np.unique(partitions, axis=0)
-
-        u_partitions, _ = unique_partitions.shape
-        if u_partitions < n_partitions:
-            # Fill up the remainder with random partitions.
-            k = n_partitions - u_partitions
-            partitions = np.vstack([
-                unique_partitions,
-                np.random.choice(np.arange(n_components), size=(k, N))
-            ])
-            
-        else:
-            break
-
-    partitions = np.unique(partitions, axis=0).astype(int)
-    if partitions.shape[0] < n_partitions:
-        logger.warn("Duplicate initial partitions exist after {} trials"\
-                    .format(n_checks))
-
-    return partitions
+    # Check for duplicate initial assignments. Don't allow them.
+    return np.unique(assignments, axis=0).astype(int)
 
 
-
-def _initial_parameters(X, method, *args):
-
-    func = dict([
-        ("rand-A", _initial_parameters_by_rand_a),
-        ("eigen-A", _initial_parameters_by_eigen_a),
-        #("gmf", _initial_parameters_by_gmf),
-    ]).get(method, None)
-
-    if func is None:
-        raise ValueError("unknown initialisation method '{}'".format(method))
-
-    return func(X, *args)
-
-
-def _initial_parameters_by_rand_a(X, n_components, n_latent_factors, partition):
-
-    N, D = X.shape
-    xi = np.empty((n_latent_factors, n_components))
-    omega = np.empty((n_latent_factors, n_latent_factors, n_components))
-    pi = np.empty(n_components)
-
-    A = np.random.normal(0, 1, size=(D, n_latent_factors))
-    C = np.linalg.cholesky(A.T @ A).T
-    A = A @ np.linalg.solve(C, np.eye(n_latent_factors))
-
-    psi = np.zeros(D, dtype=float)
-    for i in range(n_components):
-        match = (partition == i)
-        psi += (sum(match) - 1) * np.var(X[match], axis=0) / (N - n_components)
-        
-    _ = np.sqrt(psi)
-
-    psi = np.diag(psi)
-    sqrt_psi = np.diag(_)
-    inv_sqrt_psi = np.diag(1.0/_)
-
-    for i in range(n_components):
-        match = (partition == i)
-
-        pi[i] = float(sum(match)) / N
-        xi[:, i] = np.mean(X[match] @ A, axis=0)
-        
-        # w, v = lambda, H
-        w, v = np.linalg.eigh(inv_sqrt_psi @ np.cov(X[match].T) @ inv_sqrt_psi)
-
-        g = D - n_latent_factors
-        if n_latent_factors == D:
-            var = 0
-
-        else:
-            small_w = w[:g]
-            # Only take finite and non-zero eigenvalues
-            var = np.nanmean(small_w[small_w > 0])
-
-        omega[:, :, i] = A.T @ sqrt_psi @ v[:, :g] @ np.diag(w[:g] - var) \
-                       @ v[:, :g].T @ sqrt_psi @ A
-
-    return (pi, A, xi, omega, psi)
-
-
-def _initial_parameters_by_eigen_a(X, n_components, n_latent_factors, partition):
+def _initial_parameters(X, n_components, n_latent_factors, partition):
 
     N, D = X.shape
     xi = np.empty((n_latent_factors, n_components))
@@ -616,6 +489,53 @@ def _initial_parameters_by_eigen_a(X, n_components, n_latent_factors, partition)
         omega[:, :, i] = np.cov(uiT.T)
 
     small_w = S[D - n_latent_factors:]
-    psi = np.diag(np.ones(D) * np.nanmean(small_w[small_w > 0]**2))
+    psi = np.ones(D) * np.nanmean(small_w[small_w > 0]**2)
 
     return (pi, A, xi, omega, psi)
+
+
+def _factor_scores(X, tau, pi, A, xi, omega, psi):
+
+    N, D = X.shape
+    J, K = xi.shape
+
+    U = np.zeros((N, J, K))
+    gamma = np.zeros((D, J, K))
+
+    inv_D = np.diag(1.0/psi)
+
+    I = np.eye(J)
+
+    for k in range(K):
+        C = np.linalg.solve(np.linalg.solve(omega[:, :, k], I) \
+                        + A.T @ inv_D @ A, I)
+        gamma[:, :, k] = (inv_D - inv_D @ A @ C @ A.T @ inv_D) \
+                       @ A @ omega[:, :, k]
+        U[:, :, k] = np.repeat(xi[:, [k]], N).reshape((J, N)).T \
+                   + (X - (A @ xi[:, [k]]).T) @ gamma[:, :, k]
+
+    cluster = np.argmax(tau, axis=1)
+
+    UC = np.zeros((N, J))
+    Umean = np.zeros((N, J))
+
+    for i in range(N):
+        UC[i] = U[i, :, cluster[i]]
+        Umean[i] = tau[i] @ U[i].T
+
+    return (U, UC, Umean)
+
+
+
+if __name__ == "__main__":
+
+    
+    from sklearn.datasets import load_iris
+    
+    X = load_iris().data
+
+    model = MCFA(n_components=3, n_latent_factors=3)
+    model.fit(X)
+
+
+    fig = model.plot_latent_space(X)

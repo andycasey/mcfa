@@ -1,0 +1,6 @@
+.gitignore
+.DS_Store
+
+catalogs
+__pycache__/
+notebooks/.ipynb_checkpoints/
