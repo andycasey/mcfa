@@ -6,16 +6,21 @@ import logging as logger
 import numpy as np
 import warnings
 from copy import deepcopy
+from scipy import linalg
 from scipy.special import logsumexp
 from sklearn.cluster import KMeans
 from time import time
 
-from .mpl_utils import plot_latent_space
+try:
+    from .mpl_utils import plot_latent_space
+except ModuleNotFoundError:
+    from mpl_utils import plot_latent_space # TODO don't do this
+
 
 class MCFA(object):
 
     def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=5, 
-        tol=1e-10, verbose=0, **kwargs):
+        tol=1e-5, verbose=0, **kwargs):
         r"""
         A mixture of common factor analyzers model.
 
@@ -144,8 +149,103 @@ class MCFA(object):
     @property
     def parameter_names(self):
         r""" Return the names of the parameters in this model. """
-        args = inspect.getargspec(self.expectation).args
-        return tuple([arg for arg in args if arg not in ("self", "X")])
+        return tuple(inspect.signature(self.expectation).parameters.keys())[1:]
+
+
+    def _expectation(self, X, pi, A, xi, omega, psi):
+        r"""
+        Evaluate the conditional expectation of the complete-data log-likelihood
+        given the observed data :math:`X` and the given model parameters.
+
+        :param X:
+            The data, which is expected to be an array with shape [n_samples, 
+            n_features].
+
+        :param pi:
+            The relative weights for the components in the mixture. This should
+            have size `n_components` and the entries should sum to one.
+
+        :param A:
+            The common factor loads between mixture components. This should have
+            shape [n_features, n_latent_factors].
+
+        :param xi:
+            The mean factors for the components in the mixture. This should have 
+            shape [n_latent_factors, n_components].
+
+        :param omega:
+            The covariance matrix of the mixture components in latent space.
+            This array should have shape [n_latent_factors, n_latent_factors, 
+            n_components].
+
+        :param psi:
+            The variance in each dimension. This should have size [n_features].
+
+        :raises scipy.linalg.LinAlgError:
+            If the covariance matrix of any mixture component in latent space
+            is ill-conditioned or singular.
+
+        :returns:
+            A two-length tuple containing the sum of the log-likelihood for the
+            data given the model, and the responsibility matrix :math:`\tau`
+            giving the partial associations between each data point and each
+            component in the mixture.
+        """
+
+        N, D = X.shape
+
+        # calculate constant terms.
+        log_prob_constants = -0.5 * (np.sum(np.log(psi)) + D * np.log(2*np.pi))
+
+        psi_eye = np.diag(psi)
+        inv_D = np.diag(1.0/psi)
+        inv_D_A = inv_D @ A
+
+        I = np.eye(self.n_latent_factors)
+        log_prob = np.zeros((N, self.n_components))
+        
+
+        for i in range(self.n_components):
+
+            try:
+                W = linalg.solve(omega[:, :, i], I) + inv_D_A.T @ A
+                inv_O = linalg.solve(W, I)
+                inv_S = inv_D - inv_D_A @ inv_O @ inv_D_A.T
+        
+            except linalg.LinAlgError:
+                raise linalg.LinAlgError(
+                    "ill-conditioned or singular Sigma[:, :, {}]".format(i))
+
+
+            diff = X - (A @ xi[:, i])
+            dist = (diff @ inv_S @ diff.T)
+            dist = np.diag(dist)
+           
+            with warnings.catch_warnings():
+                if 1 > self.verbose:
+                    warnings.simplefilter("ignore")
+
+                logdetD = np.log(linalg.det(omega[:, :, i])) \
+                        - np.log(linalg.det(inv_O))
+
+
+            log_prob[:, i] = -0.5 * dist - 0.5 * logdetD + log_prob_constants
+
+
+
+
+        weighted_log_prob = log_prob + np.log(pi)
+        log_likelihood = logsumexp(weighted_log_prob, axis=1)
+        with np.errstate(under="ignore"):
+            log_tau = weighted_log_prob - log_likelihood[:, np.newaxis]
+
+        tau = np.exp(log_tau)
+
+        #_, __ = self._expectation(X, pi, A, xi, omega, psi)
+        
+        #print("expectation_slow: {:.2f}s {}".format(np.ptp(times), np.diff(times)))
+        return (sum(log_likelihood), tau)
+
 
 
     def expectation(self, X, pi, A, xi, omega, psi):
@@ -177,7 +277,7 @@ class MCFA(object):
         :param psi:
             The variance in each dimension. This should have size [n_features].
 
-        :raises np.linalg.LinAlgError:
+        :raises scipy.linalg.LinAlgError:
             If the covariance matrix of any mixture component in latent space
             is ill-conditioned or singular.
 
@@ -187,62 +287,41 @@ class MCFA(object):
             giving the partial associations between each data point and each
             component in the mixture.
         """
-        times = [time()]
 
         N, D = X.shape
 
-        # calculate constant terms.
-        log_prob_constants = -0.5 * (np.sum(np.log(psi)) + D * np.log(2*np.pi))
+        I_D = np.eye(D)
+        I_psi = I_D * psi
+        U = (np.diag(1.0/psi) @ A).T
 
-        inv_D = np.diag(1.0/psi)
-        inv_D_A = inv_D @ A
-
-        I = np.eye(self.n_latent_factors)
         log_prob = np.zeros((N, self.n_components))
+        log_prob_constants = -0.5 * (np.sum(np.log(psi)) + D * np.log(2*np.pi))
         
-        times.append(time())
+        for i, (xi_, omega_) in enumerate(zip(xi.T, omega.T)):
 
-        for i in range(self.n_components):
-
-            sub_time = [time()]
-
-            try:
-                W = np.linalg.solve(omega[:, :, i], I) + inv_D_A.T @ A
-                
-                sub_time.append(time())
-                inv_O = np.linalg.solve(W, I)
-
-                sub_time.append(time())
-                inv_S = inv_D - inv_D_A @ inv_O @ inv_D_A.T
-                sub_time.append(time())
-        
-            except np.linalg.LinAlgError:
-                raise np.linalg.LinAlgError(
-                    "ill-conditioned or singular Sigma[:, :, {}]".format(i))
+            # Use matrix determinant lemma:
+            # det(A + U @V.T) = det(I + V.T @ A^-1 @ U) * det(A)
+            # here A = omega^{-1}; U = (\psi^-1 @ A).T; V = A.T
+            
+            # and making use of det(A) = 1.0/det(A^-1)
 
             with warnings.catch_warnings():
-                if 1 > self.verbose:
-                    warnings.simplefilter("ignore")
+                if 1 > self.verbose: warnings.simplefilter("ignore")
 
-                sub_time.append(time())
-                logdetD = np.log(np.linalg.det(omega[:, :, i])) \
-                        - np.log(np.linalg.det(inv_O))
-                sub_time.append(time())
+                # log(det(omega)) + log(det(I + A @ omega @ U)/det(omega)) \
+                # = log(det(I + A @ omega @ U))
+                _, logdetD = np.linalg.slogdet(I_D + A @ omega_ @ U)
 
-            sub_time.append(time())
-            diff = X - (A @ xi[:, i])
-            sub_time.append(time())
-            dist = (diff @ inv_S @ diff.T)
-            sub_time.append(time())
-            dist = np.diag(dist)
-            sub_time.append(time())
+            mu = A @ xi_
+            cov = A @ omega_ @ A.T + I_psi
+
+            precision = _compute_precision_cholesky_full(cov)
+
+            diff = np.dot(X, precision) - np.dot(mu, precision)
+            dist = np.sum(np.square(diff), axis=1)
 
             log_prob[:, i] = -0.5 * dist - 0.5 * logdetD + log_prob_constants
-            sub_time.append(time())
 
-            print(np.diff(sub_time))
-
-        times.append(time())
         
         weighted_log_prob = log_prob + np.log(pi)
         log_likelihood = logsumexp(weighted_log_prob, axis=1)
@@ -251,10 +330,8 @@ class MCFA(object):
 
         tau = np.exp(log_tau)
 
-        times.append(time())
-        
-        print("expectation: {:.2f}s {}".format(np.ptp(times), np.diff(times)))
         return (sum(log_likelihood), tau)
+
 
 
     def maximization(self, X, tau, pi, A, xi, omega, psi):
@@ -302,8 +379,6 @@ class MCFA(object):
             and the variance in each dimension :math:`\psi`.
         """
 
-        t_i = time()
-
         N, D = X.shape
 
         inv_D = np.diag(1.0/psi)
@@ -318,8 +393,8 @@ class MCFA(object):
 
         for i in range(self.n_components):
 
-            W = np.linalg.solve(omega[:, :, i], I)
-            C = np.linalg.solve(W + A.T @ inv_D_A, I)
+            W = linalg.solve(omega[:, :, i], I)
+            C = linalg.solve(W + A.T @ inv_D_A, I)
             gamma = (inv_D - inv_D_A @ C @ inv_D_A.T) @ A @ omega[:, :, i]
 
             ti = np.sum(tau[:, i])
@@ -344,10 +419,8 @@ class MCFA(object):
 
             pi[i] = ti / N
 
-        A = A1 @ np.linalg.solve(A2, I)
+        A = A1 @ linalg.solve(A2, I)
         psi = (Di - np.sum((A @ A2) * A, axis=1)) / N
-
-        print("maximization: {:.2f}s".format(time() - t_i))
 
         return (pi, A, xi, omega, psi)
 
@@ -379,7 +452,7 @@ class MCFA(object):
         return (converged, current, ratio)
 
 
-    def fit(self, X, init_params=None):
+    def fit(self, X, slow=False, init_params=None):
         r"""
         Fit the model to the data, :math:`Y`.
 
@@ -402,10 +475,22 @@ class MCFA(object):
         prev_ll, tau = self.expectation(X, *theta)
 
         # Do E-M iterations.
+
         for i in range(self.max_iter):
+            ta = time()
 
             theta = self.maximization(X, tau, *theta)
-            ll, tau = self.expectation(X, *theta)
+
+            tb = time()
+
+            if slow:
+                ll, tau = self._expectation(X, *theta)
+            else:
+                ll, tau = self.expectation(X, *theta)
+
+            tc = time()
+            print("i/{}: expectation {:.1e} maximisation {:.1e} ll {:.1e}".format(
+                i, tb - ta, tc - tb, ll))
 
             converged, prev_ll, ratio = self._check_convergence(prev_ll, ll)
 
@@ -422,8 +507,8 @@ class MCFA(object):
         # Make A.T @ A = I
         pi, A, xi, omega, psi = theta
 
-        CH = np.linalg.cholesky(A.T @ A)
-        A = A @ np.linalg.solve(CH, np.eye(self.n_latent_factors))
+        CH = linalg.cholesky(A.T @ A)
+        A = A @ linalg.solve(CH, np.eye(self.n_latent_factors))
         xi = CH @ xi
 
         for i in range(self.n_components):
@@ -477,7 +562,7 @@ def _initial_parameters(X, n_components, n_latent_factors, partition):
     omega = np.empty((n_latent_factors, n_latent_factors, n_components))
     pi = np.empty(n_components)
 
-    U, S, V = np.linalg.svd(X.T/np.sqrt(N - 1))
+    U, S, V = linalg.svd(X.T/np.sqrt(N - 1))
     A = U[:, :n_latent_factors]
 
     for i in range(n_components):
@@ -507,7 +592,7 @@ def _factor_scores(X, tau, pi, A, xi, omega, psi):
     I = np.eye(J)
 
     for k in range(K):
-        C = np.linalg.solve(np.linalg.solve(omega[:, :, k], I) \
+        C = linalg.solve(linalg.solve(omega[:, :, k], I) \
                         + A.T @ inv_D @ A, I)
         gamma[:, :, k] = (inv_D - inv_D @ A @ C @ A.T @ inv_D) \
                        @ A @ omega[:, :, k]
@@ -526,6 +611,32 @@ def _factor_scores(X, tau, pi, A, xi, omega, psi):
     return (U, UC, Umean)
 
 
+def _compute_precision_cholesky_full(cov):
+    r"""
+    Compute the Cholesky decomposition of the precision of the given covariance
+    matrix, which is expected to be a square matrix with non-zero off-diagonal
+    terms.
+
+    :param cov:
+        The given covariance matrix.
+
+    :returns:
+        The Cholesky decomposition of the precision of the covariance matrix.
+    """
+
+    D, _ = cov.shape
+
+    try:
+        cholesky_cov = linalg.cholesky(cov, lower=True)
+
+    except linalg.LinAlgError:
+        raise linalg.LinAlgError("failed to do Cholesky decomposition")
+
+    # Return the precision matrix.
+    return linalg.solve_triangular(cholesky_cov, np.eye(D), lower=True).T
+
+
+
 
 if __name__ == "__main__":
 
@@ -534,7 +645,7 @@ if __name__ == "__main__":
     
     X = load_iris().data
 
-    model = MCFA(n_components=3, n_latent_factors=3)
+    model = MCFA(n_components=3, n_latent_factors=2)
     model.fit(X)
 
 
