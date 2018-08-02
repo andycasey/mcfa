@@ -294,7 +294,7 @@ class MCFA(object):
 
         ti = np.sum(tau, axis=0).astype(float)
         pi = ti / N
-        X2 = np.square(X)
+        X2 = np.square(X) # TODO: don't calculate this every time
 
         I_J = np.eye(self.n_latent_factors)
 
@@ -434,6 +434,19 @@ class MCFA(object):
             [n_samples, n_features].
         """
         return plot_latent_space(self, X, **kwargs)
+
+
+    def bic(self):
+        r"""
+        Estimate the Bayesian Information Criterion given the model and the
+        data.
+
+        :param X:
+            The data, :math:`X`, which is expected to be an array of shape
+            [n_samples, n_features].
+        """
+        N, D = X.shape
+        return np.log(N) * self.number_of_parameters - 2 * self.log_likelihood_
 
 
 
