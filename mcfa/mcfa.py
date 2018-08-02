@@ -155,6 +155,31 @@ class MCFA(object):
         return tuple(inspect.signature(self.expectation).parameters.keys())[1:]
 
 
+    @property
+    def number_of_parameters(self, D):
+        r"""
+        Return the number of model parameters :math:`Q` required to describe 
+        data of :math:`D` dimensions.
+
+        :math:
+            Q = (K - 1) + D + J(D + K) + \frac{1}{2}KJ(J + 1) - J^2
+
+        Where :math:`K` is the number of components,
+              :math:`D` is the number of dimensions in the data, and
+              :math:`J` is the number of latent factors.
+
+        :param D:
+            The dimensionality of the data (the number of features).
+
+        :returns:
+            The number of model parameters, :math:`Q`.
+        """
+
+        # For brevity.
+        J, K = self.n_components, self.n_latent_factors
+        return int((K - 1) + D + J*(D + K) + (K*J*(J+1))/2 - J**2)
+
+
     def expectation(self, X, pi, A, xi, omega, psi):
         r"""
         Evaluate the conditional expectation of the complete-data log-likelihood
@@ -441,7 +466,8 @@ class MCFA(object):
         """
         return plot_latent_space(self, X, **kwargs)
 
-    def bic(self):
+
+    def bic(self, X, theta=None):
         r"""
         Estimate the Bayesian Information Criterion given the model and the
         data.
@@ -449,9 +475,22 @@ class MCFA(object):
         :param X:
             The data, :math:`X`, which is expected to be an array of shape
             [n_samples, n_features].
+
+        :param theta: [optional]
+            The model parameters :math:`\theta`. If None is given then the
+            model parameters from `self.theta_` will be used.
+
+        :returns:
+            The Bayesian Information Criterion (BIC) for the model and the data.
+            A smaller BIC value is often used as a statistic to select a single
+            model from a class of models.
         """
-        N, D = X.shape
-        return np.log(N) * self.number_of_parameters - 2 * self.log_likelihood_
+        if theta is None:
+            theta = self.theta_
+
+        N, D = np.atleast_2d(X).shape
+        log_likelihood, tau = self.expectation(X, *theta)
+        return np.log(N) * self.number_of_parameters(D) - 2 * log_likelihood
 
 
 
