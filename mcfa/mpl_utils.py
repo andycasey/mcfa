@@ -79,6 +79,8 @@ mpl_style = {
 
 matplotlib.style.use(mpl_style)
 
+
+
 def plot_latent_space(model, X, ellipse_kwds=None, **kwargs):
 
     v, v_cluster, v_mean = model.factor_scores(X)
@@ -90,7 +92,7 @@ def plot_latent_space(model, X, ellipse_kwds=None, **kwargs):
     xi = model.theta_[model.parameter_names.index("xi")] # latent factors, number of components.
     omega = model.theta_[model.parameter_names.index("omega")]
 
-    L = max(1, int(len(fig.axes)/2))
+    L = int(max(1, int(len(fig.axes)))**0.5)
     axes = np.atleast_2d(fig.axes).reshape((L, L)).T
 
     kwds = dict(alpha=0.3, zorder=-1)

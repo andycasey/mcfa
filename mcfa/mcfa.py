@@ -20,7 +20,7 @@ except ModuleNotFoundError:
 class MCFA(object):
 
     def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=5, 
-        tol=1e-5, verbose=0, **kwargs):
+        tol=1e-5, verbose=0, random_seed=None, **kwargs):
         r"""
         A mixture of common factor analyzers model.
 
@@ -41,6 +41,9 @@ class MCFA(object):
 
         :param verbose: [optional]
             Show warning messages.
+
+        :param random_seed: [optional]
+            A seed for the random number generator.
         """
 
         self.n_components = int(n_components)
@@ -48,6 +51,7 @@ class MCFA(object):
         self.max_iter = int(max_iter)
         self.n_init = int(n_init)
         self.tol = float(tol)
+        self.random_seed = random_seed
 
         if self.n_latent_factors < 1:
             raise ValueError("n_latent_factors must be a positive integer")
@@ -155,7 +159,6 @@ class MCFA(object):
         return tuple(inspect.signature(self.expectation).parameters.keys())[1:]
 
 
-    @property
     def number_of_parameters(self, D):
         r"""
         Return the number of model parameters :math:`Q` required to describe 
@@ -401,6 +404,8 @@ class MCFA(object):
             The fitted model.
         """
 
+        np.random.seed(self.random_seed)
+
         X = self._check_data(X)
         theta = self._initial_parameters(X) if init_params is None \
                                             else deepcopy(init_params) 
@@ -492,6 +497,37 @@ class MCFA(object):
         log_likelihood, tau = self.expectation(X, *theta)
         return np.log(N) * self.number_of_parameters(D) - 2 * log_likelihood
 
+
+    def sample(self, n_samples=1):
+        r"""
+        Generate random samples from the fitted model.
+
+        :param n_samples: [optional]
+            Number of samples to generate. Defaults to 1.
+        """
+
+        pi, A, xi, omega, psi = self.theta_
+
+        # Draw which component it is from.
+        taus = np.random.choice(self.n_components, size=n_samples, p=pi)
+
+        # Draw from the latent space and project to real space.
+        N, D = (n_samples, psi.size)
+
+        X = np.empty((N, D))
+        for k in range(self.n_components):
+
+            match = (tau == k)
+            S = sum(match)
+            scores = np.random.multivariate_normal(xi.T[k], omega.T[k], size=S)
+
+            # Project to real space.
+            X[match] = A @ scores
+
+        # Add noise.
+        X += np.random.multivariate_normal(np.zeros((1, D)), np.diag(psi), N)
+
+        raise NotImplementedError("nope")
 
 
 def _initial_assignments(X, n_components, n_init):
