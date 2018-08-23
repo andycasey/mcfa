@@ -555,7 +555,7 @@ def _initial_assignments(X, n_components, n_init):
         assignments[i] = KMeans(n_components).fit(X).labels_
 
     # Check for duplicate initial assignments. Don't allow them.
-    return np.atleast_2d(np.unique(assignments, axis=0).astype(int))
+    return np.atleast_2d(np.vstack({tuple(a) for a in assignments}).astype(int))
 
 
 def _initial_parameters(X, n_components, n_latent_factors, assignments,
