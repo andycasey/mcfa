@@ -104,10 +104,15 @@ class MCFA(object):
 
     def _check_precomputed_X2(self, X, **kwargs):
         r"""
-        Compute and store X^2 if it is not already calculated. If it is pre-computed, then check a
-        random entry of the matrix. If that does not meet tolerance, raise a ValueError exception.
+        Compute and store X^2 if it is not already calculated. 
+        If it is pre-computed, check a random entry of the matrix, and raise a
+        `ValueError` exception if it does not meet expected tolerance.
+
+        :param X:
+            The data, which is expected to be an array with shape [n_samples,
+            n_features].
         """
-        
+
         try:
             X2 = self._X2
 
@@ -121,7 +126,8 @@ class MCFA(object):
             expected, actual = (np.square(X[i, j]), self._X2[i, j])
             if not np.allclose(expected, actual, **kwargs):
                 raise ValueError(
-                    f"pre-computed X2 does not match X^2 at {i}, {j} ({expected} != {actual})")
+                    f"pre-computed X^2 does not match actual X^2 at {i}, {j} "\
+                    f"({expected} != {actual})")
 
         return True
 
@@ -204,8 +210,6 @@ class MCFA(object):
         :returns:
             The number of model parameters, :math:`Q`.
         """
-
-        # For brevity.
         J, K = self.n_components, self.n_latent_factors
         return int((K - 1) + D + J*(D + K) + (K*J*(J+1))/2 - J**2)
 
@@ -576,7 +580,7 @@ def _initial_assignments(X, n_components, n_init):
 
 
 def _initial_parameters(X, n_components, n_latent_factors, assignments,
-    n_svd_max=1000):
+                        n_svd_max=1000):
     r"""
     Estimate the initial parameters for a model with a mixture of common factor
     analyzers.
@@ -631,6 +635,37 @@ def _initial_parameters(X, n_components, n_latent_factors, assignments,
 def _factor_scores(X, tau, pi, A, xi, omega, psi):
     r"""
     Estimate the factor scores for each data point, given the model.
+
+    :param X:
+        The data, which is expected to be an array with shape [n_samples, 
+        n_features].
+
+    :param tau:
+        The responsibility matrix, which is expected to have shape
+        [n_samples, n_components]. The sum of each row is expected to equal
+        one, and the value in the i-th row (sample) of the j-th column
+        (component) indicates the partial responsibility (between zero and
+        one) that the j-th component has for the i-th sample.
+
+    :param pi:
+        The relative weights for the components in the mixture. This should
+        have size `n_components` and the entries should sum to one.
+
+    :param A:
+        The common factor loads between mixture components. This should have
+        shape [n_features, n_latent_factors].
+
+    :param xi:
+        The mean factors for the components in the mixture. This should have 
+        shape [n_latent_factors, n_components].
+
+    :param omega:
+        The covariance matrix of the mixture components in latent space.
+        This array should have shape [n_latent_factors, n_latent_factors, 
+        n_components].
+
+    :param psi:
+        The variance in each dimension. This should have size [n_features].
     """
 
     N, D = X.shape
@@ -671,6 +706,9 @@ def _compute_precision_cholesky_full(cov):
 
     :param cov:
         The given covariance matrix.
+
+    :raises linalg.LinAlgError:
+        If the Cholesky decomposition failed.
 
     :returns:
         The Cholesky decomposition of the precision of the covariance matrix.
