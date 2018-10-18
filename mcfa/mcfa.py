@@ -2,7 +2,7 @@
 """ Mixture of common factor analyzers. """
 
 import inspect
-import logging as logger
+import logging
 import numpy as np
 import warnings
 from copy import deepcopy
@@ -11,16 +11,13 @@ from scipy.special import logsumexp
 from sklearn.cluster import KMeans
 from time import time
 
-try:
-    from .mpl_utils import plot_latent_space
-except ModuleNotFoundError:
-    from mpl_utils import plot_latent_space # TODO don't do this
+logger = logging.getLogger(__name__)
 
 
 class MCFA(object):
 
     def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=5, 
-        tol=1e-5, verbose=0, random_seed=None, **kwargs):
+                 tol=1e-5, verbose=0, random_seed=None, **kwargs):
         r"""
         A mixture of common factor analyzers model.
 
@@ -95,9 +92,39 @@ class MCFA(object):
 
         N, D = X.shape
         if D <= self.n_latent_factors:
-            raise ValueError("there are more factors than dimensions ({} >= {})"\
-                             .format(self.n_latent_factors, D))
+            raise ValueError(f"there are more factors than dimensions "\
+                             f"({self.n_latent_factors} >= {D})")
+
+
+        # Pre-calculate X2, because we will use this at every EM step.
+        self._check_precomputed_X2(X2)
+
         return X
+
+
+    def _check_precomputed_X2(self, X, **kwargs):
+        r"""
+        Compute and store X^2 if it is not already calculated. If it is pre-computed, then check a
+        random entry of the matrix. If that does not meet tolerance, raise a ValueError exception.
+        """
+        
+        try:
+            X2 = self._X2
+
+        except AttributeError:
+            self._X2 = X2 = np.square(X)
+
+        else:
+            # Check a single entry.
+            i, j = (np.random.choice(X.shape[0]), np.random.choice(X.shape[1]))
+
+            expected, actual = (np.square(X[i, j]), self._X2[i, j])
+            if not np.allclose(expected, actual, **kwargs):
+                raise ValueError(
+                    f"pre-computed X2 does not match X^2 at {i}, {j} ({expected} != {actual})")
+
+        return True
+
 
 
     def _initial_parameters(self, X):
@@ -316,6 +343,8 @@ class MCFA(object):
             and the variance in each dimension :math:`\psi`.
         """
 
+        self._check_precomputed_X2(X)
+
         N, D = X.shape
 
         inv_D = np.diag(1.0/psi)
@@ -328,8 +357,7 @@ class MCFA(object):
 
         ti = np.sum(tau, axis=0).astype(float)
         pi = ti / N
-        X2 = np.square(X) # TODO: don't calculate this every time
-
+        
         I_J = np.eye(self.n_latent_factors)
 
         for i, tau_ in enumerate(tau[np.newaxis].T):
@@ -354,7 +382,7 @@ class MCFA(object):
             A1 += np.atleast_2d(np.sum(X * tau_, axis=0)).T @ xi_.T \
                 + X.T @ tY_Axi_i.T @ gamma
             A2 += (omega[:, :, i] + xi[:, [i]] @ xi[:, [i]].T) * ti[i]
-            Di += np.sum(X2 * tau_, axis=0)
+            Di += np.sum(self._X2 * tau_, axis=0)
 
         A = A1 @ linalg.solve(A2, I_J)
         psi = (Di - np.sum((A @ A2) * A, axis=1)) / N
@@ -426,10 +454,9 @@ class MCFA(object):
 
         else:
             if self.verbose >= 0:
-                logger.warning("Convergence not achieved after at least {} "
-                               "iterations ({:.1e} > {:.1e}). Consider "
-                               "increasing the maximum number of iterations."\
-                               .format(self.max_iter, ratio, self.tol))
+                logger.warning(f"Convergence not achieved after at least "\
+                               f"{self.max_iter} iterations ({ratio} > {self.tol})."\
+                               f" Consider increasing the maximum number of iterations.")
 
         # Make A.T @ A = I
         pi, A, xi, omega, psi = theta
@@ -460,16 +487,6 @@ class MCFA(object):
         """
 
         return _factor_scores(X, self.tau_, *self.theta_)
-
-
-    def plot_latent_space(self, X, **kwargs):
-        r"""
-        Plot the latent space.
-        :param X:
-            The data, :math:`X`, which is expected to be an array of shape
-            [n_samples, n_features].
-        """
-        return plot_latent_space(self, X, **kwargs)
 
 
     def bic(self, X, theta=None):
@@ -683,4 +700,10 @@ if __name__ == "__main__":
     model.fit(X)
 
 
-    fig = model.plot_latent_space(X)
+    try:
+        from .mpl_utils import plot_latent_space
+    except ModuleNotFoundError:
+        from mpl_utils import plot_latent_space # TODO don't do this
+
+
+    fig = plot_latent_space(model, X)
