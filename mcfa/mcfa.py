@@ -1,11 +1,11 @@
 
 """ Mixture of common factor analyzers. """
 
-import inspect
 import logging
 import numpy as np
 import warnings
 from copy import deepcopy
+from inspect import signature as inspect_signature
 from scipy import linalg
 from scipy.special import logsumexp
 from sklearn.cluster import KMeans
@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class MCFA(object):
+
+    r""" A mixture of common factor analyzers model. """
 
     def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=5, 
                  tol=1e-5, verbose=0, random_seed=None, **kwargs):
@@ -97,7 +99,7 @@ class MCFA(object):
 
 
         # Pre-calculate X2, because we will use this at every EM step.
-        self._check_precomputed_X2(X2)
+        self._check_precomputed_X2(X)
 
         return X
 
@@ -114,10 +116,10 @@ class MCFA(object):
         """
 
         try:
-            X2 = self._X2
+            self._X2
 
         except AttributeError:
-            self._X2 = X2 = np.square(X)
+            self._X2 = np.square(X)
 
         else:
             # Check a single entry.
@@ -132,7 +134,6 @@ class MCFA(object):
         return True
 
 
-
     def _initial_parameters(self, X):
         r"""
         Estimate the initial parameters of the model.
@@ -141,13 +142,15 @@ class MCFA(object):
             The data, :math:`X`, which is expected to be an array of shape
             [n_samples, n_features].
 
+        :raises ValueError:
+            If no valid initialisation point could be found.
+
         :returns:
             A five-length tuple containing the updated parameter estimates for
             the mixing weights :math:`\pi`, the common factor loads :math:`A`,
             the means of the components in latent space :math:`\xi`, the
             covariance matrices of components in latent space :math:`\omega`,
             and the variance in each dimension :math:`\psi`.
-
         """
 
         # Do initial partitions (either randomly or by k-means).
@@ -189,7 +192,7 @@ class MCFA(object):
     @property
     def parameter_names(self):
         r""" Return the names of the parameters in this model. """
-        return tuple(inspect.signature(self.expectation).parameters.keys())[1:]
+        return tuple(inspect_signature(self.expectation).parameters.keys())[1:]
 
 
     def number_of_parameters(self, D):
@@ -210,13 +213,14 @@ class MCFA(object):
         :returns:
             The number of model parameters, :math:`Q`.
         """
+
         J, K = self.n_components, self.n_latent_factors
         return int((K - 1) + D + J*(D + K) + (K*J*(J+1))/2 - J**2)
 
 
     def expectation(self, X, pi, A, xi, omega, psi):
         r"""
-        Evaluate the conditional expectation of the complete-data log-likelihood
+        Compute the conditional expectation of the complete-data log-likelihood
         given the observed data :math:`X` and the given model parameters.
 
         :param X:
@@ -304,8 +308,8 @@ class MCFA(object):
 
     def maximization(self, X, tau, pi, A, xi, omega, psi):
         r"""
-        Evaluate the updated estimates of the model parameters given the data,
-        the responsibility matrix :math:`\tau` and the current estimates of the
+        Compute the updated estimates of the model parameters given the data,
+        the responsibility matrix :math:`\tau`, and the current estimates of the
         model parameters.
 
         :param X:
@@ -489,7 +493,6 @@ class MCFA(object):
             [n_samples, n_features].
         # TODO: What should we return, exactly?
         """
-
         return _factor_scores(X, self.tau_, *self.theta_)
 
 
@@ -511,6 +514,7 @@ class MCFA(object):
             A smaller BIC value is often used as a statistic to select a single
             model from a class of models.
         """
+
         if theta is None:
             theta = self.theta_
 
@@ -525,6 +529,8 @@ class MCFA(object):
 
         :param n_samples: [optional]
             Number of samples to generate. Defaults to 1.
+
+        # TODO: return docs
         """
 
         pi, A, xi, omega, psi = self.theta_
@@ -548,12 +554,13 @@ class MCFA(object):
         # Add noise.
         X += np.random.multivariate_normal(np.zeros((1, D)), np.diag(psi), N)
 
+        # TODO
         raise NotImplementedError("nope")
 
 
-def _initial_assignments(X, n_components, n_init):
+def _initial_assignments(X, n_components, n_kmeans_init):
     r"""
-    Estimate the initial assigmnets of each sample to each component in the
+    Estimate the initial assignments of each sample to each component in the
     mixture.
 
     :param X:
@@ -563,16 +570,17 @@ def _initial_assignments(X, n_components, n_init):
     :param n_components:
         The number of components (clusters) in the mixture.
 
-    :param n_init:
+    :param n_kmeans_init:
         The number of initializations to run using k-means algorithm.
 
     :returns:
-        An array of shape [n_init, n_samples] with initial assignments, where
-        each integer entry in the matrix indicates which component the sample
-        is to be initialised to.
+        An array of shape [n_kmeans_init, n_samples] with initial assignments, 
+        where each integer entry in the matrix indicates which component the 
+        sample is to be initialised to.
     """
-    assignments = np.empty((n_init, X.shape[0]))
-    for i in range(n_init):
+
+    assignments = np.empty((n_kmeans_init, X.shape[0]))
+    for i in range(n_kmeans_init):
         assignments[i] = KMeans(n_components).fit(X).labels_
 
     # Check for duplicate initial assignments. Don't allow them.
@@ -608,6 +616,7 @@ def _initial_parameters(X, n_components, n_latent_factors, assignments,
         covariance matrices in latent space, and (4) the variance in each data
         dimension.
     """
+
     N, D = X.shape
     xi = np.empty((n_latent_factors, n_components))
     omega = np.empty((n_latent_factors, n_latent_factors, n_components))
@@ -666,6 +675,8 @@ def _factor_scores(X, tau, pi, A, xi, omega, psi):
 
     :param psi:
         The variance in each dimension. This should have size [n_features].
+
+    # TODO: returns
     """
 
     N, D = X.shape
@@ -707,7 +718,7 @@ def _compute_precision_cholesky_full(cov):
     :param cov:
         The given covariance matrix.
 
-    :raises linalg.LinAlgError:
+    :raises scipy.linalg.LinAlgError:
         If the Cholesky decomposition failed.
 
     :returns:
