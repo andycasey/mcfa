@@ -15,7 +15,7 @@ Installation
 To install from source:
 
 ```
-    git clone git@github.com:andycasey/mcfa.git
+    git clone https://github.com/andycasey/mcfa.git
     cd mcfa/
-    python setup.py
+    python setup.py install
 ```
