@@ -204,9 +204,8 @@ class MCFA(object):
 
             Q = (K - 1) + D + J(D + K) + \frac{1}{2}KJ(J + 1) - J^2
 
-        Where :math:`K` is the number of components,
-              :math:`D` is the number of dimensions in the data, and
-              :math:`J` is the number of latent factors.
+        Where :math:`K` is the number of components, :math:`D` is the number of
+        dimensions in the data, and :math:`J` is the number of latent factors.
 
         :param D:
             The dimensionality of the data (the number of features).
