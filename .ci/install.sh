@@ -11,3 +11,5 @@ conda config --add channels conda-forge
 conda update --all
 conda install tectonic
 tectonic --help
+
+python setup.py install

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os
-from distutils.core import setup
+from setuptools import setup
 
 version_path = os.path.join(os.path.dirname(__file__), "VERSION")
 with open(version_path, "r") as fp:
