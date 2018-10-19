@@ -8,3 +8,5 @@ notebooks/.ipynb_checkpoints/
 build/
 *.pyc
 develop/
+
+docs/_build/
