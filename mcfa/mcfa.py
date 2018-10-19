@@ -201,9 +201,8 @@ class MCFA(object):
         data of :math:`D` dimensions.
 
         .. math::
-        
-            Q = (K - 1) + D + J(D + K) + \frac{1}{2}KJ(J + 1) - J^2
 
+            Q = (K - 1) + D + J(D + K) + \frac{1}{2}KJ(J + 1) - J^2
 
         Where :math:`K` is the number of components,
               :math:`D` is the number of dimensions in the data, and
