@@ -200,7 +200,8 @@ class MCFA(object):
         Return the number of model parameters :math:`Q` required to describe 
         data of :math:`D` dimensions.
 
-        .. math:
+        .. math::
+        
             Q = (K - 1) + D + J(D + K) + \frac{1}{2}KJ(J + 1) - J^2
 
 
