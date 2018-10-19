@@ -4,3 +4,7 @@
 catalogs
 __pycache__/
 notebooks/.ipynb_checkpoints/
+
+build/
+*.pyc
+develop/
