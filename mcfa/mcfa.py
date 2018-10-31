@@ -9,7 +9,6 @@ from inspect import signature as inspect_signature
 from scipy import linalg
 from scipy.special import logsumexp
 from sklearn.cluster import KMeans
-from time import time
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ class MCFA(object):
     r""" A mixture of common factor analyzers model. """
 
     def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=5, 
-                 tol=1e-5, verbose=0, random_seed=None, **kwargs):
+                 tol=1e-5, verbose=1, random_seed=None, **kwargs):
         r"""
         A mixture of common factor analyzers model.
 
@@ -544,18 +543,17 @@ class MCFA(object):
         X = np.empty((N, D))
         for k in range(self.n_components):
 
-            match = (tau == k)
-            S = sum(match)
-            scores = np.random.multivariate_normal(xi.T[k], omega.T[k], size=S)
+            match = (taus == k)
+            scores = np.random.multivariate_normal(xi.T[k], omega.T[k],
+                                                   size=sum(taus == k))
 
             # Project to real space.
-            X[match] = A @ scores
+            X[match] = (A @ scores.T).T
 
         # Add noise.
-        X += np.random.multivariate_normal(np.zeros((1, D)), np.diag(psi), N)
+        X += np.random.multivariate_normal(np.zeros(D), np.diag(psi), N)
 
-        # TODO
-        raise NotImplementedError("nope")
+        return X
 
 
 def _initial_assignments(X, n_components, n_kmeans_init):

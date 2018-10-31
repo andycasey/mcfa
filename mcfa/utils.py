@@ -1,8 +1,50 @@
 
 import numpy as np
+from sklearn.datasets import make_blobs
 
 
-def simulate_data(N, D, J, K=1, seed=None, full_output=False, **kwargs):
+def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2,
+                  omega_scale=1, noise_scale=1, random_seed=0):
+
+    rng = np.random.RandomState(random_seed)
+
+    A = rng.randn(n_features, n_latent_factors)
+
+    # latent variables
+    pvals = np.ones(n_components) / n_components
+    R = np.argmax(rng.multinomial(1, pvals, size=n_samples), axis=1)
+    pi = np.array([np.sum(R == i) for i in range(n_components)])/n_samples
+
+    xi = rng.randn(n_latent_factors, n_components)
+    omega = np.zeros((n_latent_factors, n_latent_factors, n_components))
+    for i in range(n_components):
+        omega[(*np.diag_indices(n_latent_factors), i)] = \
+            rng.gamma(1, scale=omega_scale, size=n_latent_factors)**2
+
+    scores = np.empty((n_samples, n_latent_factors))
+    for i in range(n_components):
+        match = (R == i)
+        scores[match] = rng.multivariate_normal(xi.T[i], omega.T[i], 
+                                                size=sum(match))
+
+    psi = rng.gamma(1, scale=noise_scale, size=n_features)
+
+    noise = psi * rng.randn(n_samples, n_features)
+
+    X = scores @ A.T + noise
+
+    truth = dict(A=A, pi=pi, xi=xi, omega=omega, psi=psi,
+                 noise=noise, R=R, scores=scores)
+
+    return (X, truth)
+
+
+def parameter_vector(pi, A, xi, omega, psi, **kwargs):
+    return [np.array(_) for _ in (pi, A, xi, omega, psi)]
+
+
+
+def simulate_example_data(N, D, J, K=1, seed=None, full_output=False, **kwargs):
     """
     Simulate data that have common latent factors and clustering in the latent
     space.
