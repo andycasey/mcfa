@@ -1,0 +1,105 @@
+\documentclass[twocolumn]{aastex61}
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{color}
+\usepackage{comment}
+
+\newcommand\teff{T_{\rm eff}}
+\newcommand\logg{\log{g}}
+\newcommand\feh{[\rm{Fe}/\rm{H}]}
+
+\newcommand{\project}[1]{\textsl{#1}}
+\newcommand{\package}[1]{\texttt{#1}}
+\newcommand{\acronym}[1]{{\small{#1}}}
+
+\newcommand{\Gaia}{\project{Gaia}}
+\newcommand{\gaia}{\project{gaia}}
+\newcommand{\todo}[1]{\textcolor{red}{#1}}
+
+
+\received{2018 XX XX}
+\revised{2018 XX XX}
+\accepted{2018 XX XX}
+
+\newcommand{\vcpath}{vc.tex}
+
+\IfFileExists{\vcpath}{\input{\vcpath}}{
+	\newcommand{\giturl}{UNKNOWN}
+	\newcommand{\gitslug}{UNKNOWN}
+	\newcommand{\githash}{UNKNOWN}
+	\newcommand{\gitdate}{UNKNOWN}
+	\newcommand{\gitauthor}{UNKNOWN}
+}
+
+\submitjournal{AAS Journals}
+
+\shorttitle{MCFA}
+\shortauthors{Casey et al.}
+
+\begin{document}
+
+\title{MCFA on Galah}
+
+\correspondingauthor{Andrew R. Casey}
+\email{andrew.casey@monash.edu}
+
+\author[0000-0003-0174-0564]{Andrew R. Casey}
+\affiliation{School of Physics \& Astronomy, 
+			 Monash University,
+			 Wellington Rd, Clayton 3800, Victoria, Australia}
+\affiliation{Faculty of Information Technology, 
+			 Monash University, 
+			 Wellington Rd, Clayton 3800, Victoria, Australia}
+			 
+\author{John Lattanzio}
+\affiliation{School of Physics \& Astronomy, 
+			 Monash University,
+			 Wellington Rd, Clayton 3800, Victoria, Australia}
+
+\author{Aldeida Aleti}
+\affiliation{Faculty of Information Technology, 
+			 Monash University, 
+			 Wellington Rd, Clayton 3800, Victoria, Australia}
+
+\author{David Dowe}
+\affiliation{Faculty of Information Technology, 
+			 Monash University, 
+			 Wellington Rd, Clayton 3800, Victoria, Australia}
+
+\author{the GALAH team}
+
+
+\begin{abstract}
+foo
+\end{abstract}
+
+
+\keywords{methods: statistical}
+
+\section{Introduction} \label{sec:intro}
+
+\section{Model} \label{sec:model}
+
+\section{Results} \label{sec:results}
+
+\section{Discussion} \label{sec:discussion}
+
+\section{Conclusion} \label{sec:conclusion}
+
+
+\software{
+	\package{Astropy} \citep{astropy:v1,astropy:v2},
+    \package{IPython} \citep{ipython},
+    \package{matplotlib} \citep{mpl},
+    \package{numpy} \citep{numpy},
+    \package{scipy} \citep{scipy},
+    \package{Stan} \citep{stan},
+    \package{CosmoHub} \citep{cosmohub},
+    \package{TensorFlow} \citep{tensorflow}
+    \package{Jupyter Notebooks} \citep{jupyter-notebooks}
+}    
+
+\bibliographystyle{aasjournal}
+\bibliography{mcfa}
+
+\end{document}
