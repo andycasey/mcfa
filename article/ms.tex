@@ -1,6 +1,6 @@
 \documentclass[twocolumn]{aastex61}
 \usepackage{bm}
-\usepackage{amsmath}
+\usepackage{amsmath,amsfonts,amssymb}
 \usepackage{color}
 \usepackage{comment}
 
@@ -17,6 +17,24 @@
 \newcommand{\todo}[1]{\textcolor{red}{#1}}
 
 
+\newcommand{\vect}[1]{\boldsymbol{\mathbf{#1}}}
+\renewcommand{\vec}[1]{\vect{#1}}
+
+\newcommand{\weight}{\pi}
+\newcommand{\data}{\textbf{Y}}
+\newcommand{\vecdata}{\vec\data}
+
+\newcommand{\nextstep}{^\textrm{(t+1)}}
+\newcommand{\thisstep}{^\textrm{(t)}}
+\newcommand{\transpose}{^\intercal}
+\newcommand{\eye}{\textbf{I}}
+
+\newcommand{\factorloads}{\textbf{L}}
+\newcommand{\factorscores}{\textbf{S}}
+
+\newcommand{\scoremeans}{\vec\xi}
+\newcommand{\scorecovs}{\vec\Omega}
+
 \received{2018 XX XX}
 \revised{2018 XX XX}
 \accepted{2018 XX XX}
@@ -30,6 +48,8 @@
 	\newcommand{\gitdate}{UNKNOWN}
 	\newcommand{\gitauthor}{UNKNOWN}
 }
+
+
 
 \submitjournal{AAS Journals}
 
@@ -78,7 +98,155 @@ foo
 
 \section{Introduction} \label{sec:intro}
 
-\section{Model} \label{sec:model}
+\section{Methods} \label{sec:methods}
+
+% Describe how we will attempt to define a generative model for the data, from the latent space.
+
+In this work the data $\vecdata$ is a $n \times d$ matrix 
+where $n$ is the number of stars and $d$ is the number of
+chemical abundances measured for each star. We assume a
+generative model for the data 
+\begin{equation}
+	\vecdata = \factorloads\factorscores + \vec{e}
+	\label{eq:generative-model}
+\end{equation}
+
+\noindent{}where $\factorloads$ is a $p \times d$ matrix of factor
+loads that is common to all data points, and the factor scores
+\begin{equation}
+	\factorscores \sim \mathcal{N}(\vec\xi_k, \vec\Omega_k)
+\end{equation}
+\noindent{}is a \todo{$n \times p$} matrix where the entries
+are drawn from $k$ multivariate normal distributions.
+We assume $\vec{e} \sim \mathcal{N}\left(\vec{0}, \vec\psi\right)$
+is independent of the latent space, and $\vec\psi$ is a
+diagonal matrix of $d$ entries. 
+
+In this model each data point can be represented as being drawn
+from a mixture of multivariate normal components, except the components
+are \emph{clustered in the latent space} $\factorscores$ and projected
+into the data space by the factor loads $\factorloads$. 
+We assume that the latent space is lower dimensionality than the
+data space (e.g., $p < d$).
+Within the context of stellar abundances, the factor loads
+$\factorloads$ can be thought of as the \emph{mean} yields
+of nucleosynthetic
+events (e.g., $s$-process yields from AGB stars), and the
+factor scores are analogous to the relative counts of those 
+nucleosynthetic events. The clustering in factor scores
+achieves the same as a clustering procedure in data space,
+except we simultaneously estimate the factor loads
+(nucleosynthetic yields) that are common to all data points 
+(stars). Within this framework a rare nucleosynthetic event
+can still be described as a `common factor load' $\factorloads_i$, 
+but its rarity would be represented by associated factor
+scores being zero for most stars and thus have no contribution
+to the observed abundances.
+
+Without loss of generality the density of the data $\vecdata$ can be modelled as
+\begin{equation}
+	f(\textbf{y}; \vec\Psi) = \sum_{k=1}^{K}\weight_{k}\phi(\textbf{y};\factorloads\scoremeans_k, \factorloads\scorecovs_k\factorloads\transpose + \eye\vec\psi)
+\end{equation}
+\noindent{}given $p$ common factor loadings and $K$ components
+clustered in the latent (factor score) space. Here the parameter
+vector
+$\vec\Psi$ includes $\{\factorloads,\vec\pi,\scoremeans,\scorecovs,\vec\psi\}$, and $\phi(\textbf{y};\vec\mu, \vec\Sigma)$
+describes the density of a multivariate gaussian distribution with
+mean $\vec\mu$ and covariance matrix $\vec\Sigma$,
+and $\weight_k$ describes the relative weighting of the $k$th
+component in latent space and $\sum\weight_k = 1$.
+The log likelihood is then given by
+\begin{equation}
+	\log\mathcal{L}(\vecdata|\vec\Psi) = \sum_{k=1}^{K}\log{f(\vecdata;\vec\Psi)} \quad .
+\end{equation}
+
+
+The model described by Equation~\ref{eq:generative-model} is indeterminate:
+there is no unique solution for the factor loads $\factorloads$ and scores
+$\factorscores$. However, an accurate estimate of the parameter vector $\vec\Psi$ can be obtained by the expectation-maximization algorithm \citep{EM}. 
+
+
+
+\subsection{Initialisation}
+
+We use the K-means++ algorithm to initially assign data points
+randomly to $K$ clusters (in data space). This provides a so-called
+hard initial association where each data point is wholly assigned
+to a single component. Specifically we calculate the $n \times K$
+responsibility matrix $\vec\tau$, where a entry of 1 indicates the
+$n$th data point is associated with the $k$th cluster, and an
+entry of 0 indicates no association such that
+\begin{equation}
+	\weight_k = \frac{1}{N}\sum_{n=1}^{N}\tau_{nk} \quad .
+\end{equation}
+We then chose 1,000
+random data points and factorize that matrix using singular-value
+decomposition. We take the principal $p$ eigenvectors as the 
+initial guess for the factor loads $\factorloads$, and calculate
+an initial estimate of the factor score means
+\begin{equation}
+	\scoremeans_k = \frac{1}{N}\sum_{n=1}^{N}\tau_{nk}\vecdata_{n}\factorloads
+\end{equation}
+\noindent{}and the covariance matrices of the clusters in latent space
+\begin{equation}
+	\scorecovs_k = \textrm{cov}{\left(\tau_{nk}\vecdata_{n}\right)} \quad .
+\end{equation}
+
+
+\subsection{Expectation-Maximization}
+
+At the expectation step we evaluate the log likelihood
+given the model parameters $\vec\Psi$, and we re-calculate the responsibility
+matrix whose entries are the posterior probability
+that the $n$th data point is associated to the $k$th component,
+given the data $\vecdata$ and the current estimate of the 
+parameter vector $\vec\Psi$:
+\begin{equation}
+	\tau_{nk} = \frac{\weight_k\phi(\vecdata_n;\factorloads\scoremeans_k, \factorloads\scorecovs_k\factorloads\transpose + \eye\vec\psi)}{\sum_{g=1}^{G}\weight_g\phi(\vecdata_n;\factorloads\scoremeans_g, \factorloads\scorecovs_g\factorloads\transpose + \eye\vec\psi)} \quad .
+\end{equation}
+
+
+% SVD complexity is O(n^3)
+% K-means++ complexity is O(log(k))
+
+
+
+% Discuss connection to PCA, FA, MFA.
+
+% Include macros for \vec, \data, etc.
+At the maximization step we update our estimates of the parameters,
+conditioned on the data $y$ and the responsibility matrix $\tau$.
+
+
+
+\begin{equation}
+	\weight_k\nextstep = \frac{1}{N} \sum_{n=1}^{N}\tau_{nk}
+	% Include proof.
+\end{equation}
+
+
+\begin{eqnarray}
+	\vec\mu_{k}\nextstep = \vec\mu_{k}\thisstep + \vec\gamma\transpose \frac{1}{N\weight_k}\sum_{n=1}^{N}{(\vecdata\transpose - \vec{}A\vec\mu_{k}\thisstep)\vec\tau_{k}}
+\end{eqnarray}
+
+% The intermediate stpe for phi:
+\begin{equation}
+	\vec\phi = N\sum_{k=1}^{K}\weight_k\left[\vec\Omega_k\nextstep + \vec\mu_k\nextstep(\vec\mu_k\nextstep)\transpose\right]
+\end{equation}
+
+% And the update of the psi.
+\begin{equation}
+	\vec\psi\nextstep = \frac{1}{N}\left[\sum_{k=1}^{K}\vec\data^2\vec\tau_{k} - (\vec{}A\nextstep \vec\phi)\vec{}A\right]
+\end{equation}
+
+
+\section{Experiments} \label{sec:experiments}
+
+\subsection{Toy model with generated data} \label{sec:experiment-toy-model}
+
+\subsection{GALAH} \label{sec:experiment-galah}
+
+
 
 \section{Results} \label{sec:results}
 
