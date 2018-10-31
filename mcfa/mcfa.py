@@ -9,6 +9,7 @@ from inspect import signature as inspect_signature
 from scipy import linalg
 from scipy.special import logsumexp
 from sklearn.cluster import KMeans
+from time import  time
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ class MCFA(object):
 
     r""" A mixture of common factor analyzers model. """
 
-    def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=5, 
+    def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=25, 
                  tol=1e-5, verbose=1, random_seed=None, **kwargs):
         r"""
         A mixture of common factor analyzers model.
@@ -289,20 +290,14 @@ class MCFA(object):
                 # = log(det(I + A @ omega @ U))
                 _, logdetD = np.linalg.slogdet(I_D + A @ omega_ @ U)
 
-            precision = _compute_precision_cholesky_full(cov)
-            diff = np.dot(X, precision) - np.dot(mu, precision)
-            dist = np.sum(np.square(diff), axis=1)
-
             log_prob[:, i] = -0.5 * dist - 0.5 * logdetD + log_prob_constants
 
         weighted_log_prob = log_prob + np.log(pi)
-        log_likelihood = logsumexp(weighted_log_prob, axis=1)
+        log_prob = logsumexp(weighted_log_prob, axis=1)
         with np.errstate(under="ignore"):
-            log_tau = weighted_log_prob - log_likelihood[:, np.newaxis]
+            log_tau = weighted_log_prob - log_prob[:, np.newaxis]
 
-        tau = np.exp(log_tau)
-
-        return (sum(log_likelihood), tau)
+        return (np.sum(log_prob), np.exp(log_tau))
 
 
     def maximization(self, X, tau, pi, A, xi, omega, psi):
@@ -389,9 +384,10 @@ class MCFA(object):
             A1 += np.atleast_2d(np.sum(X * tau_, axis=0)).T @ xi_.T \
                 + X.T @ tY_Axi_i.T @ gamma
             A2 += (omega[:, :, i] + xi[:, [i]] @ xi[:, [i]].T) * ti[i]
-            Di += np.sum(self._X2 * tau_, axis=0)
+        
 
         A = A1 @ linalg.solve(A2, I_J)
+        Di = np.sum(self._X2.T @ tau[np.newaxis], axis=2)
         psi = (Di - np.sum((A @ A2) * A, axis=1)) / N
         
         return (pi, A, xi, omega, psi)
@@ -445,7 +441,6 @@ class MCFA(object):
         theta = self._initial_parameters(X) if init_params is None \
                                             else deepcopy(init_params) 
 
-        # Calculate initial log-likelihood.
         prev_ll, tau = self.expectation(X, *theta)
 
         # Run E-M.
@@ -456,8 +451,7 @@ class MCFA(object):
 
             converged, prev_ll, ratio = self._check_convergence(prev_ll, ll)
 
-            if converged:
-                break
+            if converged: break
 
         else:
             if self.verbose >= 0:
@@ -465,9 +459,9 @@ class MCFA(object):
                                f"{self.max_iter} iterations ({ratio} > {self.tol})."\
                                f" Consider increasing the maximum number of iterations.")
 
-        # Make A.T @ A = I
         pi, A, xi, omega, psi = theta
 
+        # Make A.T @ A = I
         AL = linalg.cholesky(A.T @ A)
         A = A @ linalg.solve(AL, np.eye(self.n_latent_factors))
         xi = AL @ xi
