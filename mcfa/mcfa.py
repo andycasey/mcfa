@@ -157,6 +157,8 @@ class MCFA(object):
         assignments = _initial_assignments(X, self.n_components, self.n_init)
         best_theta, best_log_likelihood = (None, -np.inf)
 
+        exceptions = []
+
         for i, assignment in enumerate(assignments):
             try:
                 params = _initial_parameters(X, 
@@ -164,7 +166,8 @@ class MCFA(object):
                                              self.n_latent_factors,
                                              assignment)
 
-            except ValueError:
+            except ValueError as exception:
+                exceptions.append(exception)
                 if self.verbose > 0:
                     logger.exception("Exception in initializing:")
 
@@ -178,7 +181,8 @@ class MCFA(object):
                     if log_likelihood > best_log_likelihood:
                         best_theta, best_log_likelihood = (theta, log_likelihood)
 
-                except:
+                except Exception as exception:
+                    exceptions.append(exception)
                     if self.verbose > 0:
                         logger.exception("Exception in running E-M step from "\
                                          "initialisation point:")
@@ -358,7 +362,6 @@ class MCFA(object):
         inv_D_A = inv_D @ A
 
         ti = np.sum(tau, axis=0).astype(float)
-        pi = ti / N
         
         I_J = np.eye(self.n_latent_factors)
 
@@ -385,11 +388,12 @@ class MCFA(object):
                 + X.T @ tY_Axi_i.T @ gamma
             A2 += (omega[:, :, i] + xi[:, [i]] @ xi[:, [i]].T) * ti[i]
         
-
         A = A1 @ linalg.solve(A2, I_J)
         Di = np.sum(self._X2.T @ tau[np.newaxis], axis=2)
         psi = (Di - np.sum((A @ A2) * A, axis=1)) / N
         
+        pi = ti / N
+
         return (pi, A, xi, omega, psi)
 
 

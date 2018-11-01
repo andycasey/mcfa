@@ -6,13 +6,13 @@ from sklearn.decomposition import FactorAnalysis
 from mcfa import mcfa, utils
 
 
-n_features = 8
-n_components = 30
+n_features = 15
+n_components = 2
 n_latent_factors = 3
 n_samples = 10000
 
-omega_scale = 1e-1
-noise_scale = 1e-1
+omega_scale = 1
+noise_scale = 1
 random_seed = 42
 
 X, truth = utils.generate_data(n_samples=n_samples,
