@@ -31,6 +31,7 @@
 
 \newcommand{\factorloads}{\textbf{L}}
 \newcommand{\factorscores}{\textbf{S}}
+\newcommand{\specificvariance}{\vec{D}}
 
 \newcommand{\scoremeans}{\vec\xi}
 \newcommand{\scorecovs}{\vec\Omega}
@@ -112,14 +113,16 @@ generative model for the data
 \end{equation}
 
 \noindent{}where $\factorloads$ is a $p \times d$ matrix of factor
-loads that is common to all data points, and the factor scores
+loads that is common to all data points, and the factor scores for
+the $i$th data point
 \begin{equation}
-	\factorscores \sim \mathcal{N}(\vec\xi_k, \vec\Omega_k)
+	\factorscores_i \sim \mathcal{N}(\vec\xi_k, \vec\Omega_k)
 \end{equation}
-\noindent{}is a \todo{$n \times p$} matrix where the entries
-are drawn from $k$ multivariate normal distributions.
-We assume $\vec{e} \sim \mathcal{N}\left(\vec{0}, \vec\psi\right)$
-is independent of the latent space, and $\vec\psi$ is a
+\noindent{}are drawn from the $k$th multivariate  normal distribution.
+The factor scores for all data points $\factorscores$ is then a 
+\todo{$n \times p$} matrix.
+ We assume $\vec{e} \sim \mathcal{N}\left(\vec{0}, \specificvariance\right)$
+is independent of the latent space, and $\specificvariance$ is a
 diagonal matrix of $d$ entries. 
 
 In this model each data point can be represented as being drawn
@@ -141,16 +144,48 @@ except we simultaneously estimate the factor loads
 can still be described as a `common factor load' $\factorloads_i$, 
 but its rarity would be represented by associated factor
 scores being zero for most stars and thus have no contribution
-to the observed abundances.
+to the observed abundances. The factor loads and factor scores 
+cannot be expressly interpreted like this because they have no
+physical meaning, but this description of relative yields and 
+rates should help build intuition for the model parameters,
+and provide an astrophysical context.
+
+
+One benefit of using a mixture of common factor analysers is
+for modelling stellar chemical abundances is the scaling with
+computational cost. If we considered data sets of order $3\times10^7$
+entries (e.g., 30 chemical abundances for $10^6$ stars) purely as a
+clustering problem, then even the most efficient clustering
+algorithms would incur a significant cumulative computational 
+overhead by searching the parameter space for the number of
+clusters, and the optimal model parameters given that number
+of components. However, because the mixture of factor analyzers
+approach assumes that there is a \emph{lower dimensional latent 
+space} in which the data are clustered, and that clustering is 
+projected into real space by common factor loads, the 
+dimensionality of the clustering problem is reduced from 
+$N \times D$ to $N \times J$. This reduces cost both through
+faster execution of each E-M step, and on average fewer E-M steps
+required to reach a specified convergence threshold.
+
+From a statistical standpoint, the primary advantage to using
+a mixture of factor analysers is that we can simultaneously
+estimate latent factors (e.g., infer nucleosynthetic 
+yields) and perform clustering (e.g., chemical tagging) 
+within a statistically consistent framework. That is to say
+that we have a generative model for the data that includes
+analogues of nucleosynthetic yields and star formation,
+and the parameters of this model can be estimated consistently
+given some data.
 
 Without loss of generality the density of the data $\vecdata$ can be modelled as
 \begin{equation}
-	f(\textbf{y}; \vec\Psi) = \sum_{k=1}^{K}\weight_{k}\phi(\textbf{y};\factorloads\scoremeans_k, \factorloads\scorecovs_k\factorloads\transpose + \eye\vec\psi)
+	f(\textbf{y}; \vec\Psi) = \sum_{k=1}^{K}\weight_{k}\phi(\textbf{y};\factorloads\scoremeans_k, \factorloads\scorecovs_k\factorloads\transpose + \eye\specificvariance)
 \end{equation}
 \noindent{}given $p$ common factor loadings and $K$ components
 clustered in the latent (factor score) space. Here the parameter
 vector
-$\vec\Psi$ includes $\{\factorloads,\vec\pi,\scoremeans,\scorecovs,\vec\psi\}$, and $\phi(\textbf{y};\vec\mu, \vec\Sigma)$
+$\vec\Psi$ includes $\{\factorloads,\vec\pi,\scoremeans,\scorecovs,\specificvariance\}$, and $\phi(\textbf{y};\vec\mu, \vec\Sigma)$
 describes the density of a multivariate gaussian distribution with
 mean $\vec\mu$ and covariance matrix $\vec\Sigma$,
 and $\weight_k$ describes the relative weighting of the $k$th
@@ -202,12 +237,14 @@ that the $n$th data point is associated to the $k$th component,
 given the data $\vecdata$ and the current estimate of the 
 parameter vector $\vec\Psi$:
 \begin{equation}
-	\tau_{nk} = \frac{\weight_k\phi(\vecdata_n;\factorloads\scoremeans_k, \factorloads\scorecovs_k\factorloads\transpose + \eye\vec\psi)}{\sum_{g=1}^{G}\weight_g\phi(\vecdata_n;\factorloads\scoremeans_g, \factorloads\scorecovs_g\factorloads\transpose + \eye\vec\psi)} \quad .
+	\tau_{nk} = \frac{\weight_k\phi(\vecdata_n;\factorloads\scoremeans_k, \factorloads\scorecovs_k\factorloads\transpose + \eye\specificvariance)}{\sum_{g=1}^{G}\weight_g\phi(\vecdata_n;\factorloads\scoremeans_g, \factorloads\scorecovs_g\factorloads\transpose + \eye\specificvariance)} \quad .
 \end{equation}
 
 
-% SVD complexity is O(n^3)
-% K-means++ complexity is O(log(k))
+% The complexity of SVD is O(n^3), and
+% the complexity of K-means++ is O(log(k)). If we knew the complexity of
+% k-means++ relative to N, then we would be able to make better decisions
+% as to how to initialise: SVD first and then K-means in latent space?
 
 
 
@@ -215,34 +252,122 @@ parameter vector $\vec\Psi$:
 
 % Include macros for \vec, \data, etc.
 At the maximization step we update our estimates of the parameters,
-conditioned on the data $y$ and the responsibility matrix $\tau$.
-
-
-
+conditioned on the data $y$ and the responsibility matrix $\vec\tau$.
+Initially we update the relative weights $\vec\weight\nextstep$ given
+the responsibility matrix $\vec\tau$
 \begin{equation}
-	\weight_k\nextstep = \frac{1}{N} \sum_{n=1}^{N}\tau_{nk}
+	\weight_k\nextstep = \frac{1}{N} \sum_{n=1}^{N}\tau_{nk} \quad .
 	% Include proof.
 \end{equation}
 
 
+%\noindent{}In the equations that follow (Equation~\ref{eq:X} to \ref{eq:Y})
+%when we refer to any value in $\{\factorloads,\vec\pi,\scoremeans,\scorecovs,\specificvariance\}$ for brevity we are referring to the current estimate of that
+%parameter (e.g., $\factorloads\thisstep$). The updated estimates are marked as such
+%(e.g., $\scoremeans\nextstep$). 
+
+The updated estimates of the mean factor scores 
+$\scoremeans\nextstep$ are given by
 \begin{eqnarray}
-	\vec\mu_{k}\nextstep = \vec\mu_{k}\thisstep + \vec\gamma\transpose \frac{1}{N\weight_k}\sum_{n=1}^{N}{(\vecdata\transpose - \vec{}A\vec\mu_{k}\thisstep)\vec\tau_{k}}
+	\scoremeans_{k}\nextstep = \scoremeans_{k}\thisstep + \frac{\vec{G}\transpose(\vecdata\transpose - \factorloads\thisstep\scoremeans_{k}\thisstep)\vec\tau_{k}}{N\weight_k\nextstep}
+\end{eqnarray}
+\noindent{}where:
+\begin{eqnarray}
+	\vec{W} &=& (\scorecovs_{k}\thisstep)^{-1}\eye \\
+	\vec{V} &=& \left(\specificvariance\thisstep\right)^{-1} \\
+	\vec{C} &=& (\vec{W} + (\factorloads\thisstep)\transpose\vec{V}\factorloads\thisstep)^{-1}\eye \\
+	\vec{G} &=& \left[\vec{V} - \vec{V}\factorloads\thisstep\vec{C}\left(\vec{V}\factorloads\thisstep\right)\transpose\right]\factorloads\thisstep\scorecovs_k\thisstep \quad .
 \end{eqnarray}
 
-% The intermediate stpe for phi:
+The covariance matrices of the components of factor scores $\scorecovs\nextstep$
+are updated next,
 \begin{equation}
-	\vec\phi = N\sum_{k=1}^{K}\weight_k\left[\vec\Omega_k\nextstep + \vec\mu_k\nextstep(\vec\mu_k\nextstep)\transpose\right]
+	\scorecovs_k\nextstep = \left(\eye - \vec{G}\transpose\factorloads\thisstep\right)\scorecovs_k\thisstep + \frac{\vec{G}\transpose\vec{Z}\left(\vec{Z}\vec\tau_k\transpose\right)\transpose\vec{G}}{N\weight_k\nextstep}
+\end{equation}
+\noindent{}where
+\begin{eqnarray}
+	\vec{Z} &=& \vecdata\transpose - \factorloads\thisstep\scoremeans_k\thisstep \quad .
+\end{eqnarray}
+
+After some linear algebra, updated estimates of the common factor loads $\factorloads\thisstep$
+can be found from
+\begin{equation}
+	\factorloads\nextstep = \factorloads_{1}\left(\factorloads_{2}^{-1}\eye\right)
+\end{equation}
+\noindent{}where:
+\begin{eqnarray}
+	\factorloads_1 &=& \sum_{k=1}^{K}\left[ \vec\tau_k\transpose\vecdata\left(\scoremeans_k\thisstep\right)\transpose + 
+	\vec{G}\transpose\vec\tau_k\vec{Z}\transpose\vec{G}\right] \\
+	%\left(\scoremeans_k\thisstep\vecdata\transpose\vec\tau_k\right)\transpose \left(\vec{G}\transpose\vec{Z}\vec\tau_k\transpose\vec{G}\right)\transpose\right]  \\
+	\factorloads_2 &=& N\sum_{k=1}^{K}\left[\weight_k\nextstep\left(\scorecovs_k\nextstep + \scoremeans_k\nextstep\left(\scoremeans_k\nextstep\right)\transpose\right)\right]
+\end{eqnarray}
+
+
+Finally, the updated estimate of the specific variances $\specificvariance\nextstep$ is given
+by
+\begin{equation}
+	\specificvariance\nextstep = \frac{1}{N}\left[\sum^{K}_{k=1}\vec\tau_k\transpose\left(\vecdata\odot\vecdata\right) - \sum_{j=1}^{J}\left(\factorloads\nextstep\factorloads_2\right)\odot\factorloads\nextstep\right]
 \end{equation}
 
-% And the update of the psi.
-\begin{equation}
-	\vec\psi\nextstep = \frac{1}{N}\left[\sum_{k=1}^{K}\vec\data^2\vec\tau_{k} - (\vec{}A\nextstep \vec\phi)\vec{}A\right]
-\end{equation}
+\noindent{}where $\odot$ denotes is the entrywise (Hadamard) product.
 
 
 \section{Experiments} \label{sec:experiments}
 
 \subsection{Toy model with generated data} \label{sec:experiment-toy-model}
+
+We generated a data set with $\todo{N = 100000}$ data points, each with
+$D = 15$ dimensions, and assumed that those data are generated by
+latent space of $J = 5$ ($J \times D$) factor loads, and there are $K = 20$
+clusters in the latent space. The relative weights $\vec\weight$
+are drawn from a multinomial distribution and the means of the clusters
+in factor scores $\scoremeans$ are drawn from a standard normal
+distribution. The covariance matrices in factor scores $\scorecovs$ are assumed to be \todo{low rank}, where the diagonal entries are drawn from a gamma distribution $\scorecovs_{k,i,i} \sim \Gamma(1)$. The variance in 
+each dimension $\specificvariance$ are also drawn $\specificvariance \sim \Gamma(1)$.
+The $i$th data point (which belongs to the $k$th cluster) is then
+generated by drawing $\factorscores_{i} \sim \mathcal{N}(\scoremeans_k,\scorecovs_k)$, projecting by the factor loads, and adding variance.
+
+Latent factor models are by definition indeterminate in that there are
+multiple solutions of the parameter vector $\vec\Psi$ which provide
+an identical data-generating process. This can be trivially shown by
+the fact that the factors loads and scores can be rotated with some rotation
+matrix $\textbf{R}$ and generate the exact same data. As a consequence,
+we cannot strictly evaluate our model fitting procedure by comparing
+how closely the inferred factor loads (or scores) match the true 
+variables. This is further complicated by \todo{orientation and order}
+of the latent factors: even if the inferred factor loads were very close
+to the true factor loads, they could be ordered differently, or have
+their signs reversed. Given these issues, we evaluate the search as
+being successful if the log probability given the estimated model
+parameters is within convergence tolerance (or better) than the
+log probability given the data and the true parameters.
+
+We fit this generated data using the expectation-maximization algorithm
+as described in the previous Section. After \todo{X} iterations
+(and a serial processing time of \todo{X} seconds) we
+reached our convergence threshold: the log probability increased by
+less than \todo{X} with each iteration. For this experiment we specified
+the number of latent factors $J$ and the number of clustering components
+$K$ to include, but below we repeat this experiment where the number
+of latent factors and clustering components is not known.
+
+We show a corner plot of the data in Figure~\ref{fig:toy-model-data}.
+In this figure we have over-plotted \todo{100000} samples generated by the
+estimated factor loads $\factorloads_{est}$ and the clustering in factor 
+scores $\scoremeans_{est}$ and $\scorecovs_{est}$ (weighted by $\vec\weight_{est}$)
+-- without adding variance $\specificvariance$ -- in order to illustrate that the
+estimated model parameters can realistically generate the data.
+This is despite the estimated factor loads being slightly different
+than the true factor loads (Figure~\ref{fig:toy-model-factor-loads}),
+a consequence of the uniqueness of latent factor models. The estimated
+latent space of factor scores is shown in Figure~\ref{fig:toy-model-factor-scores}
+where the estimated clustering of latent scores is shown.
+% Despite not matching perfectly, it generates the data? property of uniqueness?
+
+
+
+
+
 
 \subsection{GALAH} \label{sec:experiment-galah}
 
@@ -252,8 +377,16 @@ conditioned on the data $y$ and the responsibility matrix $\tau$.
 
 \section{Discussion} \label{sec:discussion}
 
-\section{Conclusion} \label{sec:conclusion}
+\section{Conclusions} \label{sec:conclusion}
 
+\acknowledgements 
+\todo{
+\begin{itemize}
+	\item ARC DP
+	\item GALAH acknowledgement
+	\item Gaia acknowledgement
+\end{itemize}
+}
 
 \software{
 	\package{Astropy} \citep{astropy:v1,astropy:v2},
