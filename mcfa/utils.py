@@ -29,7 +29,7 @@ def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2
 
     psi = rng.gamma(1, scale=noise_scale, size=n_features)
 
-    noise = psi * rng.randn(n_samples, n_features)
+    noise = np.sqrt(psi) * rng.randn(n_samples, n_features)
 
     X = scores @ A.T + noise
 

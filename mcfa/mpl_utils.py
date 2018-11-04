@@ -95,7 +95,7 @@ def plot_latent_space(model, X, ellipse_kwds=None, **kwargs):
     L = int(max(1, int(len(fig.axes)))**0.5)
     axes = np.atleast_2d(fig.axes).reshape((L, L)).T
 
-    kwds = dict(alpha=0.3, zorder=-1)
+    kwds = dict(alpha=0.3, zorder=-1, rasterized=True)
     kwds.update(ellipse_kwds or dict())
 
     scat = axes[0, 0].collections[0]

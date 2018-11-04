@@ -6,10 +6,13 @@ import numpy as np
 import warnings
 from copy import deepcopy
 from inspect import signature as inspect_signature
-from scipy import linalg
+from scipy import linalg, spatial
 from scipy.special import logsumexp
-from sklearn.cluster import KMeans
-from time import  time
+from sklearn import cluster
+from sklearn.utils import check_random_state
+from sklearn.utils.extmath import row_norms
+from time import time
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +21,7 @@ class MCFA(object):
 
     r""" A mixture of common factor analyzers model. """
 
-    def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=25, 
+    def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=5, 
                  tol=1e-5, verbose=1, random_seed=None, **kwargs):
         r"""
         A mixture of common factor analyzers model.
@@ -188,6 +191,7 @@ class MCFA(object):
                                          "initialisation point:")
 
         if best_theta is None:
+            raise exceptions[-1]
             raise ValueError("no initialisation point found")
 
         return best_theta
@@ -389,7 +393,8 @@ class MCFA(object):
             A2 += (omega[:, :, i] + xi[:, [i]] @ xi[:, [i]].T) * ti[i]
         
         A = A1 @ linalg.solve(A2, I_J)
-        Di = np.sum(self._X2.T @ tau[np.newaxis], axis=2)
+        Di = np.sum(self._X2.T @ tau, axis=1)
+
         psi = (Di - np.sum((A @ A2) * A, axis=1)) / N
         
         pi = ti / N
@@ -448,7 +453,8 @@ class MCFA(object):
         prev_ll, tau = self.expectation(X, *theta)
 
         # Run E-M.
-        for n_iter in range(self.max_iter):
+        tqdm_kwds = dict(desc="E-M", total=self.max_iter)
+        for n_iter in tqdm(range(self.max_iter), **tqdm_kwds):
 
             theta = self.maximization(X, tau, *theta)            
             ll, tau = self.expectation(X, *theta)
@@ -554,7 +560,7 @@ class MCFA(object):
         return X
 
 
-def _initial_assignments(X, n_components, n_kmeans_init):
+def _initial_assignments(X, n_components, n_kmeans_init, random_state=None):
     r"""
     Estimate the initial assignments of each sample to each component in the
     mixture.
@@ -576,8 +582,18 @@ def _initial_assignments(X, n_components, n_kmeans_init):
     """
 
     assignments = np.empty((n_kmeans_init, X.shape[0]))
+    #for i in range(n_kmeans_init):
+    #    assignments[i] = KMeans(n_components).fit(X).labels_
+    
+    random_state = check_random_state(random_state)
+    squared_norms = row_norms(X, squared=True)
+
     for i in range(n_kmeans_init):
-        assignments[i] = KMeans(n_components).fit(X).labels_
+        means = cluster.k_means_._k_init(X, n_components,
+                                         random_state=random_state,
+                                         x_squared_norms=squared_norms)
+        assignments[i] = np.argmin(spatial.distance.cdist(means, X), axis=0)
+
 
     # Check for duplicate initial assignments. Don't allow them.
     return np.atleast_2d(np.vstack({tuple(a) for a in assignments}).astype(int))
