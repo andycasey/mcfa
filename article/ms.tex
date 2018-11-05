@@ -416,11 +416,18 @@ with reliable measurements, from highest to lowest. Starting
 with Fe, we iterated over each element and counted the number
 of stars with reliable measurements of that element and all
 other elements earlier in the list. We illustrate this process
-in Figure~\ref{fig:galah-abundance-flags}, where we show that
+in Figure~\ref{fig:galah-abundances}, where we show that
 if we include the top 15 elemental abundances, we would have
 \todo{X} stars with reliable measurements in all fifteen elements.
 This is relevant to the approach we use here, as the method
 described here requires no missing data.
+
+\begin{figure*}
+	\includegraphics[width=1.0\textwidth]{experiments/galah-abundances.png}
+    \caption{\todo{Caption}}
+    \label{fig:galah-abundances}
+\end{figure*}
+
 
 % Where do we go down to?
 % What elements do we add /remove.
@@ -433,7 +440,23 @@ pathways, including \todo{X}.
 It is this subsample that we will use for experiments
 in chemical tagging.
 
-\subsubsection{Search strategy} \label{sec:experiment-galah-search}
+%\subsubsection{Search strategy} \label{sec:experiment-galah-search}
+
+The expectation-maximization procedure outlined in Section \ref{sec:methods} describes 
+the process of refining our estimate of the model parameters $\vec\psi$ until
+the improvement in log probability between iterations decreases below some
+pre-defined threshold. This method is valid for a pre-defined number of latent
+factors, and a pre-defined number of components to cluster in latent space.
+In practice these values are not known. For the purposes of this work, we 
+perform a grid-based search in $J$ and $K$, perform E-M for each combination of
+$J$ and $K$, and record the optimal parameters.
+
+We trial the number of latent factors from $J = 1$ to $J = 10$, and trial the
+number of clustering components from $K = 1$ to $K = 100$. We re-initialise the
+mixture for each new trial of $\{J, K\}$, and do not make use of results from
+`nearby' mixtures. 
+
+% Run this.
 
 % Unknown number of latent factors and unknown number of latent scores
 
