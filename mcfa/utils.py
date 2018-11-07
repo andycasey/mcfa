@@ -1,6 +1,6 @@
 
 import numpy as np
-from sklearn.datasets import make_blobs
+
 
 
 def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2,
@@ -125,4 +125,115 @@ def simulate_example_data(N, D, J, K=1, seed=None, full_output=False, **kwargs):
                        responsibility=responsibility))
 
     return (X, truths) if full_output else X
+
+
+
+
+def latent_factor_rotation_matrix(A_star, A):
+    r"""
+    Return a rotation amtrix :math:`\mathbf{R}` that will orient and flip the 
+    latent factors `A_star` to be as close as possible to `A` such that
+
+    .. math:
+
+        A \approx A_star @ R
+
+
+    :param A_star:
+        The latent factors to perform the rotation on.
+
+    :param A:
+        The latent factors that we seek to approximate.
+
+    :returns:
+        A rotation matrix :math:`\mathbf{R}`.
+    """
+    D, J = A.shape
+    D_star, J_star = A_star.shape
+
+    # We need to identify each factor (e.g. compare to closest) and allow for it
+    # to be flipped, and off-centered.
+
+    # This requires us to determine best fitting coefficients for each pair-wise
+    # comparison, and then decide on a rank ordering.
+    I = np.eye(D)
+
+    chi2 = np.inf * np.ones((J, J_star))
+    all_params = np.empty((J, J_star, 2))
+
+    for j, A_j in enumerate(A.T):
+        for j_star, A_jstar in enumerate(A_star.T):
+
+            DM = np.vstack((np.ones(D), A_jstar)).T
+            C = np.linalg.inv(DM.T @ np.linalg.solve(I, DM))
+            P = np.atleast_2d(C @ (DM.T @ np.linalg.solve(I, A_j)))
+
+            all_params[j, j_star] = P
+            chi2[j, j_star] = np.sum(((P @ DM.T) - A_j)**2)
+
+    # Rank order the matrix.
+    order = np.argmin(chi2, axis=1)
+
+    R = np.zeros((J, J))
+    R[order, np.arange(J)] = np.sign(np.diag(all_params[:, :, 1][:, order]))
+
+    return R.astype(int)
+
+
+
+if __name__ == "__main__":
+
+
+    import numpy as np
+
+    np.random.seed(42)
+
+    J = 6
+    D = 15
+
+    A = np.random.uniform(-1, 1, size=(D, J))
+
+    # Randomly flip them.
+    signs = np.sign(np.random.uniform(-1, 1, size=J))
+
+    # Add a little noise to the signs
+    signs = np.random.normal(signs, 0.05 * np.ones(J))
+
+
+    # Add a little bias.
+    bias = np.random.normal(0, 0.05 * np.ones(J))
+
+    A_star = signs * A + bias
+
+    # Re-order them.
+    indices = np.random.choice(J, J, replace=False)
+    A_star = A_star[:, indices]
+    print(f"True indices: {indices}")
+    print(f"True signs: {signs}")
+
+    R = latent_factor_rotation_matrix(A_star, A)
+
+    A_prime = A_star @ R
+
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+    fig, axes = plt.subplots(1, 2, figsize=(8, 4))
+    ax_before, ax_after = axes
+
+    for j in range(J):
+
+        color = colors[j]
+
+        ax_before.plot(A.T[j], c=color)
+        ax_before.plot(A_star.T[j], c=color, alpha=0.5)
+
+        ax_after.plot(A.T[j], c=color)
+        ax_after.plot(A_prime.T[j], c=color, alpha=0.5)
+
+    ax_before.set_title("before")
+    ax_after.set_title("after")
+
+
+    raise a
+
 
