@@ -1,6 +1,7 @@
 
 """ Mixture of common factor analyzers. """
 
+import json
 import logging
 import numpy as np
 import warnings
@@ -21,7 +22,7 @@ class MCFA(object):
 
     r""" A mixture of common factor analyzers model. """
 
-    def __init__(self, n_components, n_latent_factors, max_iter=500, n_init=5, 
+    def __init__(self, n_components, n_latent_factors, max_iter=10000, n_init=5, 
                  tol=1e-5, verbose=1, random_seed=None, **kwargs):
         r"""
         A mixture of common factor analyzers model.
@@ -72,6 +73,40 @@ class MCFA(object):
 
         self.verbose = int(verbose)
         return None
+
+
+    def serialize(self):
+        r"""
+        Serialize the object so that it can be saved to disk.
+        """
+        result = dict()
+        for result_attr in ("tau_", "theta_", "log_likelihood_", "n_iter_"):
+            value = getattr(self, result_attr, None)
+            if value is not None:
+                result[result_attr] = value
+
+        return json.dumps({
+            "class": self.__class__.__name__,
+            "args": (self.n_components, self.n_latent_factors),
+            "kwargs": dict(max_iter=self.max_iter,
+                           n_init=self.n_init,
+                           tol=self.tol,
+                           verbose=self.verbose,
+                           random_seed=self.random_seed),
+            "result": result
+        })
+
+
+    @classmethod
+    def deserialize(cls, data):
+
+        params = json.loads(data)
+
+        klass = cls(*params["args"], **params["kwargs"])
+        for k, v in params["result"].items():
+            setattr(klass, k, v)
+
+        return klass
 
 
     def _check_data(self, X):
@@ -156,6 +191,11 @@ class MCFA(object):
             and the variance in each dimension :math:`\psi`.
         """
 
+        previous_theta = getattr(self, "theta_", None)
+        if previous_theta is not None:
+            logger.warn("Running from previous estimates of theta")
+            return previous_theta
+
         # Do initial partitions (either randomly or by k-means).
         assignments = _initial_assignments(X, self.n_components, self.n_init)
         best_theta, best_log_likelihood = (None, -np.inf)
@@ -222,9 +262,8 @@ class MCFA(object):
             The number of model parameters, :math:`Q`.
         """
 
-        J, K = self.n_components, self.n_latent_factors
+        J, K = self.n_latent_factors, self.n_components
         return int((K - 1) + D + J*(D + K) + (K*J*(J+1))/2 - J**2)
-
 
     def expectation(self, X, pi, A, xi, omega, psi):
         r"""
@@ -429,7 +468,7 @@ class MCFA(object):
         return (converged, current, ratio)
 
 
-    def fit(self, X, init_params=None):
+    def fit(self, X, init_params=None, **kwargs):
         r"""
         Fit the model to the data, :math:`Y`.
 
@@ -447,14 +486,22 @@ class MCFA(object):
         np.random.seed(self.random_seed)
 
         X = self._check_data(X)
-        theta = self._initial_parameters(X) if init_params is None \
-                                            else deepcopy(init_params) 
+        if kwargs.get("__init_hypothesis", False):
+            logger.warn("Using magic __init_hypothesis flag")
+            theta = _initial_parameters_from_noise(X, self.n_components, self.n_latent_factors)
+
+        else:
+            theta = self._initial_parameters(X) if init_params is None \
+                                                else deepcopy(init_params) 
 
         prev_ll, tau = self.expectation(X, *theta)
 
+        # TODO: start n_iter counter from previous value if we are starting from
+        #       a previously optimised value.
+
         # Run E-M.
         tqdm_kwds = dict(desc="E-M", total=self.max_iter)
-        for n_iter in tqdm(range(self.max_iter), **tqdm_kwds):
+        for n_iter in tqdm(range(1, 1 + self.max_iter), **tqdm_kwds):
 
             theta = self.maximization(X, tau, *theta)            
             ll, tau = self.expectation(X, *theta)
@@ -526,6 +573,46 @@ class MCFA(object):
         return np.log(N) * self.number_of_parameters(D) - 2 * log_likelihood
 
 
+    def pseudo_bic(self, X, gamma=0.1, omega=1, theta=None):
+        r"""
+        Estimate the pseudo Bayesian Information Criterion given the model and
+        the data as per Gao and Carroll (2017):
+
+        .. math:
+
+            \textrm{pseudo - BIC} = 6(1 + \gamma)\omega\log{N}Q - 2\log{mathcal{L}}
+
+        :param X:
+            The data, :math:`X`, which is expected to be an array of shape
+            [n_samples, n_features].
+
+        :param theta: [optional]
+            The model parameters :math:`\theta`. If None is given then the
+            model parameters from `self.theta_` will be used.
+
+        :returns:
+            The Bayesian Information Criterion (BIC) for the model and the data.
+            A smaller BIC value is often used as a statistic to select a single
+            model from a class of models.
+        """
+
+        if not gamma > 0:
+            raise ValueError("gamma should be greater than zero")
+
+        if not omega >= 1:
+            raise ValueError("omega should be at least unity or higher")
+
+        if theta is None:
+            theta = self.theta_
+
+        N, D = np.atleast_2d(X).shape
+        log_likelihood, tau = self.expectation(X, *theta)
+        Q = self.number_of_parameters(D)
+
+        return 6 * (1 + gamma) * omega * np.log(N) * Q - 2 * log_likelihood
+
+
+
     def sample(self, n_samples=1):
         r"""
         Generate random samples from the fitted model.
@@ -558,6 +645,8 @@ class MCFA(object):
         X += np.random.multivariate_normal(np.zeros(D), np.diag(psi), N)
 
         return X
+
+
 
 
 def _initial_assignments(X, n_components, n_kmeans_init, random_state=None):
@@ -597,6 +686,30 @@ def _initial_assignments(X, n_components, n_kmeans_init, random_state=None):
 
     # Check for duplicate initial assignments. Don't allow them.
     return np.atleast_2d(np.vstack({tuple(a) for a in assignments}).astype(int))
+
+
+def _initial_parameters_from_noise(X, n_components, n_latent_factors):
+
+    N, D = X.shape
+    xi = np.empty((n_latent_factors, n_components))
+    omega = np.empty((n_latent_factors, n_latent_factors, n_components))
+    pi = np.empty(n_components)
+
+    # randomly set assignments.
+    assignments = np.random.choice(n_components, N)
+
+    A = np.random.uniform(-1, 1, size=(D, n_latent_factors))
+
+    for i in range(n_components):
+        match = (assignments == i)
+        pi[i] = float(sum(match)) / N
+        xs = X[match] @ A
+        xi[:, i] = np.mean(xs, axis=0)
+        omega[:, :, i] = np.cov(xs.T)
+
+    psi = np.ones(D)
+    return (pi, A, xi, omega, psi)
+
 
 
 def _initial_parameters(X, n_components, n_latent_factors, assignments,
