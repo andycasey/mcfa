@@ -129,55 +129,82 @@ def simulate_example_data(N, D, J, K=1, seed=None, full_output=False, **kwargs):
 
 
 
-def latent_factor_rotation_matrix(A_star, A):
+def latent_factor_rotation_matrix(A_prime, A):
     r"""
     Return a rotation amtrix :math:`\mathbf{R}` that will orient and flip the 
-    latent factors `A_star` to be as close as possible to `A` such that
+    latent factors `A_prime` to be as close as possible to `A` such that
 
     .. math:
 
-        A \approx A_star @ R
+        A \approx A_{prime} R
 
 
-    :param A_star:
+    :param A_prime:
         The latent factors to perform the rotation on.
 
     :param A:
         The latent factors that we seek to approximate.
 
     :returns:
-        A rotation matrix :math:`\mathbf{R}`.
+        A rotation matrix :math:`\mathbf{R}` that can be used as `A_prime @ R`
+        to approximate `A`.
     """
+
     D, J = A.shape
-    D_star, J_star = A_star.shape
+    D_prime, J_prime = A_prime.shape
+
+    if A.shape != A_prime.shape:
+        raise ValueError("A_prime and A must have the same shape")
 
     # We need to identify each factor (e.g. compare to closest) and allow for it
     # to be flipped, and off-centered.
-
-    # This requires us to determine best fitting coefficients for each pair-wise
-    # comparison, and then decide on a rank ordering.
     I = np.eye(D)
 
-    chi2 = np.inf * np.ones((J, J_star))
-    all_params = np.empty((J, J_star, 2))
+    chi2 = np.inf * np.ones((J, J_prime))
+    all_params = np.empty((J, J_prime, 2))
 
     for j, A_j in enumerate(A.T):
-        for j_star, A_jstar in enumerate(A_star.T):
+        for j_prime, A_jstar in enumerate(A_prime.T):
 
             DM = np.vstack((np.ones(D), A_jstar)).T
             C = np.linalg.inv(DM.T @ np.linalg.solve(I, DM))
             P = np.atleast_2d(C @ (DM.T @ np.linalg.solve(I, A_j)))
 
-            all_params[j, j_star] = P
-            chi2[j, j_star] = np.sum(((P @ DM.T) - A_j)**2)
+            all_params[j, j_prime] = P
+            chi2[j, j_prime] = np.sum(((P @ DM.T) - A_j)**2)
 
     # Rank order the matrix.
-    order = np.argmin(chi2, axis=1)
-
     R = np.zeros((J, J))
+
+    # Here we perform the assignments based on the best chi-sq achievable for
+    # each factor, so that if one factor is very similar to two others, we do
+    # not end up with one factor being assigned to two others, and one factor
+    # being zero-d out  entirely.
+    order_assignments = np.argsort(np.min(chi2, axis=1))
+
+    order = np.zeros(J, dtype=int)
+    for i, order_assignment in enumerate(order_assignments):
+
+        # Check the index for the best chi-sq for this factor, and only adopt it
+        # if that index has not been assigned yet.
+        for idx in np.argsort(chi2[order_assignment]):
+            if idx not in order[order_assignments[:i]]:
+                break
+
+        order[order_assignment] = idx
+
+    # If we didn't have to worry about multiple assignments to different factors
+    # then we could just do:
+    #order = np.argmin(chi2, axis=1)
+
     R[order, np.arange(J)] = np.sign(np.diag(all_params[:, :, 1][:, order]))
 
-    return R.astype(int)
+    R = R.astype(int)
+
+    # Check that we have only made one re-assignment per factor!
+    assert np.alltrue(np.sum(R != 0, axis=1) == np.ones(J, dtype=int))
+
+    return R
 
 
 
@@ -188,7 +215,7 @@ if __name__ == "__main__":
 
     np.random.seed(42)
 
-    J = 6
+    J = 10
     D = 15
 
     A = np.random.uniform(-1, 1, size=(D, J))
@@ -208,8 +235,6 @@ if __name__ == "__main__":
     # Re-order them.
     indices = np.random.choice(J, J, replace=False)
     A_star = A_star[:, indices]
-    print(f"True indices: {indices}")
-    print(f"True signs: {signs}")
 
     R = latent_factor_rotation_matrix(A_star, A)
 
@@ -217,8 +242,9 @@ if __name__ == "__main__":
 
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-    fig, axes = plt.subplots(1, 2, figsize=(8, 4))
-    ax_before, ax_after = axes
+    fig, axes = plt.subplots(2, 2, figsize=(8, 8))
+    ax_before, ax_after = axes[0]
+    ax_before_diff, ax_after_diff = axes[1]
 
     for j in range(J):
 
@@ -230,10 +256,45 @@ if __name__ == "__main__":
         ax_after.plot(A.T[j], c=color)
         ax_after.plot(A_prime.T[j], c=color, alpha=0.5)
 
+        before_diff = A.T[j] - A_star.T[j]
+        after_diff = A.T[j] - A_prime.T[j]
+
+        ax_before_diff.plot(before_diff - np.mean(before_diff), c=color)
+        ax_after_diff.plot(after_diff - np.mean(after_diff), c=color)
+
+
     ax_before.set_title("before")
     ax_after.set_title("after")
 
+    for ax in (ax_before, ax_after):
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.axhline(0, -1, D + 1, c="k", linestyle=":", linewidth=0.5, zorder=-1)
 
-    raise a
+        ax.set_xlim(0 - 0.5, D - 0.5)
+
+        abs_ylim = np.max(np.abs(ax.get_ylim()))
+        ax.set_ylim(-abs_ylim, +abs_ylim)
+
+    abs_ylim = np.max([np.max(np.abs(ax.get_ylim())) for ax in (ax_before_diff, ax_after_diff)])
+
+    for ax in (ax_before_diff, ax_after_diff):
+
+        ax.set_xlim
+
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.axhline(0, -1, D + 1, c="k", linestyle=":", linewidth=0.5, zorder=-1)
+
+        ax.set_xlim(0 - 0.5, D - 0.5)
+
+        ax.set_ylim(-abs_ylim, +abs_ylim)
+
+    ax_before.set_ylabel(r"$A$")
+    ax_before_diff.set_ylabel(r"$\Delta{A} - \langle\Delta{A}\rangle$")
+
+    fig.tight_layout()
+
+    fig.savefig("../rotate_factors.png", dpi=150)
 
 
