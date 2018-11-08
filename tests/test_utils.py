@@ -8,7 +8,7 @@ from mcfa import utils
 np.random.seed(42)
 
 
-def test_latent_factor_rotation(D=15, J=10):
+def test_latent_factor_rotation(D=15, J=10, noise=0.05):
 
     # Generate fake factors.
     A = np.random.uniform(-1, 1, size=(D, J))
@@ -17,10 +17,10 @@ def test_latent_factor_rotation(D=15, J=10):
     true_signs = np.sign(np.random.uniform(-1, 1, size=J)).astype(int)
 
     # Add a little noise to the signs
-    m = np.random.normal(true_signs, 0.05 * np.ones(J))
+    m = np.random.normal(true_signs, noise, J)
 
     # Add a little bias.
-    b = np.random.normal(0, 0.05 * np.ones(J))
+    b = np.random.normal(0, noise, J)
 
     A_prime = m * A + b
 
@@ -40,3 +40,8 @@ def test_latent_factor_rotation(D=15, J=10):
     inferred_signs = R.T[nonzero.T]
     assert np.alltrue(true_signs == inferred_signs)
 
+
+def test_latent_factor_rotation_many_times(N=1000, D=15, J=10, noise=0.05):
+    
+    for i in range(N):
+        test_latent_factor_rotation(D=D, J=J, noise=noise)

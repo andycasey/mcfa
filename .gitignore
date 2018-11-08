@@ -2,10 +2,13 @@
 .DS_Store
 
 catalogs
+.cache
 __pycache__/
 notebooks/.ipynb_checkpoints/
+*.egg-info/
 
 build/
+dist/
 *.pyc
 develop/
 
@@ -18,3 +21,5 @@ article/*.pyg
 article/*.bib
 article/vc.tex
 article/*.synctex.gz
+
+sandbox_*.py
