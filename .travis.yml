@@ -6,6 +6,7 @@ install:
     - source .ci/install.sh
 
 script:
+    - py.test -v -s
     - source .ci/build.sh
 
 after_success: |

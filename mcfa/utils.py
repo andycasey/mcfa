@@ -174,7 +174,7 @@ def latent_factor_rotation_matrix(A_prime, A):
             chi2[j, j_prime] = np.sum(((P @ DM.T) - A_j)**2)
 
     # Rank order the matrix.
-    R = np.zeros((J, J))
+    R = np.zeros((J, J), dtype=int)
 
     # Here we perform the assignments based on the best chi-sq achievable for
     # each factor, so that if one factor is very similar to two others, we do
@@ -198,8 +198,6 @@ def latent_factor_rotation_matrix(A_prime, A):
     #order = np.argmin(chi2, axis=1)
 
     R[order, np.arange(J)] = np.sign(np.diag(all_params[:, :, 1][:, order]))
-
-    R = R.astype(int)
 
     # Check that we have only made one re-assignment per factor!
     assert np.alltrue(np.sum(R != 0, axis=1) == np.ones(J, dtype=int))
