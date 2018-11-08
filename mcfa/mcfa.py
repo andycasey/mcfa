@@ -22,8 +22,9 @@ class MCFA(object):
 
     r""" A mixture of common factor analyzers model. """
 
-    def __init__(self, n_components, n_latent_factors, max_iter=10000, n_init=5, 
-                 tol=1e-5, verbose=1, random_seed=None, **kwargs):
+    def __init__(self, n_components, n_latent_factors, max_iter=10000, tol=1e-5,
+                 init_method="random", n_init=5, verbose=1, random_seed=None, 
+                 **kwargs):
         r"""
         A mixture of common factor analyzers model.
 
@@ -35,12 +36,17 @@ class MCFA(object):
 
         :param max_iter: [optional]
             The maximum number of expectation-maximization iterations.
-
-        :param n_init: [optional]
-            The number of initialisations to run using the k-means algorithm.
-
+    
         :param tol: [optional]
             Relative tolerance before declaring convergence.
+
+        :init_method: [optional]
+            The initialisation method to use. Available options are: 'random' or
+            'svd+kmeans++'.
+
+        :param n_init: [optional]
+            The number of initialisations to run if k-means++ is used during
+            initialisation.
 
         :param verbose: [optional]
             Show warning messages.
@@ -55,6 +61,7 @@ class MCFA(object):
         self.n_init = int(n_init)
         self.tol = float(tol)
         self.random_seed = random_seed
+        self.init_method = str(init_method).lower().strip()
 
         if self.n_latent_factors < 1:
             raise ValueError("n_latent_factors must be a positive integer")
@@ -70,6 +77,10 @@ class MCFA(object):
 
         if self.tol <= 0:
             raise ValueError("tol must be greater than zero")
+
+        available_init_methods = ("random", "svd+kmeans++")
+        if self.init_method not in available_init_methods:
+            raise ValueError(f"init_method must be one of {available_init_methods}")
 
         self.verbose = int(verbose)
         return None
@@ -169,7 +180,7 @@ class MCFA(object):
                     f"pre-computed X^2 does not match actual X^2 at {i}, {j} "\
                     f"({expected} != {actual})")
 
-        return True
+        return self._X2
 
 
     def _initial_parameters(self, X):
@@ -196,45 +207,20 @@ class MCFA(object):
             logger.warn("Running from previous estimates of theta")
             return previous_theta
 
-        # Do initial partitions (either randomly or by k-means).
-        assignments = _initial_assignments(X, self.n_components, self.n_init)
-        best_theta, best_log_likelihood = (None, -np.inf)
+        args = (X, self.n_components, self.n_latent_factors)
+        kwargs = dict(verbose=self.verbose, n_init=self.n_init)
 
-        exceptions = []
+        funcs = {
+            "random": _initialise_parameters_randomly,
+            "svd+kmeans++": _initialise_parameters_by_svd_and_kmeanspp
+        }
 
-        for i, assignment in enumerate(assignments):
-            try:
-                params = _initial_parameters(X, 
-                                             self.n_components, 
-                                             self.n_latent_factors,
-                                             assignment)
+        func = funcs.get(self.init_method, None)
+        if func is None:
+            raise ValueError(f"unknown initialisation method {self.init_method}")
 
-            except ValueError as exception:
-                exceptions.append(exception)
-                if self.verbose > 0:
-                    logger.exception("Exception in initializing:")
+        return func(*args, **kwargs)
 
-            else:
-
-                # Run one E-M step from this initial guess.
-                try:                
-                    log_likelihood, tau = self.expectation(X, *params)
-                    theta = self.maximization(X, tau, *params)
-                    
-                    if log_likelihood > best_log_likelihood:
-                        best_theta, best_log_likelihood = (theta, log_likelihood)
-
-                except Exception as exception:
-                    exceptions.append(exception)
-                    if self.verbose > 0:
-                        logger.exception("Exception in running E-M step from "\
-                                         "initialisation point:")
-
-        if best_theta is None:
-            raise exceptions[-1]
-            raise ValueError("no initialisation point found")
-
-        return best_theta
 
 
     @property
@@ -264,6 +250,7 @@ class MCFA(object):
 
         J, K = self.n_latent_factors, self.n_components
         return int((K - 1) + D + J*(D + K) + (K*J*(J+1))/2 - J**2)
+
 
     def expectation(self, X, pi, A, xi, omega, psi):
         r"""
@@ -305,46 +292,8 @@ class MCFA(object):
             component in the mixture.
         """
 
-        N, D = X.shape
-
-        I_D = np.eye(D)
-        I_psi = I_D * psi
-        U = (np.diag(1.0/psi) @ A).T
-
-        log_prob = np.zeros((N, self.n_components))
-        log_prob_constants = -0.5 * (np.sum(np.log(psi)) + D * np.log(2*np.pi))
-        
-        for i, (xi_, omega_) in enumerate(zip(xi.T, omega.T)):
-
-            mu = A @ xi_
-            A_omega_ = A @ omega_
-            cov = A_omega_ @ A.T + I_psi
-
-            precision = _compute_precision_cholesky_full(cov)
-            dist = np.sum(
-                np.square(np.dot(X, precision) - np.dot(mu, precision)), axis=1)
-
-            # Use matrix determinant lemma:
-            # det(A + U @V.T) = det(I + V.T @ A^-1 @ U) * det(A)
-            # here A = omega^{-1}; U = (\psi^-1 @ A).T; V = A.T
-            
-            # and making use of det(A) = 1.0/det(A^-1)
-
-            with warnings.catch_warnings():
-                if 1 > self.verbose: warnings.simplefilter("ignore")
-
-                # log(det(omega)) + log(det(I + A @ omega @ U)/det(omega)) \
-                # = log(det(I + A @ omega @ U))
-                _, logdetD = np.linalg.slogdet(I_D + A @ omega_ @ U)
-
-            log_prob[:, i] = -0.5 * dist - 0.5 * logdetD + log_prob_constants
-
-        weighted_log_prob = log_prob + np.log(pi)
-        log_prob = logsumexp(weighted_log_prob, axis=1)
-        with np.errstate(under="ignore"):
-            log_tau = weighted_log_prob - log_prob[:, np.newaxis]
-
-        return (np.sum(log_prob), np.exp(log_tau))
+        return _expectation(X, pi, A, xi, omega, psi,
+                            verbose=self.verbose)
 
 
     def maximization(self, X, tau, pi, A, xi, omega, psi):
@@ -392,53 +341,8 @@ class MCFA(object):
             and the variance in each dimension :math:`\psi`.
         """
 
-        self._check_precomputed_X2(X)
-
-        N, D = X.shape
-
-        inv_D = np.diag(1.0/psi)
-
-        A1 = np.zeros((D, self.n_latent_factors))
-        A2 = np.zeros((self.n_latent_factors, self.n_latent_factors))
-        Di = np.zeros(D)
-
-        inv_D_A = inv_D @ A
-
-        ti = np.sum(tau, axis=0).astype(float)
-        
-        I_J = np.eye(self.n_latent_factors)
-
-        for i, tau_ in enumerate(tau[np.newaxis].T):
-
-            W = linalg.solve(omega[:, :, i], I_J)
-            C = linalg.solve(W + A.T @ inv_D_A, I_J)
-            gamma = (inv_D - inv_D_A @ C @ inv_D_A.T) @ A @ omega[:, :, i]
-
-            xi_ = np.copy(xi[:, [i]])
-
-            Y_Axi_i = X.T - A @ xi_
-            tY_Axi_i = Y_Axi_i * tau_.T
-
-            xi[:, i] += gamma.T @ (np.sum(tY_Axi_i, axis=1) / ti[i])
-
-            diff = (xi_ - xi[:, [i]])
-
-            omega[:, :, i] = (I_J - gamma.T @ A) @ omega[:, :, i] \
-                           + gamma.T @ Y_Axi_i @ tY_Axi_i.T @ gamma / ti[i] \
-                           - diff @ diff.T
-
-            A1 += np.atleast_2d(np.sum(X * tau_, axis=0)).T @ xi_.T \
-                + X.T @ tY_Axi_i.T @ gamma
-            A2 += (omega[:, :, i] + xi[:, [i]] @ xi[:, [i]].T) * ti[i]
-        
-        A = A1 @ linalg.solve(A2, I_J)
-        Di = np.sum(self._X2.T @ tau, axis=1)
-
-        psi = (Di - np.sum((A @ A2) * A, axis=1)) / N
-        
-        pi = ti / N
-
-        return (pi, A, xi, omega, psi)
+        return _maximization(X, tau, pi, A, xi, omega, psi,
+                             X2=self._check_precomputed_X2(X))
 
 
     def _check_convergence(self, previous, current):
@@ -486,13 +390,9 @@ class MCFA(object):
         np.random.seed(self.random_seed)
 
         X = self._check_data(X)
-        if kwargs.get("__init_hypothesis", False):
-            logger.warn("Using magic __init_hypothesis flag")
-            theta = _initial_parameters_from_noise(X, self.n_components, self.n_latent_factors)
 
-        else:
-            theta = self._initial_parameters(X) if init_params is None \
-                                                else deepcopy(init_params) 
+        theta = self._initial_parameters(X) if init_params is None \
+                                            else deepcopy(init_params) 
 
         prev_ll, tau = self.expectation(X, *theta)
 
@@ -688,7 +588,7 @@ def _initial_assignments(X, n_components, n_kmeans_init, random_state=None):
     return np.atleast_2d(np.vstack({tuple(a) for a in assignments}).astype(int))
 
 
-def _initial_parameters_from_noise(X, n_components, n_latent_factors):
+def _initialise_parameters_randomly(X, n_components, n_latent_factors, **kwargs):
 
     N, D = X.shape
     xi = np.empty((n_latent_factors, n_components))
@@ -710,6 +610,49 @@ def _initial_parameters_from_noise(X, n_components, n_latent_factors):
     psi = np.ones(D)
     return (pi, A, xi, omega, psi)
 
+
+def _initialise_parameters_by_svd_and_kmeanspp(X, n_components, n_latent_factors,
+                                               n_init=5, verbose=1):
+
+    # Do initial partitions (either randomly or by k-means).
+    assignments = _initial_assignments(X, n_components, n_init)
+    best_theta, best_log_likelihood = (None, -np.inf)
+
+    exceptions = []
+
+    for i, assignment in enumerate(assignments):
+        try:
+            params = _initial_parameters(X, 
+                                         n_components, 
+                                         n_latent_factors,
+                                         assignment)
+
+        except ValueError as exception:
+            exceptions.append(exception)
+            if verbose > 0:
+                logger.exception("Exception in initializing:")
+
+        else:
+
+            # Run one E-M step from this initial guess.
+            try:                
+                log_likelihood, tau = _expectation(X, *params, verbose=verbose)
+                theta = _maximization(X, tau, *params)
+                
+                if log_likelihood > best_log_likelihood:
+                    best_theta, best_log_likelihood = (theta, log_likelihood)
+
+            except Exception as exception:
+                exceptions.append(exception)
+                if verbose > 0:
+                    logger.exception("Exception in running E-M step from "\
+                                     "initialisation point:")
+
+    if best_theta is None:
+        raise exceptions[-1]
+        raise ValueError("no initialisation point found")
+
+    return best_theta
 
 
 def _initial_parameters(X, n_components, n_latent_factors, assignments,
@@ -764,6 +707,194 @@ def _initial_parameters(X, n_components, n_latent_factors, assignments,
     psi = np.ones(D) * np.nanmean(small_w[small_w > 0]**2)
 
     return (pi, A, xi, omega, psi)
+
+
+def _expectation(X, pi, A, xi, omega, psi, verbose=1):
+    r"""
+    Compute the conditional expectation of the complete-data log-likelihood
+    given the observed data :math:`X` and the given model parameters.
+
+    :param X:
+        The data, which is expected to be an array with shape [n_samples, 
+        n_features].
+
+    :param pi:
+        The relative weights for the components in the mixture. This should
+        have size `n_components` and the entries should sum to one.
+
+    :param A:
+        The common factor loads between mixture components. This should have
+        shape [n_features, n_latent_factors].
+
+    :param xi:
+        The mean factors for the components in the mixture. This should have 
+        shape [n_latent_factors, n_components].
+
+    :param omega:
+        The covariance matrix of the mixture components in latent space.
+        This array should have shape [n_latent_factors, n_latent_factors, 
+        n_components].
+
+    :param psi:
+        The variance in each dimension. This should have size [n_features].
+
+    :param verbose: [optional]
+        The verbosity.
+
+    :raises scipy.linalg.LinAlgError:
+        If the covariance matrix of any mixture component in latent space
+        is ill-conditioned or singular.
+
+    :returns:
+        A two-length tuple containing the sum of the log-likelihood for the
+        data given the model, and the responsibility matrix :math:`\tau`
+        giving the partial associations between each data point and each
+        component in the mixture.
+    """
+
+    N, D = X.shape
+    K = pi.size
+
+    I_D = np.eye(D)
+    I_psi = I_D * psi
+    U = (np.diag(1.0/psi) @ A).T
+
+    log_prob = np.zeros((N, K))
+    log_prob_constants = -0.5 * (np.sum(np.log(psi)) + D * np.log(2*np.pi))
+    
+    for i, (xi_, omega_) in enumerate(zip(xi.T, omega.T)):
+
+        mu = A @ xi_
+        A_omega_ = A @ omega_
+        cov = A_omega_ @ A.T + I_psi
+
+        precision = _compute_precision_cholesky_full(cov)
+        dist = np.sum(
+            np.square(np.dot(X, precision) - np.dot(mu, precision)), axis=1)
+
+        # Use matrix determinant lemma:
+        # det(A + U @V.T) = det(I + V.T @ A^-1 @ U) * det(A)
+        # here A = omega^{-1}; U = (\psi^-1 @ A).T; V = A.T
+        
+        # and making use of det(A) = 1.0/det(A^-1)
+
+        with warnings.catch_warnings():
+            if 1 > verbose: warnings.simplefilter("ignore")
+
+            # log(det(omega)) + log(det(I + A @ omega @ U)/det(omega)) \
+            # = log(det(I + A @ omega @ U))
+            _, logdetD = np.linalg.slogdet(I_D + A @ omega_ @ U)
+
+        log_prob[:, i] = -0.5 * dist - 0.5 * logdetD + log_prob_constants
+
+    weighted_log_prob = log_prob + np.log(pi)
+    log_prob = logsumexp(weighted_log_prob, axis=1)
+    with np.errstate(under="ignore"):
+        log_tau = weighted_log_prob - log_prob[:, np.newaxis]
+
+    return (np.sum(log_prob), np.exp(log_tau))
+
+
+def _maximization(X, tau, pi, A, xi, omega, psi, X2=None):
+    r"""
+    Compute the updated estimates of the model parameters given the data,
+    the responsibility matrix :math:`\tau`, and the current estimates of the
+    model parameters.
+
+    :param X:
+        The data, which is expected to be an array with shape [n_samples, 
+        n_features].
+
+    :param tau:
+        The responsibility matrix, which is expected to have shape
+        [n_samples, n_components]. The sum of each row is expected to equal
+        one, and the value in the i-th row (sample) of the j-th column
+        (component) indicates the partial responsibility (between zero and
+        one) that the j-th component has for the i-th sample.
+
+    :param pi:
+        The relative weights for the components in the mixture. This should
+        have size `n_components` and the entries should sum to one.
+
+    :param A:
+        The common factor loads between mixture components. This should have
+        shape [n_features, n_latent_factors].
+
+    :param xi:
+        The mean factors for the components in the mixture. This should have 
+        shape [n_latent_factors, n_components].
+
+    :param omega:
+        The covariance matrix of the mixture components in latent space.
+        This array should have shape [n_latent_factors, n_latent_factors, 
+        n_components].
+
+    :param psi:
+        The variance in each dimension. This should have size [n_features].
+
+    :param X2: [optional]
+        The square of X, :math:`X^2`. If `None` is given then this will be
+        computed at each maximization step.
+
+    :returns:
+        A five-length tuple containing the updated parameter estimates for
+        the mixing weights :math:`\pi`, the common factor loads :math:`A`,
+        the means of the components in latent space :math:`\xi`, the
+        covariance matrices of components in latent space :math:`\omega`,
+        and the variance in each dimension :math:`\psi`.
+    """
+
+    if X2 is None:
+        X2 = np.square(X)
+
+    N, D = X.shape
+    D, J = A.shape
+
+    inv_D = np.diag(1.0/psi)
+
+
+    A1 = np.zeros((D, J))
+    A2 = np.zeros((J, J))
+    Di = np.zeros(D)
+
+    inv_D_A = inv_D @ A
+
+    ti = np.sum(tau, axis=0).astype(float)
+    
+    I_J = np.eye(J)
+
+    for i, tau_ in enumerate(tau[np.newaxis].T):
+
+        W = linalg.solve(omega[:, :, i], I_J)
+        C = linalg.solve(W + A.T @ inv_D_A, I_J)
+        gamma = (inv_D - inv_D_A @ C @ inv_D_A.T) @ A @ omega[:, :, i]
+
+        xi_ = np.copy(xi[:, [i]])
+
+        Y_Axi_i = X.T - A @ xi_
+        tY_Axi_i = Y_Axi_i * tau_.T
+
+        xi[:, i] += gamma.T @ (np.sum(tY_Axi_i, axis=1) / ti[i])
+
+        diff = (xi_ - xi[:, [i]])
+
+        omega[:, :, i] = (I_J - gamma.T @ A) @ omega[:, :, i] \
+                       + gamma.T @ Y_Axi_i @ tY_Axi_i.T @ gamma / ti[i] \
+                       - diff @ diff.T
+
+        A1 += np.atleast_2d(np.sum(X * tau_, axis=0)).T @ xi_.T \
+            + X.T @ tY_Axi_i.T @ gamma
+        A2 += (omega[:, :, i] + xi[:, [i]] @ xi[:, [i]].T) * ti[i]
+    
+    A = A1 @ linalg.solve(A2, I_J)
+    Di = np.sum(X2.T @ tau, axis=1)
+
+    psi = (Di - np.sum((A @ A2) * A, axis=1)) / N
+    
+    pi = ti / N
+
+    return (pi, A, xi, omega, psi)
+
 
 
 def _factor_scores(X, tau, pi, A, xi, omega, psi):
