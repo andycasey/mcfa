@@ -138,7 +138,6 @@ def latent_factor_rotation_matrix(A_prime, A):
 
         A \approx A_{prime} R
 
-
     :param A_prime:
         The latent factors to perform the rotation on.
 

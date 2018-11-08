@@ -9,7 +9,7 @@ conda update -q conda
 conda info -a
 conda config --add channels conda-forge
 conda update --all
-conda install tectonic
+conda install pytest tectonic
 tectonic --help
 
 python setup.py install
