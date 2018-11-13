@@ -6,11 +6,16 @@ import os
 import numpy as np
 import pickle
 
+import  matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
 sys.path.insert(0, "../../")
 from astropy.table import Table
+
+from mcfa.mpl_utils import mpl_style
+
+matplotlib.style.use(mpl_style)
 
 
 
@@ -162,7 +167,8 @@ latex_labels = {
     "noise": r"$\textrm{noise}$",
     "kmeans++": r"$\textrm{k-means++}$",
     "svd": r"$\textrm{SVD}$",
-    "astrophysical": r"$\textrm{astrophysical}$"
+    "astrophysical": r"$\textrm{astrophysical}$",
+    "log-likelihood": r"$\log{\mathcal{L}\left(\mathbf{Y}|\mathbf{\Psi}\right)}$"
 }
 
 
@@ -183,13 +189,16 @@ for c, init_component_description in enumerate(init_component_descriptions):
         ax.set_yticks([])
 
         if ax.is_first_row():
-            ax.set_title(latex_labels.get(init_component_description, init_component_description))
+            ax.set_title(latex_labels.get(init_component_description, init_component_description), fontsize=12)
 
         if ax.is_first_col():
-            ax.set_ylabel(latex_labels.get(init_factor_description, init_factor_description))
+            ax.set_ylabel(latex_labels.get(init_factor_description, init_factor_description), fontsize=12)
 
         if not ax.is_last_row():
             ax.set_xticks([])
+
+        else:
+            ax.set_xlabel(latex_labels.get("log-likelihood"))
 
 
 fig.tight_layout()
