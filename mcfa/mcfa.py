@@ -18,13 +18,15 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 
+
+
 class MCFA(object):
 
     r""" A mixture of common factor analyzers model. """
 
     def __init__(self, n_components, n_latent_factors, max_iter=10000, tol=1e-5,
-                 init_method="random", n_init=5, verbose=1, random_seed=None, 
-                 **kwargs):
+                 init_components="kmeans++", init_factors="svd", verbose=1, 
+                 random_seed=None, **kwargs):
         r"""
         A mixture of common factor analyzers model.
 
@@ -40,13 +42,20 @@ class MCFA(object):
         :param tol: [optional]
             Relative tolerance before declaring convergence.
 
-        :init_method: [optional]
-            The initialisation method to use. Available options are: 'random' or
-            'svd+kmeans++'.
+        :param init_components: [optional]
+            The iniitialisation method to use when assigning data points to
+            components. Available options include: 'kmeans++', 'random', or a
+            callable function that takes three arguments: the data, an initial
+            estimate of the latent factors, and the number of components. This
+            function should return three quantities: an array of the relative
+            weights, the means in factor scores, the covariance matrices in
+            factor scores.
 
-        :param n_init: [optional]
-            The number of initialisations to run if k-means++ is used during
-            initialisation.
+        :param init_factors: [optional]
+            The initialisation method to use for the latent factors. Available
+            options include: 'svd', 'random', or a callable functiomn that takes
+            the input data as a single argument and returns a matrix of latent
+            factors.
 
         :param verbose: [optional]
             Show warning messages.
@@ -58,10 +67,11 @@ class MCFA(object):
         self.n_components = int(n_components)
         self.n_latent_factors = int(n_latent_factors)
         self.max_iter = int(max_iter)
-        self.n_init = int(n_init)
         self.tol = float(tol)
         self.random_seed = random_seed
-        self.init_method = str(init_method).lower().strip()
+        self.init_components = init_components
+        self.init_factors = init_factors
+        self.verbose = int(verbose)
 
         if self.n_latent_factors < 1:
             raise ValueError("n_latent_factors must be a positive integer")
@@ -72,17 +82,22 @@ class MCFA(object):
         if self.max_iter < 1:
             raise ValueError("number of iterations must be greater than one")
 
-        if self.n_init < 1:
-            raise ValueError("n_init must be a positive integer")
-
         if self.tol <= 0:
             raise ValueError("tol must be greater than zero")
 
-        available_init_methods = ("random", "svd+kmeans++")
-        if self.init_method not in available_init_methods:
-            raise ValueError(f"init_method must be one of {available_init_methods}")
+        available_init_components = ("random", "kmeans++")
+        if self.init_components not in available_init_components \
+        and not hasattr(self.init_components, "__call__"):
+            raise ValueError(f"init_components must be one of {available_init_components} "
+                             f"or be a callable function")
 
-        self.verbose = int(verbose)
+        available_init_factors = ("random", "noise", "svd")
+        if self.init_factors not in available_init_factors \
+        and not hasattr(self.init_factors, "__call__"):
+            raise ValueError(f"init_factors must be one of {available_init_factors} "
+                             f"or be a callable function")
+
+
         return None
 
 
@@ -146,6 +161,12 @@ class MCFA(object):
             raise ValueError(f"there are more factors than dimensions "\
                              f"({self.n_latent_factors} >= {D})")
 
+        # Check to see if the data are whitened.
+        mu, sigma = (np.mean(X, axis=0), np.std(X, axis=0))
+        if not np.allclose(mu, np.zeros(D)) \
+        or not np.allclose(sigma, np.ones(D)):
+            logger.warn("Supplied data do not appear to be whitened. "\
+                        "Use mcfa.utils.whiten(X) to whiten the data.")
 
         # Pre-calculate X2, because we will use this at every EM step.
         self._check_precomputed_X2(X)
@@ -207,19 +228,25 @@ class MCFA(object):
             logger.warn("Running from previous estimates of theta")
             return previous_theta
 
-        args = (X, self.n_components, self.n_latent_factors)
-        kwargs = dict(verbose=self.verbose, n_init=self.n_init)
+        initial_factor_func = {
+            "random": _initial_factor_loads_by_random,
+            "noise": _initial_factor_loads_by_noise,
+            "svd": _initial_factor_loads_by_svd
+        }.get(self.init_factors, self.init_factors)
+        
+        A = initial_factor_func(X, self.n_latent_factors)
 
-        funcs = {
-            "random": _initialise_parameters_randomly,
-            "svd+kmeans++": _initialise_parameters_by_svd_and_kmeanspp
-        }
+        initial_components_func = {
+            "random": _initial_components_by_random,
+            "kmeans++": _initial_components_by_kmeans_pp,
+        }.get(self.init_components, self.init_components)
 
-        func = funcs.get(self.init_method, None)
-        if func is None:
-            raise ValueError(f"unknown initialisation method {self.init_method}")
+        pi, xi, omega = initial_components_func(X, A, self.n_components)
 
-        return func(*args, **kwargs)
+        N, D = X.shape
+        psi = np.ones(D)
+
+        return (pi, A, xi, omega, psi)
 
 
 
@@ -468,7 +495,7 @@ class MCFA(object):
         if theta is None:
             theta = self.theta_
 
-        N, D = np.atleast_2d(X).shape
+        N, D = X.shape
         log_likelihood, tau = self.expectation(X, *theta)
         return np.log(N) * self.number_of_parameters(D) - 2 * log_likelihood
 
@@ -547,9 +574,28 @@ class MCFA(object):
         return X
 
 
+def _initial_factor_loads_by_random(X, n_latent_factors):
+    N, D = X.shape
+    return np.random.uniform(-1, 1, size=(D, n_latent_factors))
+
+def _initial_factor_loads_by_noise(X, n_latent_factors, scale=1e-2):
+    N, D = X.shape
+    return np.random.normal(0, scale, size=(D, n_latent_factors))
+
+def _initial_factor_loads_by_svd(X, n_latent_factors, n_svd_max=1000):
+    N, D = X.shape
+    n_svd_max = N if n_svd_max < 0 or n_svd_max > N else int(n_svd_max)
+    idx = np.random.choice(N, n_svd_max, replace=False)
+    U, S, V = linalg.svd(X[idx].T/np.sqrt(N - 1))
+    return U[:, :n_latent_factors]
 
 
-def _initial_assignments(X, n_components, n_kmeans_init, random_state=None):
+def _initial_assignments_by_random(X, A, n_components):
+    N, D = X.shape
+    return np.random.choice(n_components, N)
+
+
+def _initial_assignments_by_kmeans_pp(X, A, n_components, random_state=None):
     r"""
     Estimate the initial assignments of each sample to each component in the
     mixture.
@@ -561,44 +607,34 @@ def _initial_assignments(X, n_components, n_kmeans_init, random_state=None):
     :param n_components:
         The number of components (clusters) in the mixture.
 
-    :param n_kmeans_init:
-        The number of initializations to run using k-means algorithm.
-
     :returns:
-        An array of shape [n_kmeans_init, n_samples] with initial assignments, 
+        An array of shape [1, n_samples] with initial assignments, 
         where each integer entry in the matrix indicates which component the 
         sample is to be initialised to.
     """
 
-    assignments = np.empty((n_kmeans_init, X.shape[0]))
-    #for i in range(n_kmeans_init):
-    #    assignments[i] = KMeans(n_components).fit(X).labels_
-    
     random_state = check_random_state(random_state)
-    squared_norms = row_norms(X, squared=True)
 
-    for i in range(n_kmeans_init):
-        means = cluster.k_means_._k_init(X, n_components,
-                                         random_state=random_state,
-                                         x_squared_norms=squared_norms)
-        assignments[i] = np.argmin(spatial.distance.cdist(means, X), axis=0)
+    Y = X @ A # run k-means++ in the latent space
 
+    squared_norms = row_norms(Y, squared=True)
 
-    # Check for duplicate initial assignments. Don't allow them.
-    return np.atleast_2d(np.vstack({tuple(a) for a in assignments}).astype(int))
+    means = cluster.k_means_._k_init(Y, n_components,
+                                     random_state=random_state,
+                                     x_squared_norms=squared_norms)
+    return np.argmin(spatial.distance.cdist(means, Y), axis=0)
 
 
-def _initialise_parameters_randomly(X, n_components, n_latent_factors, **kwargs):
+def _initial_components(X, A, n_components, assignments):
 
     N, D = X.shape
-    xi = np.empty((n_latent_factors, n_components))
-    omega = np.empty((n_latent_factors, n_latent_factors, n_components))
+    D, J = A.shape
+
+    n_components = len(set(assignments))
+
+    xi = np.empty((J, n_components))
+    omega = np.empty((J, J, n_components))
     pi = np.empty(n_components)
-
-    # randomly set assignments.
-    assignments = np.random.choice(n_components, N)
-
-    A = np.random.uniform(-1, 1, size=(D, n_latent_factors))
 
     for i in range(n_components):
         match = (assignments == i)
@@ -607,106 +643,17 @@ def _initialise_parameters_randomly(X, n_components, n_latent_factors, **kwargs)
         xi[:, i] = np.mean(xs, axis=0)
         omega[:, :, i] = np.cov(xs.T)
 
-    psi = np.ones(D)
-    return (pi, A, xi, omega, psi)
+    return (pi, xi, omega)
 
 
-def _initialise_parameters_by_svd_and_kmeanspp(X, n_components, n_latent_factors,
-                                               n_init=5, verbose=1):
+def _initial_components_by_random(X, A, n_components):
+    assignments = _initial_assignments_by_random(X, A, n_components)
+    return _initial_components(X, A, n_components, assignments)
 
-    # Do initial partitions (either randomly or by k-means).
-    assignments = _initial_assignments(X, n_components, n_init)
-    best_theta, best_log_likelihood = (None, -np.inf)
+def _initial_components_by_kmeans_pp(X, A, n_components):
+    assignments = _initial_assignments_by_kmeans_pp(X, A, n_components)
+    return _initial_components(X, A, n_components, assignments)
 
-    exceptions = []
-
-    for i, assignment in enumerate(assignments):
-        try:
-            params = _initial_parameters(X, 
-                                         n_components, 
-                                         n_latent_factors,
-                                         assignment)
-
-        except ValueError as exception:
-            exceptions.append(exception)
-            if verbose > 0:
-                logger.exception("Exception in initializing:")
-
-        else:
-
-            # Run one E-M step from this initial guess.
-            try:                
-                log_likelihood, tau = _expectation(X, *params, verbose=verbose)
-                theta = _maximization(X, tau, *params)
-                
-                if log_likelihood > best_log_likelihood:
-                    best_theta, best_log_likelihood = (theta, log_likelihood)
-
-            except Exception as exception:
-                exceptions.append(exception)
-                if verbose > 0:
-                    logger.exception("Exception in running E-M step from "\
-                                     "initialisation point:")
-
-    if best_theta is None:
-        raise exceptions[-1]
-        raise ValueError("no initialisation point found")
-
-    return best_theta
-
-
-def _initial_parameters(X, n_components, n_latent_factors, assignments,
-                        n_svd_max=1000):
-    r"""
-    Estimate the initial parameters for a model with a mixture of common factor
-    analyzers.
-
-    :param X:
-        The data, which is expected to be an array with shape [n_samples, 
-        n_features].
-
-    :param n_components:
-        The number of components (clusters) in the mixture.
-
-    :param n_latent_factors:
-        The number of common latent factors.
-    
-    :param assignments:
-        An array of size [n_samples, ] that indicates the initial assignments
-        of each sample to each component.
-
-    :param n_svd_max: [optional]
-        The number of samples to use when initialising the latent factors.
-
-    :returns:
-        A five-length tuple containing: (0) the initial weights; (1) the common
-        factor loadings, (2) the initial means in latent space, (3) the initial
-        covariance matrices in latent space, and (4) the variance in each data
-        dimension.
-    """
-
-    N, D = X.shape
-    xi = np.empty((n_latent_factors, n_components))
-    omega = np.empty((n_latent_factors, n_latent_factors, n_components))
-    pi = np.empty(n_components)
-
-    n_svd_max = N if n_svd_max < 0 or n_svd_max > N else int(n_svd_max)
-    idx = np.random.choice(N, n_svd_max, replace=False)
-    U, S, V = linalg.svd(X[idx].T/np.sqrt(N - 1))
-    A = U[:, :n_latent_factors]
-
-    for i in range(n_components):
-        match = (assignments == i)
-        pi[i] = float(sum(match)) / N
-
-        xs = X[match] @ A
-        xi[:, i] = np.mean(xs, axis=0)
-        omega[:, :, i] = np.cov(xs.T)
-
-    small_w = S[D - n_latent_factors:]
-    psi = np.ones(D) * np.nanmean(small_w[small_w > 0]**2)
-
-    return (pi, A, xi, omega, psi)
 
 
 def _expectation(X, pi, A, xi, omega, psi, verbose=1):

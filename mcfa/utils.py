@@ -2,6 +2,10 @@
 import numpy as np
 
 
+def whiten(X, axis=0):
+    return (X - np.mean(X, axis=axis))/np.std(X, axis=axis)
+
+
 
 def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2,
                   omega_scale=1, noise_scale=1, random_seed=0):
@@ -129,7 +133,7 @@ def simulate_example_data(N, D, J, K=1, seed=None, full_output=False, **kwargs):
 
 
 
-def latent_factor_rotation_matrix(A_prime, A):
+def rotation_matrix(A_prime, A):
     r"""
     Return a rotation amtrix :math:`\mathbf{R}` that will orient and flip the 
     latent factors `A_prime` to be as close as possible to `A` such that
@@ -233,7 +237,7 @@ if __name__ == "__main__":
     indices = np.random.choice(J, J, replace=False)
     A_star = A_star[:, indices]
 
-    R = latent_factor_rotation_matrix(A_star, A)
+    R = rotation_matrix(A_star, A)
 
     A_prime = A_star @ R
 
