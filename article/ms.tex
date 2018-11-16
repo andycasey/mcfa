@@ -66,6 +66,8 @@
 \correspondingauthor{Andrew R. Casey}
 \email{andrew.casey@monash.edu}
 
+\author{MML people and GALAH people}
+
 \author[0000-0003-0174-0564]{Andrew R. Casey}
 \affiliation{School of Physics \& Astronomy, 
 			 Monash University,
@@ -586,6 +588,19 @@ the latent space. For each combination of initialisation procedure, we run 30 op
 and record the log likelihood once the E-M procedure has reached a threshold of $10^{-8}$.
 
 The results of this experiment are shown in Figure~\ref{fig:experiment-4-log-L}.
+
+\begin{figure*}
+	\includegraphics[width=1.0\textwidth]{experiments/galah-experiment-4-log-L-hist.png}
+	\caption{Log likelihoods $\mathcal{L}\left(\data|\vec\Psi\right)$ of optimised
+			 models using \Galah\ data in Experiment 4 with four latent factors
+			 and four components ($J = 4$, $K = 4$). The columns indicate different
+			 methods to initialise the component parameters ($\pi$, $\scoremeans$,
+			 $\scorecovs$), and the rows represent different methods to initialise
+			 the latent factors ($\factorloads$). Each combination of initialisation
+			 procedure has 30 models where E-M was run until a threshold of $10^{-8}$
+			 was reached in $\log{L}$.}
+	\label{fig:galah-experiment-4-log-L}
+\end{figure*}
 
 
 
