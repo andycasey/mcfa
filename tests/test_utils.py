@@ -28,7 +28,7 @@ def test_latent_factor_rotation(D=15, J=10, noise=0.05):
     true_indices = np.random.choice(J, J, replace=False)
     A_prime = A_prime[:, true_indices]
 
-    R = utils.latent_factor_rotation_matrix(A_prime, A)
+    R = utils.rotation_matrix(A_prime, A)
 
     # Check order.
     nonzero = (R != 0)
@@ -41,7 +41,7 @@ def test_latent_factor_rotation(D=15, J=10, noise=0.05):
     assert np.alltrue(true_signs == inferred_signs)
 
 
-def test_latent_factor_rotation_many_times(N=1000, D=15, J=10, noise=0.05):
+def test_latent_factor_rotation_many_times(N=100, D=15, J=10, noise=0.05):
     
     for i in range(N):
         test_latent_factor_rotation(D=D, J=J, noise=noise)

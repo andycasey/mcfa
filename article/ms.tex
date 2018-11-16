@@ -414,6 +414,28 @@ log probability given the data and the true parameters.
 \end{figure*}
 
 
+
+\todo{Grid search text}
+
+
+
+\begin{figure}
+	\includegraphics[width=0.45\textwidth]{experiments/toy-ll-contours.png}
+	\includegraphics[width=0.45\textwidth]{experiments/toy-bic-contours.png}
+	\includegraphics[width=0.45\textwidth]{experiments/toy-pseudobic-contours.png}
+    \caption{Model performance metrics resulting from a gridsearch using the
+    		 data generated as part of our toy model. The top 
+		 	 panel shows the negative log-likelihood 
+			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
+			 evaluated at each combination of latent factors $J$ and number 
+			 of clusters $K$, the middle panel shows the Bayesian Information
+			 Criterion (Equation \ref{eq:bic}), and the lower panel shows
+			 the pseudo-Bayesian Information Criterion 
+			 (Equation~\ref{eq:pseudo-bic}). The white marker indicates the 
+			 lowest value in each panel.}
+    \label{fig:experiment-1-gridsearch}
+\end{figure}
+
 % Search strategy for toy model.
 
 
