@@ -41,7 +41,7 @@ def test_latent_factor_rotation(D=15, J=10, noise=0.05):
     assert np.alltrue(true_signs == inferred_signs)
 
 
-def test_latent_factor_rotation_many_times(N=100, D=15, J=10, noise=0.05):
+def test_latent_factor_rotation_many_times(N=10, D=15, J=10, noise=0.05):
     
     for i in range(N):
         test_latent_factor_rotation(D=D, J=J, noise=noise)
