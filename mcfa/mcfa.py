@@ -135,7 +135,7 @@ class MCFA(object):
         return klass
 
 
-    def _check_data(self, X):
+    def _check_data(self, X, warn_about_whitening=False):
         r""" 
         Verify that the latent space has lower dimensionality than the data
         space.
@@ -157,14 +157,17 @@ class MCFA(object):
             raise ValueError("data has non-finite entries")
 
         N, D = X.shape
+        if D > N:
+            logger.warning(f"There are more dimensions than data ({D} > {N})!")
+
         if D <= self.n_latent_factors:
             raise ValueError(f"there are more factors than dimensions "\
                              f"({self.n_latent_factors} >= {D})")
 
         # Check to see if the data are whitened.
         mu, sigma = (np.mean(X, axis=0), np.std(X, axis=0))
-        if not np.allclose(mu, np.zeros(D)) \
-        or not np.allclose(sigma, np.ones(D)):
+        if warn_about_whitening and \
+        not (np.allclose(mu, np.zeros(D)) or np.allclose(sigma, np.ones(D))):
             logger.warn("Supplied data do not appear to be whitened. "\
                         "Use mcfa.utils.whiten(X) to whiten the data.")
 
@@ -391,7 +394,10 @@ class MCFA(object):
         """
 
         assert np.isfinite(current)
-        assert current > previous # depends on objective function
+        if previous > current:
+            logger.warn(f"Log-likelihood *decreased* by {previous-current:.2f}")
+
+        #assert current > previous # depends on objective function
 
         ratio = abs((current - previous)/current)
         converged = self.tol >= ratio

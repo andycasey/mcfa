@@ -7,6 +7,7 @@ data {
     int<lower=1> J; // number of latent factors
     int<lower=1> K; // number of components
     vector[D] y[N]; // the data
+    real Omega_eta;
 }
 
 transformed data {
@@ -26,10 +27,10 @@ parameters {
 
     cholesky_factor_corr[J] Omega_corr[K];
     vector<lower=0>[J] Omega_diag[K];
-    real<lower=0> Omega_eta;
+    //real<lower=0> Omega_eta;
 
     vector[M] beta_lower_triangular;
-    vector<lower=0>[J] beta_diag;
+    positive_ordered[J] beta_diag;
     vector<lower=0>[D] psi;
     real<lower=0> sigma_L;
 }
@@ -39,6 +40,7 @@ transformed parameters {
     cov_matrix[D] Sigma[K];
     simplex[K] theta = lambda / sum(lambda); 
 
+    cholesky_factor_cov[D] CholeskySigma[K];
     cholesky_factor_cov[D, J] L;
     {
         /*
@@ -65,7 +67,7 @@ transformed parameters {
         }
         
         for (j in 1:J) {
-            L[j, j] = beta_diag[j];
+            L[j, j] = beta_diag[J - j + 1];
             for (i in (j + 1):D) {
                 idx = idx + 1;
                 L[i, j] = beta_lower_triangular[idx];
@@ -76,10 +78,11 @@ transformed parameters {
             mu[k] = L * xi[k];
 
             Omega[k] = quad_form_diag(
-                multiply_lower_tri_self_transpose(Omega_corr[k]), 
-                Omega_diag[k]);
+                           multiply_lower_tri_self_transpose(Omega_corr[k]), 
+                           Omega_diag[k]);
 
             Sigma[k] = L * Omega[k] * L' + eye_psi;
+            CholeskySigma[k] = cholesky_decompose(Sigma[k]);
         }
 
     }
@@ -88,10 +91,9 @@ transformed parameters {
 model {
     vector[K] log_theta = log(theta);
 
-    // priors
-    Omega_eta ~ normal(0, 1);
+    // TODO: keep prior on beta_diag?
     beta_lower_triangular ~ normal(0, sigma_L);
-    beta_diag ~ normal(0, 1); // this is used to generate 
+    //beta_diag ~ normal(0, 1); // this is used to generate 
     sigma_L ~ normal(0, 1);
     psi ~ normal(0, 1);
 
@@ -104,6 +106,8 @@ model {
 
     // Priors for diagonal entries to remain ~orthogonal and order invariant 
     // (Leung and Drton 2016)
+
+    // todo: remove this prior and see how it affects?
     for (i in 1:J)
         target += (J - i) * log(beta_diag[i]) - 0.5 * beta_diag[i]^2 / sigma_L;
 
@@ -114,4 +118,13 @@ model {
 
         target += log_sum_exp(lps);
     }
+}
+
+generated quantities {
+    matrix[J, J] Omega[K];
+
+    for (k in 1:K)
+        Omega[k] = quad_form_diag(
+                multiply_lower_tri_self_transpose(Omega_corr[k]), 
+                Omega_diag[k]);
 }
