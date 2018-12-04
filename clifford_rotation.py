@@ -55,4 +55,75 @@ M = np.array([float(b|a) for b in B for a in A]).reshape((3, 3))
 
 
 
-R2 = generalized_rotation_matrix(*angles)
+#R2 = generalized_rotation_matrix(*angles)
+"""
+layout, blades = clifford.Cl(5) # Five-dimensional clifford algebra.
+locals.update(blades)
+
+x = 2*e1 + 4*e2 + 5*e3 + 3*e4 + 6*e5
+y = 6*e1 + 2*e2 + 0*e3 + 1*e4 + 7*e5
+
+"""
+
+A = np.array([2, 4, 5, 3, 6])
+B = np.array([6, 2, 1, 1, 7])
+
+
+def reflection(u, n):
+    return u - 2 * n * ((n.T @ u) / (n.T @ n))
+
+
+def nd_rotation(a, b):
+
+    u = np.array(a) / np.linalg.norm(a)
+    v = np.array(b) / np.linalg.norm(b)
+
+    N = u.size
+    S = reflection(np.eye(N), v + u)
+    R = reflection(S, v)
+
+    return R
+
+
+def ngram(alpha, u, v):
+
+    c, s = np.cos(alpha), np.sin(alpha)
+
+    u = np.atleast_2d(u)
+    v = np.atleast_2d(v)
+
+    U = u / np.sqrt(u @ u.T)
+    V = v - (u * v.T) * u
+    V = V / np.sqrt(v @ v.T)
+
+    N = u.size
+    R = np.eye(N) \
+      + (v.T @ u - u.T @ v) * s \
+      + (u.T @ u + v.T @ v) * (c - 1)
+
+    return (R, U, V)
+
+
+import numpy as np
+
+# input vectors
+v1 = np.array( [1,1,1,1,1,1] )
+v2 = np.array( [2,3,4,5,6,7] )
+
+v1, v2 = A, B
+
+# Gram-Schmidt orthogonalization
+n1 = v1 / np.linalg.norm(v1)
+v2 = v2 - np.dot(n1,v2) * n1
+n2 = v2 / np.linalg.norm(v2)
+
+# rotation by pi/2
+a = np.pi/2
+
+I = np.identity(n1.size)
+
+R = I + ( np.outer(n2,n1) - np.outer(n1,n2) ) * np.sin(a) + ( np.outer(n1,n1) + np.outer(n2,n2) ) * (np.cos(a)-1)
+
+# check result
+print( np.matmul( R, n1 ) )
+print( n2 )
