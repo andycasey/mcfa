@@ -87,9 +87,6 @@ def generate_data(n_samples, n_features, n_latent_factors, n_components,
     R = np.argmax(rng.multinomial(1, pvals, size=n_samples), axis=1)
     pi = np.array([np.sum(R == i) for i in range(n_components)])/n_samples
 
-    # Rank-order the weights.
-    pi = np.sort(pi)
-
     xi = rng.randn(n_latent_factors, n_components)
     """
     omega = np.zeros((n_latent_factors, n_latent_factors, n_components))
@@ -137,7 +134,7 @@ y, truth = generate_data(**data_kwds)
 
 
 
-model = stan.load_model("mcfa2_fast.stan")
+model = stan.load_model("mcfa_lkj_prior.stan")
 
 data_dict = dict(N=N, D=D, J=J, K=K, y=y)
 
@@ -153,14 +150,11 @@ init_dict = {
     "LSigma": truth["LSigma"]
 }
 
-
-
-p_opt = model.optimizing(data=data_dict, **op_kwds)
+p_opt = model.optimizing(data=data_dict, init=init_dict, **op_kwds)
 
 for k in ("theta", "positive_ordered_theta", "log_theta"):
     if k in p_opt:
         p_opt[k] = np.atleast_1d(p_opt[k])
-
 
 """
 # Compare psi first.
@@ -249,6 +243,10 @@ R = utils.rotation_matrix(L_percentiles[1], truth["A"])
 
 A_true = truth["A"] @ R
 
+scale = np.nanmedian(L_percentiles[1]/truth["A"], axis=0)
+scale = np.ones_like(scale)
+
+
 xi = np.arange(D)
 fig, ax = plt.subplots()
 for j in range(J):
@@ -259,6 +257,8 @@ for j in range(J):
     ax.fill_between(xi, L_percentiles[0, :, j], 
                         L_percentiles[-1, :, j],
                     alpha=0.5, facecolor=colors[j], zorder=-1)
+
+
 
 
 # Means.

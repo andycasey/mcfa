@@ -2,6 +2,7 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from time import time
 
 import stan_utils as stan
 from mcfa import (mcfa, mpl_utils, utils)
@@ -12,9 +13,9 @@ matplotlib.style.use(mpl_utils.mpl_style)
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 
-seed = 0
+seed = 101
 
-N = 100 # number of data points
+N = 1000 # number of data points
 D = 10   # data dimension
 J = 3    # number of latent factors
 K = 1    # number of components
@@ -25,12 +26,13 @@ data_kwds = dict(n_samples=N, n_features=D, n_latent_factors=J,
                  n_components=K, psi_scale=1,
                  latent_scale=1, random_seed=seed)
 
-strict_op_kwds = dict(init_alpha=1, tol_obj=1e-16, tol_rel_grad=1e-16, 
+strict_op_kwds = dict(tol_obj=1e-16, tol_rel_grad=1e-16, 
                       tol_rel_obj=1e-16, seed=seed, iter=100000)
 
 
 op_kwds = dict()
-op_kwds.update(strict_op_kwds)
+
+#op_kwds.update(strict_op_kwds)
 
 sampling_kwds = dict(chains=2, iter=2000)
 
@@ -137,7 +139,7 @@ y, truth = generate_data(**data_kwds)
 
 
 
-model = stan.load_model("mcfa2_fast.stan")
+model = stan.load_model("test_mcfa2_faster.stan")
 
 data_dict = dict(N=N, D=D, J=J, K=K, y=y)
 
@@ -146,16 +148,33 @@ init_dict = {
     "lambda": np.atleast_1d(truth["pi"]),
     "theta": np.atleast_1d(truth["pi"]),
     "OmegaCorr": truth["OmegaCorr"].T,
-    "OmegaDiag": truth["OmegaDiag"],
+    "OmegaDiag": np.abs(truth["OmegaDiag"]),
     "BetaDiagonal": truth["BetaDiagonal"],
     "BetaLowerTriangular": truth["BetaLowerTriangular"],
     "psi": truth["psi"],
     "LSigma": truth["LSigma"]
 }
 
+op_kwds["init"] = init_dict
 
 
+tick = time()
 p_opt = model.optimizing(data=data_dict, **op_kwds)
+tock = time() - tick
+
+comparison_model = stan.load_model("mcfa2_fast.stan")
+
+tick = time()
+p_opt2 = comparison_model.optimizing(data=data_dict, **op_kwds)
+tock2 = time() - tick
+
+print("Updated: {:.2f} seconds".format(tock))
+print("Comparison: {:.2f} seconds".format(tock2))
+
+print("Baseline: 0.68 seconds")
+
+raise a
+
 
 for k in ("theta", "positive_ordered_theta", "log_theta"):
     if k in p_opt:

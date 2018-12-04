@@ -14,21 +14,15 @@ transformed data {
 }
 
 parameters {
-    /*
-    We use a positive ordered matrix to prevent component mixture switching.
-    This is transformed to a simplex later on.
-    */
-
     // For mixing weights
-    positive_ordered[K] positive_ordered_theta;
-    //simplex[K] theta;
+    simplex[K] theta;
 
     // Component means in latent space
     vector[J] xi[K];
 
     // Ingredients for component covariance matrices in latent space
     cholesky_factor_corr[J] OmegaCorr[K];
-    vector[J] OmegaDiag[K];
+    vector<lower=0>[J] OmegaDiag[K];
 
     // Ingredients for latent factors
     vector[M] BetaLowerTriangular;
@@ -41,14 +35,9 @@ parameters {
 
 transformed parameters {
     vector[D] mu[K];
-    simplex[K] theta = positive_ordered_theta / sum(positive_ordered_theta); 
     vector[K] log_theta = log(theta);
 
     cholesky_factor_cov[D] CholeskySigma[K];
-
-    // TODO: Can we just have A as a cholesky_factor_cov and set a LKJ prior on
-    //       the entries which would mimic the current prior we have on the 
-    //       elements of the lower triangular?
 
     cholesky_factor_cov[D, J] A; 
     {
@@ -89,8 +78,6 @@ transformed parameters {
                 multiply_lower_tri_self_transpose(OmegaCorr[k]), 
                 OmegaDiag[k]);
 
-            //Sigma[k] = A * Omega * A' + eye_psi;
-            // TODO: use cholesky decompose.
             CholeskySigma[k] = cholesky_decompose(A * Omega * A' + eye_psi);
         }
 
@@ -112,11 +99,6 @@ model {
                               rep_vector(1.0, J)); // this is used to generate
     }
 
-    // Priors for diagonal entries to remain ~orthogonal and order invariant 
-    // (Leung and Drton 2016)
-    //for (j in 1:J)
-    //    target += (J - j) * log(BetaDiagonal[j]) - 0.5 * BetaDiagonal[j]^2 / LSigma;
-
     // Log mix
     for (n in 1:N) {
         vector[K] lps;
@@ -128,13 +110,3 @@ model {
         target += log_sum_exp(lps);
     }
 }
-/*
-generated quantities {
-    cov_matrix[J] Omega[K];
-
-    for (k in 1:K)
-        Omega[k] = quad_form_diag(
-                multiply_lower_tri_self_transpose(OmegaCorr[k]), 
-                OmegaDiag[k]);
-}
-*/

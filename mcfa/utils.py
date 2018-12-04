@@ -169,6 +169,39 @@ def simulate_example_data(N, D, J, K=1, seed=None, full_output=False, **kwargs):
     return (X, truths) if full_output else X
 
 
+def euclidean_2d_rotation_matrix(theta):
+
+    tr = theta * np.pi/180.0
+
+    R = np.array([
+        [np.cos(tr), -np.sin(tr)],
+        [np.sin(tr), +np.cos(tr)]
+    ])
+
+    return R
+
+def generalized_rotation_matrix(psi, theta, phi):
+
+    Rx = np.array([
+        [1, 0, 0],
+        [0, np.cos(psi), -np.sin(psi)],
+        [0, np.sin(psi), np.cos(psi)]
+    ])
+
+    Ry = np.array([
+        [np.cos(theta), 0, np.sin(theta)],
+        [0, 1, 0],
+        [-np.sin(theta), 0, np.cos(theta)]
+    ])
+
+    Rz = np.array([
+        [np.cos(phi), -np.sin(phi), 0],
+        [np.sin(phi), np.cos(phi), 0],
+        [0, 0, 1]
+    ])
+
+    return Rz @ Ry @ Rx
+
 
 
 def rotation_matrix(A_prime, A):

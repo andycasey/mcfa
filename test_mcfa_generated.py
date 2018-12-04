@@ -1,38 +1,14 @@
 
+
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from time import time
 
 import stan_utils as stan
 from mcfa import (mcfa, mpl_utils, utils)
 from scipy import stats
 
-matplotlib.style.use(mpl_utils.mpl_style)
-
-colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-
-
-seed = 0
-
-N = 100 # number of data points
-D = 10   # data dimension
-J = 3    # number of latent factors
-K = 1    # number of components
-#lkj_eta = 2.0
-
-
-data_kwds = dict(n_samples=N, n_features=D, n_latent_factors=J,
-                 n_components=K, psi_scale=1,
-                 latent_scale=1, random_seed=seed)
-
-strict_op_kwds = dict(init_alpha=1, tol_obj=1e-16, tol_rel_grad=1e-16, 
-                      tol_rel_obj=1e-16, seed=seed, iter=100000)
-
-
-op_kwds = dict()
-op_kwds.update(strict_op_kwds)
-
-sampling_kwds = dict(chains=2, iter=2000)
 
 
 def LKJPriorSampling(n, eta, size=None):
@@ -81,6 +57,9 @@ def generate_data(n_samples, n_features, n_latent_factors, n_components,
     A[np.tril_indices(n_features, -1, n_latent_factors)] = BetaLowerTriangular
     A[np.diag_indices(n_latent_factors)] = BetaDiagonal[::-1]
 
+    # Make A.T @ A = I
+    AL = np.linalg.cholesky(A.T @ A)
+    A = A @ np.linalg.solve(AL, np.eye(n_latent_factors))
 
     # latent variables
     pvals = np.ones(n_components) / n_components
@@ -133,7 +112,71 @@ def generate_data(n_samples, n_features, n_latent_factors, n_components,
 
     return (X, truth)
 
+
+
+
+
+seed = 100
+
+N = 100 # number of data points
+D = 10   # data dimension
+J = 3    # number of latent factors
+K = 1    # number of components
+#lkj_eta = 2.0
+
+
+data_kwds = dict(n_samples=N, n_features=D, n_latent_factors=J,
+                 n_components=K, psi_scale=1,
+                 latent_scale=1, random_seed=seed)
+
+op_kwds = dict()
+
+#op_kwds.update(strict_op_kwds)
+
+sampling_kwds = dict(chains=2, iter=2000)
+
+
+
+
 y, truth = generate_data(**data_kwds)
+
+
+mcfa_model = mcfa.MCFA(n_components=K, n_latent_factors=J, init_factors="random",
+                  random_seed=seed, tol=1e-10)
+mcfa_model.fit(y)
+
+
+print("Log-likelihood: {:.0f}".format(mcfa_model.log_likelihood_))
+
+fig, ax = plt.subplots()
+ax.plot(truth["psi"], "-", c="#000000", lw=2, zorder=10)
+ax.plot(mcfa_model.theta_[-1], "-", c="tab:blue")
+#plot_samples(ax, p_samples, "psi")
+ax.set_xlabel(r"$\textrm{Dimension } D$")
+ax.set_ylabel(r"$\psi$")
+
+
+
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+A_true = truth["A"]
+
+R = utils.rotation_matrix(mcfa_model.theta_[1], A_true)
+
+A_est = mcfa_model.theta_[1] @ R
+
+xi = np.arange(D)
+fig, ax = plt.subplots()
+for j in range(J):
+    ax.plot(xi, A_true.T[j], "-", c=colors[j], lw=2)
+    #ax.plot(xi, A_est.T[j], "-", c=colors[j], lw=1, alpha=0.5)
+
+    ax.plot(xi, A_est.T[j], "-", c=colors[j], lw=1)
+    #ax.fill_between(xi, L_percentiles[0, :, j], 
+    #                    L_percentiles[-1, :, j],
+    #                alpha=0.5, facecolor=colors[j], zorder=-1)
+
+
 
 
 
@@ -146,53 +189,28 @@ init_dict = {
     "lambda": np.atleast_1d(truth["pi"]),
     "theta": np.atleast_1d(truth["pi"]),
     "OmegaCorr": truth["OmegaCorr"].T,
-    "OmegaDiag": truth["OmegaDiag"],
+    "OmegaDiag": np.abs(truth["OmegaDiag"]),
     "BetaDiagonal": truth["BetaDiagonal"],
     "BetaLowerTriangular": truth["BetaLowerTriangular"],
     "psi": truth["psi"],
     "LSigma": truth["LSigma"]
 }
 
+op_kwds["init"] = init_dict
 
 
+tick = time()
 p_opt = model.optimizing(data=data_dict, **op_kwds)
+tock = time() - tick
+
+
+
 
 for k in ("theta", "positive_ordered_theta", "log_theta"):
     if k in p_opt:
         p_opt[k] = np.atleast_1d(p_opt[k])
 
 
-"""
-# Compare psi first.
-fig, ax = plt.subplots()
-ax.plot(truth["psi"], "-", c="tab:blue", lw=2)
-ax.plot(p_opt["psi"], "-", c="#000000")
-ax.set_ylabel(r"$\psi$")
-ax.set_xlabel(r"$D$")
-
-fig.tight_layout()
-
-
-# Compare loads
-
-xi = np.arange(D)
-L_true = truth["A"]
-L_opt = p_opt["A"]
-
-
-fig, ax = plt.subplots()
-nums = np.nanmedian(L_true / L_opt, axis=0)
-for j in range(J):
-    ax.plot(xi, L_true.T[j], "-", c=colors[j], lw=2)
-    ax.plot(xi, nums[j] * L_opt.T[j], ":", c=colors[j], lw=1)
-
-
-print(f"Nums: {nums}")
-# Compare means.
-fig, ax = plt.subplots()
-ax.scatter(truth["xi"].flatten(), p_opt["xi"].flatten())
-
-"""
 
 
 p_samples = model.sampling(**stan.sampling_kwds(data=data_dict, init=p_opt, 
@@ -286,68 +304,3 @@ for i, ax_row in enumerate(axes):
 
 # OmegaCorr / OmegaDiag
 
-
-
-
-
-raise a
-
-# plot trace of eta.
-fig = stan.plots.traceplot(p_samples, ("eta", ))
-
-L_samples = p_samples.extract(("A", ))["A"]
-L_percentiles = np.percentile(L_samples, [5, 50, 95], axis=0)
-
-# Make comparisons
-A_true, A_opt = (truth["A"], p_opt["A"])
-
-R = utils.rotation_matrix(A_true, A_opt)
-
-A_est = A_opt @ R
-
-
-fig, ax = plt.subplots()
-for j in range(J):
-    ax.plot(xi, A_true.T[j], "-", c=colors[j], lw=2)
-    #ax.plot(xi, A_est.T[j], "-", c=colors[j], lw=1, alpha=0.5)
-
-    ax.plot(xi, np.diag(R)[j] * L_percentiles[1, :, j], "-", c=colors[j], lw=1)
-    ax.fill_between(xi, np.diag(R)[j] * L_percentiles[0, :, j], 
-        np.diag(R)[j] * L_percentiles[-1, :, j],
-                    alpha=0.5, facecolor=colors[j], zorder=-1)
-
-# Plot psi wrt samples.
-
-
-
-# Check that Omega has the OmegaDiag implemented correctly (as it is in python)
-
-# Plot latent space draws.
-
-
-
-"""
-
-data {
-    int<lower=1> N; // number of data points
-    int<lower=1> D; // dimensionality of the data 
-    int<lower=1> J; // number of latent factors
-    vector[D] y[N]; // the data
-}
-
-transformed data {
-    vector[D] mu;   // mean of the data in each dimension
-    int<lower=1> M; // number of non-zero loadings
-
-    M = J * (D - J) + choose(J, 2); 
-    mu = rep_vector(0.0, D);
-}
-
-parameters {
-    vector[M] BetaLowerTriangular;
-    vector<lower=0>[J] BetaDiagonal;
-    vector<lower=0>[D] psi;
-    real<lower=0> LSigma;
-}
-
-"""

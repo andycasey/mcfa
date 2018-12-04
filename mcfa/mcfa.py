@@ -454,6 +454,8 @@ class MCFA(object):
         # Make A.T @ A = I
         AL = linalg.cholesky(A.T @ A)
         A = A @ linalg.solve(AL, np.eye(self.n_latent_factors))
+
+        A = _post_check_factor_loads(A)
         xi = AL @ xi
 
         for i in range(self.n_components):
@@ -840,6 +842,9 @@ def _maximization(X, tau, pi, A, xi, omega, psi, X2=None):
         A2 += (omega[:, :, i] + xi[:, [i]] @ xi[:, [i]].T) * ti[i]
     
     A = A1 @ linalg.solve(A2, I_J)
+
+    A = _post_check_factor_loads(A)  
+
     Di = np.sum(X2.T @ tau, axis=1)
 
     psi = (Di - np.sum((A @ A2) * A, axis=1)) / N
@@ -946,6 +951,13 @@ def _compute_precision_cholesky_full(cov):
 
 
 
+def _post_check_factor_loads(A):
+    D, J = A.shape
+    #A[np.triu_indices(J, 1)] = 0 
+    #A[np.diag_indices(J)] = np.abs(A[np.diag_indices(J)])
+
+    return A 
+
 
 if __name__ == "__main__":
 
@@ -965,3 +977,5 @@ if __name__ == "__main__":
 
 
     fig = plot_latent_space(model, X)
+
+
