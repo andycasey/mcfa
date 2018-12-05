@@ -118,12 +118,12 @@ def generate_data(n_samples, n_features, n_latent_factors, n_components,
 
 
 
-seed = 4
+seed = 123
 
-N = 1000 # number of data points
+N = 100 # number of data points
 D = 15   # data dimension
 J = 3    # number of latent factors0
-K = 1    # number of components
+K = 10    # number of components
 #lkj_eta = 2.0
 
 
@@ -137,7 +137,7 @@ y, truth = generate_data(**data_kwds)
 
 
 mcfa_model = mcfa.MCFA(n_components=K, n_latent_factors=J, 
-                       init_factors="random",
+                       init_factors="noise", init_components="random",
                        random_seed=seed)
 mcfa_model.fit(y)
 
@@ -158,7 +158,7 @@ colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 A_true = truth["A"]
 A_est = mcfa_model.theta_[1]
 
-
+'''
 # Rotate the matrix.
 
 cost = lambda B, *p: (B @ utils.generalized_rotation_matrix(*p)).flatten()
@@ -253,9 +253,10 @@ def G(D, i, theta):
     R[i + 1, i] = -s
 
     return R
+'''
 
 
-def givens_rotation_matrix(angles):
+def givens_rotation_matrix(*angles):
 
     angles = np.atleast_1d(angles)
     D = len(angles)
@@ -263,15 +264,87 @@ def givens_rotation_matrix(angles):
 
     for i, theta in enumerate(angles):
 
-        c, s = (np.cos(theta), np.sin(theta))
+        s = np.sin(theta)
+
         R[i] = np.eye(D)
-        R[i, -i, -i] = R[i, -i + 1, -i + 1] = c
+        R[i, -i, -i] = R[i, -i + 1, -i + 1] = np.cos(theta)
         R[i, -i, -i + 1] = +s
         R[i, -i + 1, -i] = -s
 
-    return np.linalg.multi_dot(R)
+    R = np.linalg.multi_dot(R)
+    assert np.allclose(R @ R.T, np.eye(R.shape[0]))
+    return R
 
 
+
+cost = lambda B, *p: (B @ givens_rotation_matrix(*p)).flatten()
+
+
+def find_rotation_matrix(A, B, init=None, n_inits=25, **kwargs):
+    """
+    Find the Euler angles that produce the rotation matrix such that
+
+    .. math:
+
+        A \approx B @ R
+    """
+
+    kwds = dict(maxfev=10000)
+    kwds.update(kwargs)
+
+    A, B = (np.atleast_2d(A), np.atleast_2d(B))
+
+    if A.shape != B.shape:
+        raise ValueError("A and B must have the same shape")
+
+    L = lambda R: np.sum(np.abs(A - B @ R))
+
+    def objective_function(angles):
+        return L(givens_rotation_matrix(*angles))
+
+    if init is None:
+        inits = np.random.uniform(0, 2 * np.pi, size=(n_inits, J))
+        inits[0] = 0
+
+    else:
+        inits = np.atleast_2d(inits).reshape((-1, J))
+
+    best_R = None
+    best_cost = None
+
+    for i, init in enumerate(inits):
+
+        p_opt = op.minimize(objective_function, init, method="BFGS")
+        #p_opt = op.basinhopping(objective_function, init, niter=10)
+        #p_opt = op.minimize(objective_function, init, method="Nelder-Mead")
+
+        R = givens_rotation_matrix(*p_opt.x)
+        cost = L(R)
+
+        # Try flipping axes
+        flips = np.ones(J)
+        for j in range(J):
+
+            R_flip = R.copy()
+            R_flip[:, j] *= -1
+
+            if L(R_flip) < cost:
+                flips[j] = -1
+
+        R *= flips
+        cost = L(R)
+
+        print(p_opt.x, cost)
+
+        if best_cost is None or cost < best_cost:
+            best_R = R
+            best_cost = cost
+
+
+    return best_R
+
+
+"""
 angles = np.random.uniform(0, 2 * np.pi, 3)
 
 
@@ -279,9 +352,9 @@ R1 = utils.generalized_rotation_matrix(*angles)
 R2 = givens_rotation_matrix(angles * np.array([1, -1, 1]))
 
 
+"""
 
-raise a
-
+"""
 # input vectors
 v1 = np.array([[1,1,1,1,1,1]])
 v2 = np.array([[2,3,4,5,6,7]])
@@ -334,6 +407,12 @@ R2 = gram_schmidt_orthogonalization(A_true.T[0], A_est.T[0])
 
 
 raise a
+"""
+
+R = find_rotation_matrix(A_true, A_est)
+
+A_est_rotated = A_est @ R
+
 
 from matplotlib.ticker import MaxNLocator
 
