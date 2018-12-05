@@ -80,6 +80,33 @@ mpl_style = {
 matplotlib.style.use(mpl_style)
 
 
+def plot_latent_factors(model, label_names=None):
+
+    fig, ax = plt.subplots()
+
+    A = model.theta_[model.parameter_names.index("A")]
+    D, J = A.shape
+    xi = np.arange(D)
+
+    for j in range(J):
+        ax.plot(xi, A.T[j], "-")
+
+    ax.set_xticks(xi)
+    if label_names is not None:
+        ax.set_xticklabels(label_names)
+
+    ylim = np.ceil(10 * np.abs(ax.get_ylim()).max()) / 10
+    ax.plot([-0.5, D - 0.5], [0, 0], ":", c="#000000", zorder=-1, lw=0.5)
+    ax.set_xlim(-0.5, D - 0.5)
+    
+    ax.set_ylim(-ylim, +ylim)
+    ax.set_yticks([-ylim, 0, ylim])
+
+    fig.tight_layout()
+
+    return fig
+
+
 
 def plot_latent_space(model, X, ellipse_kwds=None, **kwargs):
 

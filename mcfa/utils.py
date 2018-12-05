@@ -7,12 +7,49 @@ def whiten(X, axis=0):
 
 
 
+def generate_data_from_leuton_drton():
+
+    A = np.array([
+        [ 0.97,  0.00,  0.00],
+        [ 0.04,  0.90,  0.00],
+        [ 1.00, -1.12,  0.57],
+        [ 2.03,  0.42,  0.57],
+        [ 0.31,  0.47,  0.09],
+        [ 0.43, -0.21, -0.35],
+        [ 0.75,  0.31,  0.68],
+        [ 0.45, -0.48, -1.50],
+        [-2.21,  1.45,  0.38],
+        [ 1.98, -0.30,  0.96],
+        [-2.63,  0.41,  1.09],
+        [-0.72,  1.39,  0.97],
+        [-0.88,  2.01, -0.39],
+        [-0.53,  0.04,  0.59],
+        [-0.95,  1.39,  0.37]
+    ])
+
+    raise NotImplementedError
+
 def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2,
-                  omega_scale=1, noise_scale=1, random_seed=0):
+                  omega_scale=1, noise_scale=1, latent_scale=1, random_seed=0):
 
     rng = np.random.RandomState(random_seed)
 
-    A = rng.randn(n_features, n_latent_factors)
+    #A = rng.randn(n_features, n_latent_factors)
+
+    sigma_L = np.abs(rng.normal(0, latent_scale))
+    choose = lambda x, y: int(np.math.factorial(x) \
+                        / (np.math.factorial(y) * np.math.factorial(x - y)))
+
+    M = n_latent_factors * (n_features - n_latent_factors) \
+      + choose(n_latent_factors, 2)
+
+    beta_lower_triangular = rng.normal(0, sigma_L, size=M)
+    beta_diag = np.abs(rng.normal(0, latent_scale, size=n_latent_factors))
+
+    A = np.zeros((n_features, n_latent_factors), dtype=float)
+    A[np.tril_indices(n_features, -1, n_latent_factors)] = beta_lower_triangular
+    A[np.diag_indices(n_latent_factors)] = np.sort(beta_diag)[::-1]
+
 
     # latent variables
     pvals = np.ones(n_components) / n_components
@@ -31,8 +68,9 @@ def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2
         scores[match] = rng.multivariate_normal(xi.T[i], omega.T[i], 
                                                 size=sum(match))
 
-    psi = rng.gamma(1, scale=noise_scale, size=n_features)
-
+    #psi = rng.gamma(1, scale=noise_scale, size=n_features)
+    psi = np.abs(rng.normal(0, noise_scale, n_features))
+    
     noise = np.sqrt(psi) * rng.randn(n_samples, n_features)
 
     X = scores @ A.T + noise
@@ -131,6 +169,39 @@ def simulate_example_data(N, D, J, K=1, seed=None, full_output=False, **kwargs):
     return (X, truths) if full_output else X
 
 
+def euclidean_2d_rotation_matrix(theta):
+
+    tr = theta * np.pi/180.0
+
+    R = np.array([
+        [np.cos(tr), -np.sin(tr)],
+        [np.sin(tr), +np.cos(tr)]
+    ])
+
+    return R
+
+def generalized_rotation_matrix(psi, theta, phi):
+
+    Rx = np.array([
+        [1, 0, 0],
+        [0, np.cos(psi), -np.sin(psi)],
+        [0, np.sin(psi), np.cos(psi)]
+    ])
+
+    Ry = np.array([
+        [np.cos(theta), 0, np.sin(theta)],
+        [0, 1, 0],
+        [-np.sin(theta), 0, np.cos(theta)]
+    ])
+
+    Rz = np.array([
+        [np.cos(phi), -np.sin(phi), 0],
+        [np.sin(phi), np.cos(phi), 0],
+        [0, 0, 1]
+    ])
+
+    return Rz @ (Ry @ Rx)
+
 
 
 def rotation_matrix(A_prime, A):
@@ -207,6 +278,94 @@ def rotation_matrix(A_prime, A):
 
     return R
 
+
+
+def givens_rotation_matrix(*angles):
+
+    angles = np.atleast_1d(angles)
+    D = len(angles)
+    R = np.ones((D, D, D))
+
+    for i, theta in enumerate(angles):
+
+        s = np.sin(theta)
+
+        R[i] = np.eye(D)
+        R[i, -i, -i] = R[i, -i + 1, -i + 1] = np.cos(theta)
+        R[i, -i, -i + 1] = +s
+        R[i, -i + 1, -i] = -s
+
+    R = np.linalg.multi_dot(R)
+    assert np.allclose(R @ R.T, np.eye(R.shape[0]))
+    return R
+
+
+
+cost = lambda B, *p: (B @ givens_rotation_matrix(*p)).flatten()
+
+
+def find_rotation_matrix(A, B, init=None, n_inits=25, **kwargs):
+    """
+    Find the Euler angles that produce the rotation matrix such that
+
+    .. math:
+
+        A \approx B @ R
+    """
+
+    kwds = dict(maxfev=10000)
+    kwds.update(kwargs)
+
+    A, B = (np.atleast_2d(A), np.atleast_2d(B))
+
+    if A.shape != B.shape:
+        raise ValueError("A and B must have the same shape")
+
+    L = lambda R: np.sum(np.abs(A - B @ R))
+
+    def objective_function(angles):
+        return L(givens_rotation_matrix(*angles))
+
+    if init is None:
+        inits = np.random.uniform(0, 2 * np.pi, size=(n_inits, J))
+        inits[0] = 0
+
+    else:
+        inits = np.atleast_2d(inits).reshape((-1, J))
+
+    best_R = None
+    best_cost = None
+
+    for i, init in enumerate(inits):
+
+        p_opt = op.minimize(objective_function, init, method="BFGS")
+        #p_opt = op.basinhopping(objective_function, init, niter=10)
+        #p_opt = op.minimize(objective_function, init, method="Nelder-Mead")
+
+        R = givens_rotation_matrix(*p_opt.x)
+        cost = L(R)
+
+        # Try flipping axes
+        flips = np.ones(J)
+        for j in range(J):
+
+            R_flip = R.copy()
+            R_flip[:, j] *= -1
+
+            if L(R_flip) < cost:
+                flips[j] = -1
+
+        R *= flips
+        cost = L(R)
+
+        print(p_opt.x, cost)
+
+        if best_cost is None or cost < best_cost:
+            best_R = R
+            best_cost = cost
+
+
+    return best_R
 
 
 if __name__ == "__main__":
