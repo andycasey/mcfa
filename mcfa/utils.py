@@ -200,7 +200,7 @@ def generalized_rotation_matrix(psi, theta, phi):
         [0, 0, 1]
     ])
 
-    return Rz @ Ry @ Rx
+    return Rz @ (Ry @ Rx)
 
 
 
@@ -278,6 +278,94 @@ def rotation_matrix(A_prime, A):
 
     return R
 
+
+
+def givens_rotation_matrix(*angles):
+
+    angles = np.atleast_1d(angles)
+    D = len(angles)
+    R = np.ones((D, D, D))
+
+    for i, theta in enumerate(angles):
+
+        s = np.sin(theta)
+
+        R[i] = np.eye(D)
+        R[i, -i, -i] = R[i, -i + 1, -i + 1] = np.cos(theta)
+        R[i, -i, -i + 1] = +s
+        R[i, -i + 1, -i] = -s
+
+    R = np.linalg.multi_dot(R)
+    assert np.allclose(R @ R.T, np.eye(R.shape[0]))
+    return R
+
+
+
+cost = lambda B, *p: (B @ givens_rotation_matrix(*p)).flatten()
+
+
+def find_rotation_matrix(A, B, init=None, n_inits=25, **kwargs):
+    """
+    Find the Euler angles that produce the rotation matrix such that
+
+    .. math:
+
+        A \approx B @ R
+    """
+
+    kwds = dict(maxfev=10000)
+    kwds.update(kwargs)
+
+    A, B = (np.atleast_2d(A), np.atleast_2d(B))
+
+    if A.shape != B.shape:
+        raise ValueError("A and B must have the same shape")
+
+    L = lambda R: np.sum(np.abs(A - B @ R))
+
+    def objective_function(angles):
+        return L(givens_rotation_matrix(*angles))
+
+    if init is None:
+        inits = np.random.uniform(0, 2 * np.pi, size=(n_inits, J))
+        inits[0] = 0
+
+    else:
+        inits = np.atleast_2d(inits).reshape((-1, J))
+
+    best_R = None
+    best_cost = None
+
+    for i, init in enumerate(inits):
+
+        p_opt = op.minimize(objective_function, init, method="BFGS")
+        #p_opt = op.basinhopping(objective_function, init, niter=10)
+        #p_opt = op.minimize(objective_function, init, method="Nelder-Mead")
+
+        R = givens_rotation_matrix(*p_opt.x)
+        cost = L(R)
+
+        # Try flipping axes
+        flips = np.ones(J)
+        for j in range(J):
+
+            R_flip = R.copy()
+            R_flip[:, j] *= -1
+
+            if L(R_flip) < cost:
+                flips[j] = -1
+
+        R *= flips
+        cost = L(R)
+
+        print(p_opt.x, cost)
+
+        if best_cost is None or cost < best_cost:
+            best_R = R
+            best_cost = cost
+
+
+    return best_R
 
 
 if __name__ == "__main__":
