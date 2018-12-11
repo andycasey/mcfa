@@ -19,6 +19,8 @@ article/*.log
 article/*.aux
 article/*.pyg
 article/*.bib
+article/*.bbl
+article/*.blg
 article/vc.tex
 article/*.synctex.gz
 
