@@ -6,7 +6,6 @@ def whiten(X, axis=0):
     return (X - np.mean(X, axis=axis))/np.std(X, axis=axis)
 
 
-
 def generate_data_from_leuton_drton():
 
     A = np.array([
