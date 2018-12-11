@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
+from scipy import stats
 from time import time
 
 sys.path.insert(0, "../../")
@@ -16,14 +17,11 @@ colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 # Should all go into exp1.yaml
 
-data_kwds = dict(n_samples=1000,
+data_kwds = dict(n_samples=100_000,
                  n_features=15,
                  n_components=10,
                  n_latent_factors=3,
-                 psi_scale=1,
-                 latent_scale=1,
-                 random_seed=42,
-                 eta=1)
+                 random_seed=42)
 
 mcfa_kwds = dict(tol=1e-5, 
                  max_iter=1_000,
@@ -31,12 +29,55 @@ mcfa_kwds = dict(tol=1e-5,
                  init_components="random",
                  random_seed=42)
 
-gridsearch_max_latent_factors = 5
-gridsearch_max_components = 15
+gridsearch_max_latent_factors = 2 * data_kwds["n_latent_factors"]
+gridsearch_max_components = 2 * data_kwds["n_components"]
 
 # Done with vars
-
+"""
 Y, truth = utils.generate_data(**data_kwds)
+"""
+
+def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2,
+                  omega_scale=1, noise_scale=1, random_seed=0):
+
+    rng = np.random.RandomState(random_seed)
+
+    #A = rng.randn(n_features, n_latent_factors)
+    A = stats.ortho_group.rvs(n_features)[:, :n_latent_factors]
+    AL = linalg.cholesky(A.T @ A)
+    A = A @ linalg.solve(AL, np.eye(n_latent_factors))
+
+    # latent variables
+    pvals = np.ones(n_components) / n_components
+    R = np.argmax(rng.multinomial(1, pvals, size=n_samples), axis=1)
+    pi = np.array([np.sum(R == i) for i in range(n_components)])/n_samples
+
+    xi = rng.randn(n_latent_factors, n_components)
+    omega = np.zeros((n_latent_factors, n_latent_factors, n_components))
+    for i in range(n_components):
+        omega[(*np.diag_indices(n_latent_factors), i)] = \
+            rng.gamma(1, scale=omega_scale, size=n_latent_factors)**2
+
+    scores = np.empty((n_samples, n_latent_factors))
+    for i in range(n_components):
+        match = (R == i)
+        scores[match] = rng.multivariate_normal(xi.T[i], omega.T[i], 
+                                                size=sum(match))
+
+    psi = rng.gamma(1, scale=noise_scale, size=n_features)
+
+    noise = np.sqrt(psi) * rng.randn(n_samples, n_features)
+
+    X = scores @ A.T + noise
+
+    truth = dict(A=A, pi=pi, xi=xi, omega=omega, psi=psi,
+                 noise=noise, R=R, scores=scores)
+
+    return (X, truth)
+
+Y, truth = generate_data(**data_kwds)
+
+
 
 # Fit with true number of latent factors and components.
 model = mcfa.MCFA(n_components=data_kwds["n_components"],
@@ -90,7 +131,7 @@ xi = 1 + np.arange(D)
 fig_factor_loads, ax = plt.subplots()
 
 for j in range(J):
-    ax.plot(xi, A_est.T[j], ":", lw=1, c=colors[j])
+    #ax.plot(xi, A_est.T[j], ":", lw=1, c=colors[j])
     ax.plot(xi, A_est_rot.T[j], "-", lw=1, c=colors[j])
     ax.plot(xi, A_true.T[j], "-", lw=2, c=colors[j])
 
@@ -107,6 +148,7 @@ ax.set_yticks([-ylim, 0, ylim])
 
 fig_factor_loads.tight_layout()
 
+raise a
 
 # Do a grid search.
 Js = np.arange(1, 1 + gridsearch_max_latent_factors)
