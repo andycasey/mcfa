@@ -25,8 +25,8 @@ data_kwds = dict(n_samples=100_000,
 
 mcfa_kwds = dict(tol=1e-5, 
                  max_iter=1_000,
-                 init_factors="random",
-                 init_components="random",
+                 init_factors="svd",
+                 init_components="kmeans++",
                  random_seed=42)
 
 gridsearch_max_latent_factors = 2 * data_kwds["n_latent_factors"]
@@ -43,7 +43,7 @@ def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2
     rng = np.random.RandomState(random_seed)
 
     #A = rng.randn(n_features, n_latent_factors)
-    A = stats.ortho_group.rvs(n_features)[:, :n_latent_factors]
+    A = stats.ortho_group.rvs(n_features, random_state=rng)[:, :n_latent_factors]
     AL = linalg.cholesky(A.T @ A)
     A = A @ linalg.solve(AL, np.eye(n_latent_factors))
 
@@ -131,7 +131,7 @@ xi = 1 + np.arange(D)
 fig_factor_loads, ax = plt.subplots()
 
 for j in range(J):
-    #ax.plot(xi, A_est.T[j], ":", lw=1, c=colors[j])
+    ax.plot(xi, A_est.T[j], ":", lw=1, c=colors[j])
     ax.plot(xi, A_est_rot.T[j], "-", lw=1, c=colors[j])
     ax.plot(xi, A_true.T[j], "-", lw=2, c=colors[j])
 
@@ -148,7 +148,6 @@ ax.set_yticks([-ylim, 0, ylim])
 
 fig_factor_loads.tight_layout()
 
-raise a
 
 # Do a grid search.
 Js = np.arange(1, 1 + gridsearch_max_latent_factors)
@@ -195,84 +194,17 @@ print(f"pseudo-BIC is lowest at J = {jm_pb} and K = {km_pb}")
 print(f"True values are  J = {J_true} and K = {K_true}")
 
 
-def plot_contours(J, K, Z, N=100, colorbar_label=None, 
-                  converged=None, converged_kwds=None, 
-                  marker_function=None, marker_kwds=None, 
-                  ax=None, **kwargs):
-    
-    power = np.min(np.log10(Z).astype(int))
 
-    Z = Z.copy() / (10**power)
+kwds = dict(converged=converged, marker_function=np.nanargmin)
+fig_ll = mpl_utils.plot_filled_contours(Jm, Km, -ll,
+                                        colorbar_label=r"$-\log\mathcal{L}$", 
+                                        **kwds)
 
-    if ax is None:
-        w = 0.2 + 4 + 0.1
-        h = 0.5 + 4 + 0.1
-        if colorbar_label is not None:
-            w += 1
-        fig, ax = plt.subplots(figsize=(w, h))
-    else:
-        fig = ax.figure
+fig_bic = mpl_utils.plot_filled_contours(Jm, Km, bic,
+                                         colorbar_label=r"$\textrm{BIC}$", 
+                                         **kwds)
 
-    cf = ax.contourf(J, K, Z, N, **kwargs)
-
-    ax.set_xlabel(r"$\textrm{Number of latent factors } J$")
-    ax.set_ylabel(r"$\textrm{Number of clusters } K$")
-
-    if converged is not None:
-        kwds = dict(marker="x", c="#000000", s=10, linewidth=1, alpha=0.3)
-        if converged_kwds is not None:
-            kwds.update(converged_kwds)
-
-        ax.scatter(J[~converged], K[~converged], **kwds)
-
-    if marker_function is not None:
-        idx = marker_function(Z)
-        j_m, k_m = (J[0][idx % Z.shape[1]], K.T[0][int(idx / Z.shape[1])])
-        kwds = dict(facecolor="#ffffff", edgecolor="#000000", linewidth=1.5,
-                    s=50, zorder=15)
-        if marker_kwds is not None:
-            kwds.update(marker_kwds)
-
-        ax.scatter(j_m, k_m, **kwds)
-
-    if colorbar_label is not None:
-        cbar = plt.colorbar(cf)
-        cbar.set_label(colorbar_label + " $/\,\,10^{0}$".format(power))
-        cbar.ax.yaxis.set_major_locator(MaxNLocator(5))
-
-    edge_percent = 0.025
-    x_range = np.ptp(J)
-    y_range = np.ptp(K)
-    ax.set_xlim(J.min() - x_range * edge_percent,
-                J.max() + x_range * edge_percent)
-
-    ax.set_ylim(K.min() - y_range * edge_percent,
-                K.max() + y_range * edge_percent)
-    
-    ax.xaxis.set_major_locator(MaxNLocator(9))
-    ax.yaxis.set_major_locator(MaxNLocator(9))
-
-    ax.set_xticks(Js.astype(int))
-    ax.yaxis.set_tick_params(width=0)
-    ax.xaxis.set_tick_params(width=0)
-
-    fig.tight_layout()
-
-    return fig
-
-kwds = dict(converged=converged)
-fig_ll = plot_contours(Jm, Km, -ll,
-                       marker_function=lambda *_: np.nanargmin(-ll),
-                       colorbar_label=r"$-\log\mathcal{L}$", 
-                       **kwds)
-
-fig_bic = plot_contours(Jm, Km, bic,
-                        marker_function=lambda *_: np.nanargmin(bic),
-                        colorbar_label=r"$\textrm{BIC}$", 
-                        **kwds)
-
-fig_pseudo_bic = plot_contours(Jm, Km, pseudo_bic,
-                               marker_function=lambda *_: np.nanargmin(pseudo_bic),
-                               colorbar_label=r"$\textrm{pseudo-BIC}$", 
-                               **kwds)
+fig_pseudo_bic = mpl_utils.plot_filled_contours(Jm, Km, pseudo_bic,
+                                                colorbar_label=r"$\textrm{pseudo-BIC}$", 
+                                                **kwds)
 

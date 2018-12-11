@@ -273,15 +273,12 @@ def corner_scatter(X, label_names=None, show_ticks=False, fig=None, figsize=None
         if figsize is None:
             figsize = (2 * K, 2 * K)
         fig, axes = plt.subplots(K, K, figsize=figsize)
-        
-    else:
-        axes = np.atleast_2d(fig.axes)
     
+    axes = np.array(fig.axes).reshape((K, K)).T
+
     kwds = dict(s=1, c="tab:blue", alpha=0.5)
     kwds.update(kwargs)
     
-    #axes = np.atleast_2d(axes).T
-
     for i, x in enumerate(X.T):
         for j, y in enumerate(X.T):
             if j == 0: continue
@@ -310,4 +307,70 @@ def corner_scatter(X, label_names=None, show_ticks=False, fig=None, figsize=None
 
     fig.tight_layout()
     
+    return fig
+
+
+def plot_filled_contours(J, K, Z, N=100, colorbar_label=None, 
+                         converged=None, converged_kwds=None, 
+                         marker_function=None, marker_kwds=None, 
+                         ax=None, **kwargs):
+            
+    power = np.min(np.log10(Z).astype(int))
+
+    Z = Z.copy() / (10**power)
+
+    if ax is None:
+        w = 0.2 + 4 + 0.1
+        h = 0.5 + 4 + 0.1
+        if colorbar_label is not None:
+            w += 1
+        fig, ax = plt.subplots(figsize=(w, h))
+    else:
+        fig = ax.figure
+
+    cf = ax.contourf(J, K, Z, N, **kwargs)
+
+    ax.set_xlabel(r"$\textrm{Number of latent factors } J$")
+    ax.set_ylabel(r"$\textrm{Number of clusters } K$")
+
+    if converged is not None:
+        kwds = dict(marker="x", c="#000000", s=10, linewidth=1, alpha=0.3)
+        if converged_kwds is not None:
+            kwds.update(converged_kwds)
+
+        ax.scatter(J[~converged], K[~converged], **kwds)
+
+    if marker_function is not None:
+        idx = marker_function(Z)
+        j_m, k_m = (J[0][idx % Z.shape[1]], K.T[0][int(idx / Z.shape[1])])
+        kwds = dict(facecolor="#ffffff", edgecolor="#000000", linewidth=1.5,
+                    s=50, zorder=15)
+        if marker_kwds is not None:
+            kwds.update(marker_kwds)
+
+        ax.scatter(j_m, k_m, **kwds)
+
+    if colorbar_label is not None:
+        cbar = plt.colorbar(cf)
+        cbar.set_label(colorbar_label + " $/\,\,10^{0}$".format(power))
+        cbar.ax.yaxis.set_major_locator(MaxNLocator(5))
+
+    edge_percent = 0.025
+    x_range = np.ptp(J)
+    y_range = np.ptp(K)
+    ax.set_xlim(J.min() - x_range * edge_percent,
+                J.max() + x_range * edge_percent)
+
+    ax.set_ylim(K.min() - y_range * edge_percent,
+                K.max() + y_range * edge_percent)
+    
+    ax.xaxis.set_major_locator(MaxNLocator(9))
+    ax.yaxis.set_major_locator(MaxNLocator(9))
+
+    ax.set_xticks(J[0].astype(int))
+    ax.yaxis.set_tick_params(width=0)
+    ax.xaxis.set_tick_params(width=0)
+
+    fig.tight_layout()
+
     return fig

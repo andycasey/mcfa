@@ -365,7 +365,7 @@ def find_rotation_matrix(A, B, init=None, n_inits=25, **kwargs):
             best_R = R
             best_cost = cost
 
-
+    print("Average cost per entry: {}".format(best_cost / A.size))
     return best_R
 
 
