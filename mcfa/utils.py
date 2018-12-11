@@ -1,6 +1,6 @@
 
 import numpy as np
-
+from scipy import (optimize as op, stats)
 
 def whiten(X, axis=0):
     return (X - np.mean(X, axis=axis))/np.std(X, axis=axis)
@@ -317,6 +317,8 @@ def find_rotation_matrix(A, B, init=None, n_inits=25, **kwargs):
     kwds.update(kwargs)
 
     A, B = (np.atleast_2d(A), np.atleast_2d(B))
+
+    D, J = A.shape
 
     if A.shape != B.shape:
         raise ValueError("A and B must have the same shape")

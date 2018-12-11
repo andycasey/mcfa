@@ -7,7 +7,7 @@ import numpy as np
 import warnings
 from copy import deepcopy
 from inspect import signature as inspect_signature
-from scipy import linalg, spatial
+from scipy import linalg, spatial, stats
 from scipy.special import logsumexp
 from sklearn import cluster
 from sklearn.utils import check_random_state
@@ -25,7 +25,7 @@ class MCFA(object):
     r""" A mixture of common factor analyzers model. """
 
     def __init__(self, n_components, n_latent_factors, max_iter=10000, tol=1e-5,
-                 init_components="kmeans++", init_factors="svd", verbose=1, 
+                 init_components="random", init_factors="random", verbose=1, 
                  random_seed=None, **kwargs):
         r"""
         A mixture of common factor analyzers model.
@@ -97,6 +97,7 @@ class MCFA(object):
             raise ValueError(f"init_factors must be one of {available_init_factors} "
                              f"or be a callable function")
 
+        self.log_likelihoods_ = []
 
         return None
 
@@ -322,8 +323,10 @@ class MCFA(object):
             component in the mixture.
         """
 
-        return _expectation(X, pi, A, xi, omega, psi,
-                            verbose=self.verbose)
+        ll, tau = _expectation(X, pi, A, xi, omega, psi, verbose=self.verbose)
+        self.log_likelihoods_.append(ll)
+
+        return (ll, tau)
 
 
     def maximization(self, X, tau, pi, A, xi, omega, psi):
@@ -584,7 +587,11 @@ class MCFA(object):
 
 def _initial_factor_loads_by_random(X, n_latent_factors):
     N, D = X.shape
-    return np.random.uniform(-1, 1, size=(D, n_latent_factors))
+    A = stats.ortho_group.rvs(D)[:, :n_latent_factors]
+    AL = linalg.cholesky(A.T @ A)
+    A = A @ linalg.solve(AL, np.eye(n_latent_factors))
+    return A
+
 
 def _initial_factor_loads_by_noise(X, n_latent_factors, scale=1e-2):
     N, D = X.shape

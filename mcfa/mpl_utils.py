@@ -275,12 +275,12 @@ def corner_scatter(X, label_names=None, show_ticks=False, fig=None, figsize=None
         fig, axes = plt.subplots(K, K, figsize=figsize)
         
     else:
-        axes = fig.axes
+        axes = np.atleast_2d(fig.axes)
     
     kwds = dict(s=1, c="tab:blue", alpha=0.5)
     kwds.update(kwargs)
     
-    axes = np.atleast_2d(axes).T
+    #axes = np.atleast_2d(axes).T
 
     for i, x in enumerate(X.T):
         for j, y in enumerate(X.T):
