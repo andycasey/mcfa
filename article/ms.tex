@@ -105,6 +105,16 @@
 
 
 \begin{abstract}
+Chemical tagging promises to distinguish unique star formation sites based on the
+present day photospheric abundances of stars.  It is not known how effective this
+will be.  Clustering techniques used for chemical tagging  assume statistical 
+independence between abundances. Theory and observations agree that this assumption
+is incorrect: some elemental abundances are produced through multiple nucleosynthetic
+processes, and most nucleosynthetic processes generates multiple chemical abundances.
+Here we introduce a statistically consistent approach to chemical tagging, where we
+simultaneously infer the nucleosynthetic processes that produce chemical abundances,
+and we perform clustering in this lower dimensional latent space. \todo{we use galah}
+\todo{scales iwth data}
 \end{abstract}
 
 
@@ -116,7 +126,9 @@
 	\item Chemical tagging
 	\item Limits on the efficacy of chemical tagging
 	\item Clustering vs common traits
+	\item Dimensionality of data space
 \end{itemize}
+
 
 
 The \Galah\ survey \citep{DaSilva:2015} is a stellar spectroscopic survey 
@@ -132,13 +144,21 @@ of chemical elements in the Milky Way.
 
 \section{Methods} \label{sec:methods}
 
-% TODO: Is D a diagonal vector, or a matrix?! Make it consistent.
+%Factor analysis is a statistical method used to describe variability among observed, correlated variables in terms of a potentially lower number of unobserved variables called factors.
 
-% Describe how we will attempt to define a generative model for the data, from the latent space.
+Factor analysis is a common statistical approach for describing correlated 
+observations with a lower number of latent variables \citep{factor-analysis}.
+\todo{Analagous approaches used in astrophysics: pca, etc}.
 
-In this work the data $\vecdata$ is a $\NumData \times \NumDimensions$ matrix 
-where $\NumData$ is the number of stars and $\NumDimensions$ is the number of
-chemical abundances measured for each star. We assume a
+Similarly, clustering techniques are commonly used to identify groups in 
+data space. 
+
+Here we use a combination of these methods that provides a
+consistent description of the data, given the latent variables and their 
+clustering in latent space. In this work the data $\vecdata$ is a 
+$\NumData \times \NumDimensions$ matrix where $\NumData$ is the number of 
+stars and $\NumDimensions$ is the number of chemical abundances measured 
+for each star. We assume a
 generative model for the data 
 \begin{equation}
 	\vecdata = \factorloads\factorscores + \vec{e}
@@ -158,34 +178,37 @@ $\NumData \times \NumLatentFactors$ matrix.
 is independent of the latent space, and $\specificvariance$ is a
 diagonal matrix of $\NumDimensions$ entries. In Appendix~\ref{app:symbols}
 we list all mathematical symbols used in this work and their description.
-
 In this model each data point can be represented as being drawn
 from a mixture of multivariate normal components, except the components
 are \emph{clustered in the latent space} $\factorscores$ and projected
 into the data space by the factor loads $\factorloads$. 
+
+
 We assume that the latent space is lower dimensionality than the
 data space (e.g., $\NumLatentFactors < \NumDimensions$).
 Within the context of stellar abundances, the factor loads
-$\factorloads$ can be thought of as the \emph{mean} yields
+$\factorloads$ can be thought of as the \emph{typical} yields
 of nucleosynthetic
-events (e.g., $s$-process yields from AGB stars), and the
+events (e.g., $s$-process production from AGB stars), and the
 factor scores are analogous to the relative counts of those 
 nucleosynthetic events. The clustering in factor scores
 achieves the same as a clustering procedure in data space,
-except we simultaneously estimate the factor loads
-(nucleosynthetic yields) that are common to all data points 
-(stars). Within this framework a rare nucleosynthetic event
-can still be described as a `common factor load' $\factorloads_\numlatentfactors$, 
+except we simultaneously estimate the latent processes that are
+common to all stars (the so-called factor loads, analogous to 
+nucleosynthetic yields). Within this framework a rare nucleosynthetic event
+can still be described as a `factor load' $\factorloads_\numlatentfactors$, 
 but its rarity would be represented by associated factor
-scores being zero for most stars and thus have no contribution
-to the observed abundances. The factor loads and factor scores 
-cannot be expressly interpreted like this because they have no
-physical meaning, but this description of relative yields and 
-rates should help build intuition for the model parameters,
-and provide an astrophysical context.
+scores being zero for most stars and thus have negligible contribution
+to the observed abundances. In practice the factor loads can only be 
+identified up to orthogonality and cannot be expressly interpreted as
+nucleosynthetic yields because they have limited physical meaning,
+but this description of typical yields and relative event rates should
+help build intuition for the model parameters, and provide context
+within the astrophysical problem it is being applied.
 
+\todo{this model of orthogonality takes the independence into account}
 
-One benefit of using a mixture of common factor analysers is
+Another benefit of using a mixture of common factor analysers is
 for modelling stellar chemical abundances is the scaling with
 computational cost. If we considered data sets of order $3\times10^7$
 entries (e.g., 30 chemical abundances for $10^6$ stars) purely as a
@@ -207,8 +230,11 @@ a mixture of factor analysers is that we can simultaneously
 estimate latent factors (e.g., infer nucleosynthetic 
 yields) and perform clustering (e.g., chemical tagging) 
 within a statistically consistent framework. That is to say
-that we have a generative model for the data that includes
-analogues of nucleosynthetic yields and star formation,
+that we have a generative model for the data that can 
+quantitatively account for nucleosynthetic yields, variations in
+turbulence and gas mixing, or star formation efficiency,
+%can account
+%analogues of nucleosynthetic yields and star formation,
 and the parameters of this model can be estimated consistently
 given some data.
 
@@ -230,6 +256,11 @@ The log likelihood is then given by
 \end{equation}
 
 
+As mentioned previously, the model as described is indeterminate in that
+there is no unique solution for the factor loads $\factorloads$ and scores
+$\factorscores$. These quantities can only be determined up until 
+orthogonality. However, accurate estimates of the parameter vector $\vec\Psi$
+can be obtained by the expectation-maximization algorithm \citep{EM}.
 %The model described by Equation~\ref{eq:generative-model} is indeterminate:
 %there is no unique solution for the factor loads $\factorloads$ and scores
 %$\factorscores$. However, an accurate estimate of the parameter vector $\vec\Psi$ can be obtained by the expectation-maximization algorithm \citep{EM}. 
@@ -238,58 +269,40 @@ The log likelihood is then given by
 
 \subsection{Initialisation}
 
-The code associated with this \emph{Article} allows the model parameters
-to be initialised using a variety of methods. For example, the initial factor 
-loads $\factorloads$ can be drawn by one of the following methods:
-\begin{enumerate}
-	\item \emph{uniform}: a uniform distribution $\factorloads \sim \mathcal{U}\left(-1, +1\right)$,
-	\item \emph{noise}: from noise $\factorloads \sim \mathcal{N}\left(0, 10^{-2}\right)$,
-	\item \emph{SVD}: using the $\NumLatentFactors$ principal eigenvectors estimated by singular value decomposition,
-	\item \emph{astrophysical}: using domain knowledge to set initial factor loads to vectors that are analogous to nucleosynthetic yields (see Section~\todo{\ref{sec:somewhere}}).
-\end{enumerate}
-
-We initially assign each data point as belonging to one of the $\NumComponents$
-components either by random assignment (e.g., drawing from a multinomial distribution), 
-or using the \texttt{K-means++} algorithm \citep{LLoyd} in latent space $\vecdata\factorloads$.
-Given the initial factor loads and initial assignments, we then estimate the relative weights
-$\vec\pi$, the mean factor scores of each component $\scoremeans$, and the covariance matrix
-of factor scores of each component $\scorecovs$. In all scenarios we initialise the 
-variance $\specificvariance$ in each dimension as 1.
-
-
-\begin{comment}
-We use the K-means++ algorithm to initially assign data points
-randomly to $K$ clusters (in data space). This provides a so-called
-hard initial association where each data point is wholly assigned
-to a single component. Specifically we calculate the $n \times K$
-responsibility matrix $\vec\tau$, where a entry of 1 indicates the
-$n$th data point is associated with the $k$th cluster, and an
-entry of 0 indicates no association such that
+Here we describe the default initialisation of the model parameters, which
+we have found to be robust in a large set of models. Given a number of
+$\NumLatentFactors$ latent factors we initialise the factor load
+$\factorloads$ entries to be drawn from a uniform distribution
+$\factorloads \sim \mathcal{U}\left(-1, +1\right)$ and then ensure that
+the factor loads are orthogonal such that
+%TODO: Should we re-write this so that we just draw from the scipy special ortho group?
 \begin{equation}
-	\weight_k = \frac{1}{N}\sum_{n=1}^{N}\tau_{nk} \quad .
+	\factorloads \factorloads\transpose = \eye \quad .
 \end{equation}
-We then chose 1,000
-random data points and factorize that matrix using singular-value
-decomposition. We take the principal $p$ eigenvectors as the 
-initial guess for the factor loads $\factorloads$, and calculate
-an initial estimate of the factor score means
-\begin{equation}
-	\scoremeans_k = \frac{1}{N}\sum_{n=1}^{N}\tau_{nk}\vecdata_{n}\factorloads
-\end{equation}
-\noindent{}and the covariance matrices of the clusters in latent space
-\begin{equation}
-	\scorecovs_k = \textrm{cov}{\left(\tau_{nk}\vecdata_{n}\right)} \quad .
-\end{equation}
-\end{comment}
+%        AL = linalg.cholesky(A.T @ A)
+%        A = A @ linalg.solve(AL, np.eye(self.n_latent_factors))
+% 	
+We then initially assign each data point as belonging to one of the
+$\NumComponents$ components by drawing from a multinomial distribution
+and generating the responsibility matrix $\vec\tau$. Given the initial
+factor loads and assignments, we then estimate the relative weights
+$\vec\pi$, the mean factor scores of each component $\scoremeans$, and
+the covariance matrix of factor scores of each component $\scorecovs$.
+Finally, we initialise the specific variance $\specificvariance$ in each
+dimension as 1. 
+
+Other initialisation methods are available in the code 
+associated with this \emph{Article}. In later Sections we show that 
+the optimised model parameters are insensitive to the choice initialisation, 
+up until orthogonal rotation of the latent space.
+
 
 \subsection{Expectation-Maximization}
 
-We use the expectation-maximization algorithm to maximise the log-likelihood
-of the data, given the current estimate of the model parameters. With each step
-cycle we update the model parameters and increase the log-likelihood.
-At the expectation step we evaluate the log likelihood
-given the model parameters $\vec\Psi$, and we re-calculate the responsibility
-matrix whose entries are the posterior probability
+We use the expectation-maximization algorithm to estimate the model parameters.
+With each expectation step we evaluate the log likelihood given the model 
+parameters $\vec\Psi$, and we re-calculate the responsibility 
+matrix $\vec\tau$ whose entries are the posterior probability
 that the $\numdata$th data point is associated to the $\numcomponents$th component,
 given the data $\vecdata$ and the current estimate of the 
 parameter vector $\vec\Psi$:
@@ -298,24 +311,17 @@ parameter vector $\vec\Psi$:
 \end{equation}
 
 
-% The complexity of SVD is O(n^3), and
-% the complexity of K-means++ is O(log(k)). If we knew the complexity of
-% k-means++ relative to N, then we would be able to make better decisions
-% as to how to initialise: SVD first and then K-means in latent space?
-
-
-
-% Discuss connection to PCA, FA, MFA.
-
-% Include macros for \vec, \data, etc.
 At the maximization step we update our estimates of the parameters,
 conditioned on the data $\vecdata$ and the responsibility matrix $\vec\tau$.
-Initially we update the relative weights $\vec\weight\nextstep$ given
+First we estimate the relative weights $\vec\weight\nextstep$ given
 the responsibility matrix $\vec\tau$
 \begin{equation}
-	\weight_\numcomponents\nextstep = \frac{1}{\NumData} \sum_{\numdata=1}^{\NumData}\tau_{\numdata\numcomponents} \quad .
+	\weight_\numcomponents\nextstep = \frac{1}{\NumData} \sum_{\numdata=1}^{\NumData}\tau_{\numdata\numcomponents}
 	% Include proof.
 \end{equation}
+\noindent{}where the $\vec{X}\thisstep$ superscript refers to the current estimate of a variable
+and $\vec{X}\nextstep$ refers to the updated estimate for the next iteration.
+%\footnote{Here $\vec\textrm{X}\now$ refers to the current estimate of a variable $\vec\textrm{X}$ and $\vec\textrm{X}\nextstep$ refers to the updated estimate for the next iteration.}
 
 
 %\noindent{}In the equations that follow (Equation~\ref{eq:X} to \ref{eq:Y})
@@ -324,7 +330,7 @@ the responsibility matrix $\vec\tau$
 %(e.g., $\scoremeans\nextstep$). 
 
 The updated estimates of the mean factor scores 
-$\scoremeans\nextstep$ are given by
+$\scoremeans\nextstep$ for each component are then given by
 \begin{eqnarray}
 	\scoremeans_\numcomponents\nextstep = \scoremeans_\numcomponents\thisstep + \frac{\vec{G}\transpose(\vecdata\transpose - \factorloads\thisstep\scoremeans_\numcomponents\thisstep)\vec\tau_\numcomponents}{\NumData\weight_\numcomponents\nextstep}
 \end{eqnarray}
@@ -366,7 +372,13 @@ by
 	\specificvariance\nextstep = \frac{1}{\NumData}\left[\sum^{\NumComponents}_{\numcomponents=1}\vec\tau_\numcomponents\transpose\left(\vecdata\odot\vecdata\right) - \sum_{j=1}^{J}\left(\factorloads\nextstep\factorloads_2\right)\odot\factorloads\nextstep\right]
 \end{equation}
 
-\noindent{}where $\odot$ denotes is the entrywise (Hadamard) product.
+\noindent{}where $\odot$ denotes is the entry-wise (Hadamard) product. We repeated
+the expectation-maximization algorithm for up to 1,000 steps or until the log-likelihood
+improved by less than $10^{-5}$ between successive iterations. Although our implementation
+allows for a positive regularisation term to be added along the diagonal of the covariance
+matrices in latent space $\scorecovs$, we set this regularisation term to zero for all
+experiments performed here.
+
 
 
 \section{Experiments} \label{sec:experiments}
@@ -684,51 +696,7 @@ pathways, and it is this subsample that we will use for
 our initial chemical experiment with \Galah\ data.
 
 
-\begin{comment}
-For this subset
-we examined the measured abundances and
-counted the number of stars with \texttt{flag\_x\_fe = 0}
-for each abundance. This flag indicates that there is no known
-reason to suspect that the measured chemical abundance is
-unreliable. 
 
-We sorted the elemental abundances by the number of stars
-with reliable measurements, from highest to lowest. Starting
-with Fe, we iterated over each element and counted the number
-of stars with reliable measurements of that element and all
-other elements earlier in the list. We illustrate this process
-in Figure~\ref{fig:galah-abundances}, where we show that
-if we include the top 14 elemental abundances, we would have
-12,798 stars with reliable measurements in all fourteen elements.
-This is relevant to the approach we use here, as the method
-described here requires no missing data.
-\end{comment}
-
-\begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/galah-abundances.png}
-    \caption{Number of \Galah\ stars with reliable abundance measurements,
-    		 shown in order from the most commonly measured elemental abundance
-		 	 (Fe) to the least reliable element (Li). The solid line
-			 shows the number of reliable measurements for the given element,
-			 and the dotted (blue) line indicates the stars with reliable
-			 abundances in all elements listed to the left (including the
-			 element of interest). For example, there are $\sim60,000$
-			 stars with reliable abundances in all elements listed from
-			 Fe to Cu, inclusive.}
-    \label{fig:galah-abundances}
-\end{figure}
-
-\begin{comment}
-This leaves us with a sample of 12,798 stars each with
-reliable stellar parameters ($\teff$, $\logg$) and fourteen
-(reliably) measured abundances: Na, Mg, Si, Ca, Sc, Ti, Cr, Mn, 
-Fe, Ni, Cu, Zn, Ba, and Eu
-\todo{Y} (reliable) measured abundances: \todo{Mn, Fe}.
-These elements are produced from multiple nucleosynthetic
-pathways, including \todo{X}. 
-It is this subsample that we will use for experiments
-in chemical tagging.
-\end{comment}
 
 %\subsubsection{Search strategy} \label{sec:experiment-galah-search}
 
