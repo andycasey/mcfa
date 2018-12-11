@@ -25,7 +25,7 @@ class MCFA(object):
     r""" A mixture of common factor analyzers model. """
 
     def __init__(self, n_components, n_latent_factors, max_iter=10000, tol=1e-5,
-                 init_components="random", init_factors="random", verbose=1, 
+                 init_components="kmeans++", init_factors="svd", verbose=1, 
                  random_seed=None, **kwargs):
         r"""
         A mixture of common factor analyzers model.
@@ -208,7 +208,7 @@ class MCFA(object):
         return self._X2
 
 
-    def _initial_parameters(self, X):
+    def _initial_parameters(self, X, random_state=None):
         r"""
         Estimate the initial parameters of the model.
 
@@ -238,13 +238,14 @@ class MCFA(object):
             "svd": _initial_factor_loads_by_svd
         }.get(self.init_factors, self.init_factors)
         
-        A = initial_factor_func(X, self.n_latent_factors)
+        A = initial_factor_func(X, self.n_latent_factors, random_state)
 
         initial_components_func = {
             "random": _initial_components_by_random,
             "kmeans++": _initial_components_by_kmeans_pp,
         }.get(self.init_components, self.init_components)
 
+        # TODO: use random state.
         pi, xi, omega = initial_components_func(X, A, self.n_components)
 
         N, D = X.shape
@@ -427,8 +428,8 @@ class MCFA(object):
 
         X = self._check_data(X)
 
-        theta = self._initial_parameters(X) if init_params is None \
-                                            else deepcopy(init_params) 
+        theta = self._initial_parameters(X, self.random_seed) \
+                if init_params is None else deepcopy(init_params) 
 
         prev_ll, tau = self.expectation(X, *theta)
 
@@ -585,19 +586,25 @@ class MCFA(object):
         return X
 
 
-def _initial_factor_loads_by_random(X, n_latent_factors):
+def _initial_factor_loads_by_random(X, n_latent_factors, random_state=None):
     N, D = X.shape
-    A = stats.ortho_group.rvs(D)[:, :n_latent_factors]
+    A = stats.ortho_group.rvs(D, random_state=random_state)[:, :n_latent_factors]
     AL = linalg.cholesky(A.T @ A)
     A = A @ linalg.solve(AL, np.eye(n_latent_factors))
     return A
 
 
-def _initial_factor_loads_by_noise(X, n_latent_factors, scale=1e-2):
+def _initial_factor_loads_by_noise(X, n_latent_factors, random_state=None,
+                                   scale=1e-2):
+
+    # TODO: use random state.
     N, D = X.shape
     return np.random.normal(0, scale, size=(D, n_latent_factors))
 
-def _initial_factor_loads_by_svd(X, n_latent_factors, n_svd_max=1000):
+def _initial_factor_loads_by_svd(X, n_latent_factors, random_state=None,
+                                 n_svd_max=1000):
+
+    # TODO: use random state
     N, D = X.shape
     n_svd_max = N if n_svd_max < 0 or n_svd_max > N else int(n_svd_max)
     idx = np.random.choice(N, n_svd_max, replace=False)
