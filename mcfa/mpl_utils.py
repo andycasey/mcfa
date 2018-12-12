@@ -314,11 +314,12 @@ def plot_filled_contours(J, K, Z, N=100, colorbar_label=None,
                          converged=None, converged_kwds=None, 
                          marker_function=None, marker_kwds=None, 
                          ax=None, **kwargs):
-            
-    power = np.min(np.log10(Z).astype(int))
-
-    Z = Z.copy() / (10**power)
-
+    power = None
+        
+    if np.all(Z > 0):
+        power = np.min(np.log10(Z).astype(int))
+        Z = Z.copy() / (10**power)
+    
     if ax is None:
         w = 0.2 + 4 + 0.1
         h = 0.5 + 4 + 0.1
@@ -338,7 +339,8 @@ def plot_filled_contours(J, K, Z, N=100, colorbar_label=None,
         if converged_kwds is not None:
             kwds.update(converged_kwds)
 
-        ax.scatter(J[~converged], K[~converged], **kwds)
+        if not np.all(converged):
+            ax.scatter(J[~converged], K[~converged], **kwds)
 
     if marker_function is not None:
         idx = marker_function(Z)
@@ -352,7 +354,11 @@ def plot_filled_contours(J, K, Z, N=100, colorbar_label=None,
 
     if colorbar_label is not None:
         cbar = plt.colorbar(cf)
-        cbar.set_label(colorbar_label + " $/\,\,10^{0}$".format(power))
+        if power is not None:
+            cbar.set_label(colorbar_label + " $/\,\,10^{0}$".format(power))
+        else:
+            cbar.set_label(colorbar_label)
+            
         cbar.ax.yaxis.set_major_locator(MaxNLocator(5))
 
     edge_percent = 0.025
