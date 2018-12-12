@@ -6,7 +6,6 @@ def whiten(X, axis=0):
     return (X - np.mean(X, axis=axis))/np.std(X, axis=axis)
 
 
-
 def generate_data_from_leuton_drton():
 
     A = np.array([
@@ -304,7 +303,7 @@ def givens_rotation_matrix(*angles):
 cost = lambda B, *p: (B @ givens_rotation_matrix(*p)).flatten()
 
 
-def find_rotation_matrix(A, B, init=None, n_inits=25, **kwargs):
+def find_rotation_matrix(A, B, init=None, n_inits=25, full_output=True, **kwargs):
     """
     Find the Euler angles that produce the rotation matrix such that
 
@@ -323,7 +322,8 @@ def find_rotation_matrix(A, B, init=None, n_inits=25, **kwargs):
     if A.shape != B.shape:
         raise ValueError("A and B must have the same shape")
 
-    L = lambda R: np.sum(np.abs(A - B @ R))
+    diff = lambda R: np.abs(A - B @ R)
+    L = lambda R: np.sum(diff(R))
 
     def objective_function(angles):
         return L(givens_rotation_matrix(*angles))
@@ -337,6 +337,7 @@ def find_rotation_matrix(A, B, init=None, n_inits=25, **kwargs):
 
     best_R = None
     best_cost = None
+    best_opt = None
 
     for i, init in enumerate(inits):
 
@@ -365,8 +366,16 @@ def find_rotation_matrix(A, B, init=None, n_inits=25, **kwargs):
         if best_cost is None or cost < best_cost:
             best_R = R
             best_cost = cost
+            best_opt = p_opt
 
     print("Average cost per entry: {}".format(best_cost / A.size))
+    
+    if full_output:
+        objective = lambda angles: diff(givens_rotation_matrix(*angles)).flatten()
+        p_opt, cov, infodict, mesg, ier = op.leastsq(objective, best_opt.x,
+                                                     full_output=True)
+    
+        return (best_R, p_opt, cov, infodict, mesg, ier)
     return best_R
 
 
