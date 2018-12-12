@@ -1,6 +1,7 @@
 
 import sys
 import numpy as np
+import os
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
@@ -16,12 +17,21 @@ colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 
 # Should all go into exp1.yaml
-
+"""
 data_kwds = dict(n_samples=100_000,
                  n_features=15,
                  n_components=10,
                  n_latent_factors=3,
                  random_seed=42)
+"""
+
+
+
+def savefig(fig, suffix):
+    prefix = os.path.basename(__file__)[:-3]
+    filename = f"{prefix}-{suffix}.png"
+    fig.savefig(filename, dpi=150)
+
 
 mcfa_kwds = dict(tol=1e-5, 
                  max_iter=1_000,
@@ -29,14 +39,11 @@ mcfa_kwds = dict(tol=1e-5,
                  init_components="kmeans++",
                  random_seed=42)
 
-gridsearch_max_latent_factors = 2 * data_kwds["n_latent_factors"]
-gridsearch_max_components = 2 * data_kwds["n_components"]
-
 # Done with vars
 """
 Y, truth = utils.generate_data(**data_kwds)
 """
-
+"""
 def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2,
                   omega_scale=1, noise_scale=1, random_seed=0):
 
@@ -76,7 +83,66 @@ def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2
     return (X, truth)
 
 Y, truth = generate_data(**data_kwds)
+"""
 
+
+n_features = 15
+n_components = 20
+n_latent_factors = 5
+n_samples = 100000
+
+omega_scale = 1
+noise_scale = 1
+random_seed = 1
+
+data_kwds = dict(n_features=n_features,
+                 n_components=n_components,
+                 n_latent_factors=n_latent_factors,
+                 n_samples=n_samples,
+                 omega_scale=omega_scale,
+                 noise_scale=noise_scale,
+                 random_seed=random_seed)
+
+
+def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2,
+                  omega_scale=1, noise_scale=1, random_seed=0):
+
+    rng = np.random.RandomState(random_seed)
+
+    A = rng.randn(n_features, n_latent_factors)
+
+    # latent variables
+    pvals = np.ones(n_components) / n_components
+    R = np.argmax(rng.multinomial(1, pvals, size=n_samples), axis=1)
+    pi = np.array([np.sum(R == i) for i in range(n_components)])/n_samples
+
+    xi = rng.randn(n_latent_factors, n_components)
+    omega = np.zeros((n_latent_factors, n_latent_factors, n_components))
+    for i in range(n_components):
+        omega[(*np.diag_indices(n_latent_factors), i)] = \
+            rng.gamma(1, scale=omega_scale, size=n_latent_factors)**2
+
+    scores = np.empty((n_samples, n_latent_factors))
+    for i in range(n_components):
+        match = (R == i)
+        scores[match] = rng.multivariate_normal(xi.T[i], omega.T[i], 
+                                                size=sum(match))
+
+    psi = rng.gamma(1, scale=noise_scale, size=n_features)
+
+    noise = np.sqrt(psi) * rng.randn(n_samples, n_features)
+
+    X = scores @ A.T + noise
+
+    truth = dict(A=A, pi=pi, xi=xi, omega=omega, psi=psi,
+                 noise=noise, R=R, scores=scores)
+
+    return (X, truth)
+
+Y, truth = generate_data(**data_kwds)
+
+gridsearch_max_latent_factors = 2 * data_kwds["n_latent_factors"]
+gridsearch_max_components = 2 * data_kwds["n_components"]
 
 
 # Fit with true number of latent factors and components.
@@ -105,7 +171,7 @@ ax.set_xticks(xt + np.hstack([1, np.zeros(xt.size - 1)]))
 ax.set_xlim(0, iterations[-1] + 1)
 fig_iterations.tight_layout()
 
-
+"""
 # Plot the data, with samples
 Y_drawn = model.sample(data_kwds["n_samples"])
 fig_data = mpl_utils.corner_scatter(Y, 
@@ -116,7 +182,7 @@ mpl_utils.corner_scatter(Y_drawn,
 fig_data.tight_layout()
 fig_data.subplots_adjust(hspace=0, wspace=0)
 
-
+"""
 
 # Plot the true latent factors w.r.t. the estimated ones, after rotation.
 A_true = truth["A"]
@@ -181,6 +247,12 @@ for j, J in enumerate(Js):
             pseudo_bic[k, j] = model.pseudo_bic(Y, **pseudo_bic_kwds)
             converged[k, j] = True
 
+            idx = np.nanargmin(bic)
+            jm_b, km_b = Js[idx % bic.shape[1]], Ks[int(idx / bic.shape[1])]
+
+            print(f"Lowest BIC so far is at J = {jm_b} and K = {km_b}")
+
+
 idx = np.nanargmin(bic)
 jm_b, km_b = Js[idx % bic.shape[1]], Ks[int(idx / bic.shape[1])]
 
@@ -200,6 +272,7 @@ fig_ll = mpl_utils.plot_filled_contours(Jm, Km, -ll,
                                         colorbar_label=r"$-\log\mathcal{L}$", 
                                         **kwds)
 
+
 fig_bic = mpl_utils.plot_filled_contours(Jm, Km, bic,
                                          colorbar_label=r"$\textrm{BIC}$", 
                                          **kwds)
@@ -208,3 +281,6 @@ fig_pseudo_bic = mpl_utils.plot_filled_contours(Jm, Km, pseudo_bic,
                                                 colorbar_label=r"$\textrm{pseudo-BIC}$", 
                                                 **kwds)
 
+savefig(fig_ll, "gridsearch-ll-contours")
+savefig(fig_bic, "gridsearch-bic-contours")
+savefig(fig_pseudo_bic, "gridsearch-pseudo-bic-contours")
