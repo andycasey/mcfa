@@ -586,6 +586,25 @@ class MCFA(object):
         return X
 
 
+    def apply_rotation(self, R):
+        r"""
+        Rotate the factor loads and factor scores by the given rotation matrix.
+
+        :param R:
+            A `J` times `J` rotation matrix, where `J` is the number of latent
+            factors.
+
+        """
+
+        # Check that it is a rotation matrix.
+        R = np.atleast_2d(R)
+        J, J_ = R.shape
+        if J != J_:
+            raise ValueError("rotation matrix is not square")
+
+        np.allclose(R @ R.T)
+
+
 def _initial_factor_loads_by_random(X, n_latent_factors, random_state=None):
     N, D = X.shape
     A = stats.ortho_group.rvs(D, random_state=random_state)[:, :n_latent_factors]

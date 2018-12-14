@@ -371,11 +371,20 @@ def find_rotation_matrix(A, B, init=None, n_inits=25, full_output=True, **kwargs
     print("Average cost per entry: {}".format(best_cost / A.size))
     
     if full_output:
-        objective = lambda angles: diff(givens_rotation_matrix(*angles)).flatten()
-        p_opt, cov, infodict, mesg, ier = op.leastsq(objective, best_opt.x,
+
+        def objective(angles):
+            cost = diff(givens_rotation_matrix(*angles)).flatten()
+            if not np.all(angles > 0) \
+            or not np.all((2 * np.pi) >= angles):
+                return np.nan * cost
+            return cost
+
+        p_opt, cov, infodict, mesg, ier = op.leastsq(objective, 
+                                                     best_opt.x % (2 * np.pi),
                                                      full_output=True)
     
         return (best_R, p_opt, cov, infodict, mesg, ier)
+
     return best_R
 
 

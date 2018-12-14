@@ -10,6 +10,8 @@ from matplotlib.colors import LogNorm
 from matplotlib.ticker import MaxNLocator
 from matplotlib.patches import Ellipse
 
+from .utils import find_rotation_matrix, givens_rotation_matrix
+
 mpl_style = {
 
     # Lines
@@ -105,6 +107,91 @@ def plot_latent_factors(model, label_names=None):
     fig.tight_layout()
 
     return fig
+
+
+
+def fill_between_steps(ax, x, y1, y2=0, h_align='mid', **kwargs):
+    """
+    Fill between for step plots in matplotlib.
+
+    **kwargs will be passed to the matplotlib fill_between() function.
+    """
+
+    # If no Axes opject given, grab the current one:
+
+    # First, duplicate the x values
+    xx = x.repeat(2)[1:]
+    # Now: the average x binwidth
+    xstep = np.repeat((x[1:] - x[:-1]), 2)
+    xstep = np.concatenate(([xstep[0]], xstep, [xstep[-1]]))
+    # Now: add one step at end of row.
+    xx = np.append(xx, xx.max() + xstep[-1])
+
+    # Make it possible to chenge step alignment.
+    if h_align == 'mid':
+        xx = xx - xstep / 2.
+    elif h_align == 'right':
+        xx = xx - xstep
+
+    # Also, duplicate each y coordinate in both arrays
+    y1 = y1.repeat(2)#[:-1]
+    if type(y2) == np.ndarray:
+        y2 = y2.repeat(2)#[:-1]
+
+    # now to the plotting part:
+    return ax.fill_between(xx, y1, y2=y2, **kwargs)
+
+
+def plot_specific_scatter(model, scales=1, 
+                          xlabel=None, xticklabels=None, ylabel=None,
+                          steps=False, fill=True, line_kwds=None, fill_kwds=None):
+
+    fig, ax = plt.subplots()
+
+    y = scales * np.sqrt(model.theta_[model.parameter_names.index("psi")])
+    x = np.arange(y.size)
+
+    kwds = dict(drawstyle="steps-mid", c="#000000", lw=2)
+    kwds.update(line_kwds or dict())
+
+    if steps:
+        ax.plot(np.hstack([-1, x, x.size]),
+                np.hstack([y[0], y, y[-1]]),
+                "-", **kwds)
+    else:
+        ax.plot(x, y, "-", **kwds)
+
+    if fill:
+        kwds = dict(facecolor="#000000", alpha=0.3, zorder=-1)
+        kwds.update(fill_kwds or dict())
+
+        if steps:
+            fill_between_steps(ax, x, np.zeros_like(y),  y, **kwds)
+        else:
+            ax.fill_between(x, np.zeros_like(y), y, **kwds)
+
+    ax.set_xlim(-0.5, x.size - 0.5)
+    ylim = ax.get_ylim()[1]
+    ax.set_ylim(0, ylim)
+    ax.yaxis.set_major_locator(MaxNLocator(5))
+
+    ax.set_xticks(x)
+
+    if xticklabels is not None:
+        ax.set_xticklabels(xticklabels)
+
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
+    else:
+        ax.set_xlabel(r"$\textrm{data dimension}$")
+
+    if ylabel is None:
+        ylabel = r"$\textrm{specific scatter}$"
+    ax.set_ylabel(ylabel)
+
+    fig.tight_layout()
+    return fig
+
 
 
 
@@ -379,4 +466,114 @@ def plot_filled_contours(J, K, Z, N=100, colorbar_label=None,
 
     fig.tight_layout()
 
+    return fig
+
+
+def plot_factor_loads(factor_loads, scales=1, separate_axes=False,
+                      target_loads=None, show_target_loads=True, 
+                      load_labels=None, n_rotation_inits=25,
+                      flip_loads=None, xlabel=None, xticklabels=None,
+                      legend_kwds=None, figsize=None):
+
+
+
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+    D, J = factor_loads.shape
+    if flip_loads is None:
+        flip_loads = np.ones(J)
+    else:
+        flip_loads = np.array(flip_loads)
+
+    if load_labels is None:
+        load_labels = ["_"] * J
+
+    xi = 1 + np.arange(D)
+
+    if target_loads is not None:
+
+        R, p_opt, cov, *_ = find_rotation_matrix(target_loads, factor_loads, 
+                                                 n_inits=n_rotation_inits,
+                                                 full_output=True)
+        if cov is not None:
+            N_draws = 100
+            rotated_factors = np.zeros((N_draws, *factor_loads.shape))
+
+            draws = np.random.multivariate_normal(p_opt, cov, size=N_draws)
+
+            for i, draw in enumerate(draws):
+                rotated_factors[i] = factor_loads @ givens_rotation_matrix(*draw)
+
+            rotated_percentiles = np.percentile(rotated_factors, 
+                                                [16, 50, 84], axis=0)
+        else:
+            rotated_percentiles = np.nan * np.ones((3, D, J))
+            rotated_percentiles[1] = factor_loads @ R
+
+    else:
+        rotated_percentiles = np.nan * np.ones((3, D, J))
+        rotated_percentiles[1] = factor_loads        
+
+    for i in range(rotated_percentiles.shape[0]):
+        rotated_percentiles[i] *= flip_loads
+        rotated_percentiles[i] = (rotated_percentiles[i].T * scales).T
+
+    if separate_axes:
+        fig, ax = plt.subplots(J, 1, figsize=figsize)
+        ax = np.atleast_2d(ax).flatten()
+
+    else:
+        fig, ax = plt.subplots()
+        ax = [ax]
+
+    for j in range(J):
+
+        axes = ax[j] if separate_axes else ax[0]
+        color = colors[j % len(colors)]
+
+        axes.plot(xi, rotated_percentiles[1, :, j], "-", 
+                  lw=2, c=color, label=load_labels[j])
+        axes.fill_between(xi, 
+                          rotated_percentiles[0, :, j], 
+                          rotated_percentiles[2, :, j],
+                          facecolor=color, alpha=0.3)
+
+        if show_target_loads and target_loads is not None:
+            axes.plot(xi, target_loads.T[j], ":", c=color)
+
+
+    for axes in ax:
+
+        axes.set_xticks(xi)
+        ylim = max(np.ceil(10 * np.abs(axes.get_ylim()).max()) / 10, 1)
+        axes.plot([0, D + 1], [0, 0], ":", c="#000000", zorder=-1, lw=0.5)
+        axes.set_xlim(0.5, D + 0.5)
+
+        axes.set_ylim(-ylim, +ylim)
+        axes.set_yticks([-ylim, 0, ylim])
+
+        if axes.is_last_row():
+            if xticklabels is not None:
+                axes.set_xticklabels(xticklabels)
+
+            if xlabel is not None:
+                axes.set_xlabel(xlabel)
+            else:
+                axes.set_xlabel(r"$\textrm{dimension}$")
+
+        else:
+            axes.set_xticklabels([""] * D)
+
+        if axes.is_first_col():
+            axes.set_ylabel(r"$\mathbf{L}$")
+
+        if load_labels is not None:
+            kwds = dict(frameon=False, fontsize=12.0)
+            kwds.update(legend_kwds or dict())
+            axes.legend(**kwds)
+
+        if axes.is_first_col():
+            axes.set_yticklabels([rf"$-{ylim}$", r"$0$", rf"$+{ylim}$"])
+
+    fig.tight_layout()
     return fig
