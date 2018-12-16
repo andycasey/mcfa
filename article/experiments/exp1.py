@@ -170,8 +170,9 @@ xt = ax.get_xticks()
 ax.set_xticks(xt + np.hstack([1, np.zeros(xt.size - 1)]))
 ax.set_xlim(0, iterations[-1] + 1)
 fig_iterations.tight_layout()
+savefig(fig_iterations, "ll-iterations")
 
-"""
+
 # Plot the data, with samples
 Y_drawn = model.sample(data_kwds["n_samples"])
 fig_data = mpl_utils.corner_scatter(Y, 
@@ -181,14 +182,14 @@ mpl_utils.corner_scatter(Y_drawn,
 
 fig_data.tight_layout()
 fig_data.subplots_adjust(hspace=0, wspace=0)
+savefig(fig_data, "data")
 
-"""
 
 # Plot the true latent factors w.r.t. the estimated ones, after rotation.
 A_true = truth["A"]
 A_est = model.theta_[model.parameter_names.index("A")]
 
-R = utils.find_rotation_matrix(A_true, A_est, n_inits=100)
+R, *_ = utils.find_rotation_matrix(A_true, A_est, n_inits=100)
 A_est_rot = A_est @ R
 
 D, J = A_true.shape
@@ -213,7 +214,7 @@ ax.set_ylim(-ylim, +ylim)
 ax.set_yticks([-ylim, 0, ylim])
 
 fig_factor_loads.tight_layout()
-
+savefig(fig_factor_loads, "factor_loads")
 
 # Do a grid search.
 Js = np.arange(1, 1 + gridsearch_max_latent_factors)
@@ -264,7 +265,6 @@ J_true, K_true = (data_kwds["n_latent_factors"], data_kwds["n_components"])
 print(f"BIC is lowest at J = {jm_b} and K = {km_b}")
 print(f"pseudo-BIC is lowest at J = {jm_pb} and K = {km_pb}")
 print(f"True values are  J = {J_true} and K = {K_true}")
-
 
 
 kwds = dict(converged=converged, marker_function=np.nanargmin)

@@ -31,7 +31,8 @@ element_mask = np.array([ln.split("_")[0] not in ignore_elements for ln in label
 X_H = X_H[:, element_mask]
 label_names = list(np.array(label_names)[element_mask])
 
-X = utils.whiten(X_H)
+#X = utils.whiten(X_H)
+X = X_H
 
 
 grouped_elements = [
@@ -178,22 +179,21 @@ for i, tes in enumerate(astrophysical_grouping):
         idx = label_names.index("{0}_h".format(te.lower()))
         A_astrophysical[idx, i] = 1.0
 
-AL = linalg.cholesky(A_astrophysical.T @ A_astrophysical)
-A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(model.n_latent_factors))
-
+#AL = linalg.cholesky(A_astrophysical.T @ A_astrophysical)
+#A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(model.n_latent_factors))
+load_labels=[
+  r"$\textrm{CCSN and others?}$",
+  r"$\textrm{s-process?}$",
+  r"$\textrm{r-process?}$"
+],
 
 np.random.seed(42)
 
-fig_factors_rotated = mpl_utils.plot_factor_loads(A_est, 
+fig_factors_rotated = mpl_utils.plot_factor_loads(A_est, separate_axes=True,
                                                   target_loads=A_astrophysical,
                                                   flip_loads=None,
-                                                  n_rotation_inits=1000,
+                                                  n_rotation_inits=100,
                                                   show_target_loads=False,
-                                                  load_labels=[
-                                                    r"$\textrm{CCSN and others?}$",
-                                                    r"$\textrm{s-process?}$",
-                                                    r"$\textrm{r-process?}$"
-                                                  ],
                                                   xlabel=xlabel,
                                                   xticklabels=xticklabels,
                                                   legend_kwds=dict(loc="upper left",

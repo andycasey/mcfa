@@ -33,7 +33,7 @@ mcfa_kwds = dict(init_factors="random", init_components="random", tol=1e-5,
                  max_iter=10000, random_seed=42)
 
 
-use_galah_flags = True
+use_galah_flags = 0
 
 
 abundance_counts = galah.get_abundances_breakdown(galah.available_elements,
@@ -66,8 +66,8 @@ X_H, label_names = galah.get_abundances_wrt_h(elements,
 print(f"Data shape: {X_H.shape}")
 
 
-#X = utils.whiten(X_H)
-X = X_H
+X = utils.whiten(X_H)
+#X = X_H
 
 # Do a gridsearch.
 max_n_latent_factors = 10
@@ -97,10 +97,9 @@ fig_bic = mpl_utils.plot_filled_contours(Jg, Kg, bic,
                                          **plot_filled_contours_kwds)
 savefig(fig_bic, "gridsearch-bic")
 
-
 # 
 
-model = mcfa.MCFA(n_components=K_best_bic, n_latent_factors=5,
+model = mcfa.MCFA(n_components=K_best_bic, n_latent_factors=J_best_bic,
                   **mcfa_kwds)
 
 model.fit(X)
@@ -137,7 +136,7 @@ r"$\textrm{r-process?}$",
 
 
 A_astrophysical = np.zeros_like(A_est)
-for i, tes in enumerate(astrophysical_grouping[:J_best_bic]):
+for i, tes in enumerate(astrophysical_grouping[:model.n_latent_factors]):
     for j, te in enumerate(tes):
         try:
             idx = label_names.index("{0}_h".format(te.lower()))
@@ -160,7 +159,7 @@ fig_factors_rotated = mpl_utils.plot_factor_loads(A_est,
                                                   separate_axes=True,
                                                   target_loads=A_astrophysical,
                                                   flip_loads=None,
-                                                  n_rotation_inits=10,
+                                                  n_rotation_inits=100,
                                                   show_target_loads=False,
                                                   xlabel=xlabel,
                                                   #load_labels=load_labels,

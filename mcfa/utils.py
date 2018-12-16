@@ -379,9 +379,13 @@ def find_rotation_matrix(A, B, init=None, n_inits=25, full_output=True, **kwargs
                 return np.nan * cost
             return cost
 
-        p_opt, cov, infodict, mesg, ier = op.leastsq(objective, 
-                                                     best_opt.x % (2 * np.pi),
-                                                     full_output=True)
+        try:
+            p_opt, cov, infodict, mesg, ier = op.leastsq(objective, 
+                                                         best_opt.x % (2 * np.pi),
+                                                         full_output=True)
+
+        except:
+            p_opt, cov, infodict, mesg, ier = best_opt.x, None, dict(), 0, -1
     
         return (best_R, p_opt, cov, infodict, mesg, ier)
 

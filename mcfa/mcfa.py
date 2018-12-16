@@ -552,7 +552,7 @@ class MCFA(object):
 
 
 
-    def sample(self, n_samples=1):
+    def sample(self, n_samples=1, theta=None):
         r"""
         Generate random samples from the fitted model.
 
@@ -562,7 +562,10 @@ class MCFA(object):
         # TODO: return docs
         """
 
-        pi, A, xi, omega, psi = self.theta_
+        if theta is None:
+            theta = self.theta_
+
+        pi, A, xi, omega, psi = theta
 
         # Draw which component it is from.
         taus = np.random.choice(self.n_components, size=n_samples, p=pi)
@@ -602,7 +605,27 @@ class MCFA(object):
         if J != J_:
             raise ValueError("rotation matrix is not square")
 
-        np.allclose(R @ R.T)
+        if not np.allclose(R @ R.T, np.eye(J)):
+            raise ValueError("R is not a valid rotation matrix")
+
+        pi, A, xi, omega, psi = self.theta_
+
+        A_rot = A @ R
+        xi_rot = np.ones_like(xi)
+        omega_rot = np.ones_like(omega)
+        
+        # [TODO] There is a better way than sampling,...
+        for k, (xi_, omega_) in enumerate(zip(xi.T, omega.T)):
+
+            draws = np.random.multivariate_normal(xi_, omega_, size=1000000)
+            draws_rot = draws @ R.T
+            xi_rot[:, k] = np.mean(draws_rot, axis=0)
+            omega_rot[:, :, k] = np.cov(draws_rot.T)
+
+        return pi, A_rot, xi_rot, omega_rot, psi
+
+
+
 
 
 def _initial_factor_loads_by_random(X, n_latent_factors, random_state=None):
