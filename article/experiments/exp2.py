@@ -167,9 +167,11 @@ fig_factors_unrotated = mpl_utils.plot_factor_loads(A_est,
 
 # Set some groups that we will try to rotate to.
 astrophysical_grouping = [
-    ["al", "ca", "mg", "ni", "co", "fe", "mn", "cr", "ti", "sc"],
-    ["eu", "ba"],
-    ["sr", "y"],
+    ["al"],
+    ["ca", "mg"],
+    ["ni", "co", "fe", "mn", "cr", "ti", "sc"],
+    ["sr", "y", "ba"],
+    ["eu"],
 ]
 
 
@@ -179,22 +181,25 @@ for i, tes in enumerate(astrophysical_grouping):
         idx = label_names.index("{0}_h".format(te.lower()))
         A_astrophysical[idx, i] = 1.0
 
-#AL = linalg.cholesky(A_astrophysical.T @ A_astrophysical)
-#A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(model.n_latent_factors))
+AL = linalg.cholesky(A_astrophysical.T @ A_astrophysical)
+A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(model.n_latent_factors))
 load_labels=[
-  r"$\textrm{CCSN and others?}$",
-  r"$\textrm{s-process?}$",
-  r"$\textrm{r-process?}$"
-],
+  r"$\textrm{Al}$",
+  r"$\textrm{Ca, Mg}$",
+  r"$\textrm{Ni, Co, fe, Mn, Cr, Ti, Sc}$",
+  r"$\textrm{Sr, Y, Ba}$",
+  r"$\textrm{Eu}$",
+]
 
 np.random.seed(42)
 
 fig_factors_rotated = mpl_utils.plot_factor_loads(A_est, separate_axes=True,
                                                   target_loads=A_astrophysical,
-                                                  flip_loads=None,
+                                                  flip_loads=[1, 1, 1, 1, 1],
                                                   n_rotation_inits=100,
                                                   show_target_loads=False,
                                                   xlabel=xlabel,
+                                                  load_labels=load_labels,
                                                   xticklabels=xticklabels,
                                                   legend_kwds=dict(loc="upper left",
                                                                    fontsize=14.0))
