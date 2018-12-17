@@ -24,7 +24,8 @@ class MCFA(object):
 
     r""" A mixture of common factor analyzers model. """
 
-    def __init__(self, n_components, n_latent_factors, max_iter=10000, tol=1e-5,
+    def __init__(self, n_components, n_latent_factors, 
+                 covariance_regularization=0, max_iter=10000, tol=1e-5,
                  init_components="kmeans++", init_factors="svd", verbose=1, 
                  random_seed=None, **kwargs):
         r"""
@@ -35,6 +36,10 @@ class MCFA(object):
 
         :param n_latent_factors:
             The number of common latent factors.
+
+        :param covariance_regularization: [optional]
+            An additive term to apply to the covariance matrices of factor
+            scores in latent space, which aids in numerical stability.
 
         :param max_iter: [optional]
             The maximum number of expectation-maximization iterations.
@@ -72,6 +77,10 @@ class MCFA(object):
         self.init_components = init_components
         self.init_factors = init_factors
         self.verbose = int(verbose)
+        self.covariance_regularization = float(covariance_regularization)
+
+        if self.covariance_regularization < 0:
+            raise ValueError("covariance_regularization must be non-negative")
 
         if self.n_latent_factors < 1:
             raise ValueError("n_latent_factors must be a positive integer")
@@ -126,6 +135,15 @@ class MCFA(object):
 
     @classmethod
     def deserialize(cls, data):
+        r"""
+        De-serialize the data and return an object.
+
+        :param data:
+            Serialized data describing the object.
+
+        :returns:
+            A :class:`mcfa.MCFA` object.
+        """
 
         params = json.loads(data)
 
@@ -254,7 +272,6 @@ class MCFA(object):
         return (pi, A, xi, omega, psi)
 
 
-
     @property
     def parameter_names(self):
         r""" Return the names of the parameters in this model. """
@@ -376,7 +393,8 @@ class MCFA(object):
         """
 
         return _maximization(X, tau, pi, A, xi, omega, psi,
-                             X2=self._check_precomputed_X2(X))
+                             X2=self._check_precomputed_X2(X),
+                             covariance_regularization=self.covariance_regularization)
 
 
     def _check_convergence(self, previous, current):
@@ -806,7 +824,8 @@ def _expectation(X, pi, A, xi, omega, psi, verbose=1):
     return (np.sum(log_prob), np.exp(log_tau))
 
 
-def _maximization(X, tau, pi, A, xi, omega, psi, X2=None):
+def _maximization(X, tau, pi, A, xi, omega, psi,
+                  X2=None, covariance_regularization=0):
     r"""
     Compute the updated estimates of the model parameters given the data,
     the responsibility matrix :math:`\tau`, and the current estimates of the
@@ -846,6 +865,10 @@ def _maximization(X, tau, pi, A, xi, omega, psi, X2=None):
     :param X2: [optional]
         The square of X, :math:`X^2`. If `None` is given then this will be
         computed at each maximization step.
+
+    :param covariance_regularization: [optional]
+        An additive term to apply to the covariance matrices of factor
+        scores in latent space, which aids in numerical stability.
 
     :returns:
         A five-length tuple containing the updated parameter estimates for
@@ -891,7 +914,8 @@ def _maximization(X, tau, pi, A, xi, omega, psi, X2=None):
 
         omega[:, :, i] = (I_J - gamma.T @ A) @ omega[:, :, i] \
                        + gamma.T @ Y_Axi_i @ tY_Axi_i.T @ gamma / ti[i] \
-                       - diff @ diff.T
+                       - diff @ diff.T \
+                       + covariance_regularization * I_J
 
         A1 += np.atleast_2d(np.sum(X * tau_, axis=0)).T @ xi_.T \
             + X.T @ tY_Axi_i.T @ gamma
