@@ -133,42 +133,42 @@ desktop machine in minutes.
 \section{Introduction} \label{sec:intro}
 
 Chemical tagging seeks to identify star formation events using the present
-day photospheric abundances of stars \citep{Freeman;Bland-Hawthorn:2001}.
-The detailed chemical abundances observable in a star's photosphere are a
+day photospheric abundances of stars \citep{Freeman;Bland-Hawthorn:2002}.
+The detailed chemical abundances observable in a star's photosphere provide a
 fossil record that carries with it information about where and when a star
 formed. While the photospheric abundances remain largely unchanged throughout
-a star's lifetime \citep[however see][]{}, the dynamical dissipation timescale
-of open clusters is only about 1~Gyr \citep{timescale}. That makes chemical
-tagging an attractive approach to identify star formation sites long after
-those stars are no longer gravitationally bound.
-
-Gravitationally bound star clusters have been useful laboratories for
-testing the limits and utility of chemical tagging. Early works 
-works examined metrics quantifying the similarity of chemical abundances
-in gravitationally bound star clusters, and more 
-
- at the similarity of chemical abundance metrics 
-Theoretical works have looked at the dimensionality
-
-From
-theoretical studies examining the 
-
- the dynamical dissipation timescale of open clusters is only
-about 1~Gyr \citep{timescale} and the photospheric abundances remain largely
-unchanged throughout a star's lifetime \citep[however see][]{}, the ability
-to identify star formation sites long after those stars are no longer
+a star's lifetime \citep[however see][]{Dotter:2017,Ness:2018b}, the dynamical 
+dissipation timescale of open clusters in the Milky Way disc is of order a few 
+gigayears \citep{Portegies-Zwart:1998}. That makes chemical tagging an attractive 
+approach to identify star formation sites long after those stars are no longer 
 gravitationally bound.
 
 
+Gravitationally bound star clusters have been useful laboratories for
+testing the limits and utility of chemical tagging. Although biases arise when
+only considering star clusters that are still gravitationally bound, the chemical
+homogenity of open clusters provides an empirical measure of how similar stars
+would need to be before they could be tagged as belonging to the same
+star formation site \citep{Mitschang:2014}. However, there are also analysis
+issues in understanding how well those chemical abundances can be measured
+\citep{Bovy:2016}. If open clusters were truely chemically homogeneous then our
+ability to chemically tag the Milky Way depends on the precision with which we
+can measure those chemical abundances in stars. Data-driven techniques are
+driving a revolution in this field \citep{Ness:2015,Ness:2018a,Ness:2018b,
+Casey:2016,Casey:2017,Ho:2017b,Ho:2017a,Leung;Bovy:2018}, but there is more work
+to do: astronomers have not yet reached the Cram\'er-Rao bound for chemical 
+abundances of stars.
 
 
-
-
-The \Galah\ survey \citep{DaSilva:2015} is a stellar spectroscopic survey 
-that uses the High Efficiency and Resolution Multi-Element 
-Spectrograph \citep[HERMES][]{Sheinis:2016} on the Australian Astronomical Telescope (AAT).
-The survey will observe up to $10^6$ stars in the Milky Way, and
-measure up to 30 chemical abundances for each star. This includes
+There are further chemical tagging obstacles to overcome once all the chemical 
+abundance information in a stellar spectrum can be extracted. Most notably is a 
+catalogue of precise detailed chemical abundances for a large number of stars,
+where those chemical abundances trace different nucleosynthetic pathways.
+This is the primary scientific goal of the \Galah\ survey \citep{DeSilva:2015,Martell:2017,Buder:2018},
+a stellar spectroscopic survey that uses the High Efficiency and Resolution 
+Multi-Element Spectrograph \citep[\project{HERMES};][]{Sheinis:2015} on the Australian 
+Astronomical Telescope (AAT).  \Galah\ will observe up to $10^6$ stars in the 
+Milky Way, and measure up to 30 chemical abundances for each star. This includes
 light odd-Z elements (e.g., Na, K), elements produced through
 alpha-particle capture (e.g., Mg, Ca, Ti), and elements produced
 through the slow (e.g., Ba) and rapid neutron-capture process
@@ -176,20 +176,25 @@ through the slow (e.g., Ba) and rapid neutron-capture process
 of chemical elements in the Milky Way.
 
 
-\todo{early approaches on clustering metrics}
-
-\todo{work on lower limits of chemical homogeneity}
-
-
-All clustering techniques applied to chemical tagging assume that the data
-dimensions are independent. However, theory and observations agree this cannot
-be true. Nucleosynthetic processes produce multiple elements in varying
+Given these data and the most
+favourable assumptions in chemical tagging -- that star clusters are truely
+chemically homogenous, and we can measure those abundances with infinite precision,
+and those abundances are differentiable between star clusters -- then chemical
+tagging becomes a clustering problem. All clustering techniques applied to 
+chemical tagging assume that the data dimensions are independent. That is to say
+that adding a dimension of [Ni/H] provides totally new, independent information.
+Theory and observations agree that this cannot be true.
+Nucleosynthetic processes produce multiple elements in varying
 quantities, and the dimensionality of stellar abundance datasets has been shown
-to be lower than the actual number of dimensions. Any clustering approach that
-treats each new elemental abundance as an indenpendent axis of information will
-therefore conclude with biased inferences about the star formation history of
-our Galaxy. On the other hand, it is difficult to prescribe the nucleosynthetic
-yields that have contributed to the chemical abundances of each star. There are
+to be lower than the actual number of dimensions \citep{Ting:2012, Price-Jones:2018}.
+Any clustering approach that treats each new elemental abundance as an 
+indenpendent axis of information will therefore conclude with biased inferences
+about the star formation history of our Galaxy. 
+
+
+Alternative approaches are perhaps more challenging, as it is difficult to prescribe
+the nucleosynthetic yields that have contributed to the chemical abundances of each star
+with great confidence. There are
 qualitative statements that can be made for large numbers of stars, or particular
 types of stars, but quantifying the precise contribution of different processes
 to each star is an unsolved problem. For example, the [$\alpha$/Fe] `knee' in
@@ -204,10 +209,16 @@ by the differences in yield predictions that account from prescriptions used in
 different codes.
 
 
-In this work we present a new approach to chemical tagging that allows us to 
-identify the latent factors that contribute to the chemical abundances of all 
-stars (e.g., something akin to nucleosynthetic yields), while simultaneously
-performing clustering in the latent space. Notwithstanding caveats that we will
+New approaches to chemical tagging are clearly needed. Immediate advances would
+include methods that take the dependence among chemical elements into account
+within some generative model, or techniques that combine chemical abundances
+with dynamical constraints to place joint prior probabilities on whether any
+two stars could have formed from the same star cluster, given some model of the
+Milky Way. In this work we focus on the former. Here we present a new approach
+to chemical tagging that allows us to identify the latent (unobserved) factors
+that contribute to the chemical abundances of all stars (e.g., nucleosythetic
+yields) while simultaneously performing clustering in the latent space.
+Notwithstanding caveats that we will
 discuss in detail, this allows us to infer nucleosynthetic yields rather than
 strictly prescribe them from models. Moreover, the scale of the clustering
 problem reduces by a significant fraction because the clustering is performed in
@@ -216,26 +227,29 @@ In Section~\ref{sec:methods} we describe the model and the methods we use to
 estimate the model parameters. Section~\ref{sec:experiments} describe the 
 experiments performed using generated and real data sets. We discuss the results
 of these experiments in Section~\ref{sec:discussion}, including the caveats with
-the model as described. We conclude in Section~\ref{sec:conclusion}
+the model as described. We conclude in Section~\ref{sec:conclusion}.
+
 
 
 \section{Methods} \label{sec:methods}
 
 Factor analysis is a common statistical approach for describing correlated 
-observations with a lower number of latent variables \citep{factor-analysis}.
-Related techniques include principal component analysis \citep{pca} and its
-variants \citep{ppca}, singular value decomposition \citep{svd}, and other
+observations with a lower number of latent variables \citep[e.g.,][]{Thompson:2004}.
+Related techniques include principal component analysis \citep{Hotelling:1933} and its
+variants \citep{Tipping;Bishop:1999}, singular value decomposition \citep{Golub:1970}, and other
 matrix factorization methods. While factor analysis on its own is a useful
 dimensionality reduction tool to identify latent factors that contribute to
-the chemical abundances of stars, it does not perform any clustering.
+the chemical abundances of stars \citep[e.g.,][]{Price-Jones:2018}, it does not perform any clustering.
 Similarly, clustering techniques applied to chemical abundances to date 
 \citep[e.g.,][]{Hogg:2016} do not account for the lower dimensionality of the
 data. 
 
-
-Here we use a combination of factor analysis and a gaussian mixture model to
-provide a consistent description of the data, given the latent variables and 
-their clustering in latent space. In this work the data $\vecdata$ is a 
+Here we use a variant of factor analysis known elsewhere as a mixture of common 
+factor analyzers \citep{Baek:2010}, where the data are generated by a set of 
+latent factors that are common to all data, but the scoring (or extent) of those
+factors is different for each data point, and the data can be modelled as a
+mixture of multivariate normal distributions in the latent space (factor scores).
+In this work the data $\vecdata$ is a 
 $\NumData \times \NumDimensions$ matrix where $\NumData$ is the number of 
 stars and $\NumDimensions$ is the number of chemical abundances measured 
 for each star. We assume a generative model for the data 
@@ -552,7 +566,7 @@ For each $\NumLatentFactors,\NumComponents$ permutation we initialised the facto
 loads and component assignments randomly. We performed expectation-maximization 
 cycles until the relative log-likelihood improved by less than $10^{-5}$. We then
 recorded the log-likelihood of the data given the model parameters, and the
-Bayesian Information Criterion \citep{bic}, 
+Bayesian Information Criterion \citep{Schwarz:1978}, 
 \begin{equation}
 	\textrm{BIC} = Q\log{N} - 2\log\mathcal{L}\left(\data|\vec\Psi\right) \quad . \label{eq:bic}
 \end{equation} 
@@ -749,7 +763,7 @@ loads that are consistent with the data.
 
 
 In this experiment we use detailed chemical abundances of metal-poor stars as
-reported by \citet{Barklem:2003}, and we demonstrate the utility and limitations
+reported by \citet{Barklem:2005}, and we demonstrate the utility and limitations
 in interpreting the latent factors as nucleosynthetic processes. The data 
 contains 14 measurements of chemical abundances for 61 stars ($N = 61$, $D = 14$): 
 Al (light odd-Z), Mg and Ca ($\alpha$), Sc, Ti, Cr, Mn, Fe, Co, and Ni (Fe-peak),
@@ -767,7 +781,7 @@ five latent factors are preferred, and no clustering.
 	\includegraphics[width=0.45\textwidth]{experiments/exp2-gridsearch-ll.png}
 	\includegraphics[width=0.45\textwidth]{experiments/exp2-gridsearch-bic.png}
     \caption{Model performance metrics resulting from a gridsearch using the
-    		 \citet{Barklem:2003} data in Experiment~2.
+    		 \citet{Barklem:2005} data in Experiment~2.
     		 The top panel shows the negative log-likelihood 
 			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
 			 evaluated at each combination of latent factors $J$ and number 
@@ -833,7 +847,7 @@ as 0.01-0.02~dex (Mg, Ca, Ti, Mn, Fe, Y) up to 0.08-0.16~dex (Al and Ba).
 
 \begin{figure*}
 	\includegraphics[width=\textwidth]{experiments/exp2-latent-factors.png}
-	\caption{Rotated latent factors found in Experiment~2 using the \citet{Barklem:2003}
+	\caption{Rotated latent factors found in Experiment~2 using the \citet{Barklem:2005}
 			 data. \todo{elaborate latent factors}}
     \label{fig:exp2-latent-factors}
 \end{figure*}
@@ -842,7 +856,7 @@ as 0.01-0.02~dex (Mg, Ca, Ti, Mn, Fe, Y) up to 0.08-0.16~dex (Al and Ba).
 
 \begin{figure}
 	\includegraphics[width=0.45\textwidth]{experiments/exp2-specific-scatter.png}
-	\caption{Specific scatter remaining in the \citet{Barklem:2003} data used in
+	\caption{Specific scatter remaining in the \citet{Barklem:2005} data used in
 			 Experiment~2 after accounting for the contributions by all latent
 			 factors.}
     \label{fig:exp2-specific-scatter}
