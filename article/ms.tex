@@ -11,6 +11,7 @@
 \newcommand{\project}[1]{\textsl{#1}}
 \newcommand{\package}[1]{\texttt{#1}}
 \newcommand{\acronym}[1]{{\small{#1}}}
+\newcommand{\article}{\emph{Article}}
 
 \newcommand{\Gaia}{\project{Gaia}}
 \newcommand{\gaia}{\project{gaia}}
@@ -68,12 +69,12 @@
 
 \submitjournal{AAS Journals}
 
-\shorttitle{Statistically consistent chemical tagging}
+\shorttitle{A novel approach to chemical tagging in lower-dimensional latent space}
 \shortauthors{Casey et al.}
 
 \begin{document}
 
-\title{A statistically consistent approach to chemical tagging}
+\title{A novel approach to chemical tagging in lower-dimensional latent space}
 
 \correspondingauthor{Andrew R. Casey}
 \email{andrew.casey@monash.edu}
@@ -106,15 +107,24 @@
 
 \begin{abstract}
 Chemical tagging promises to distinguish unique star formation sites based on the
-present day photospheric abundances of stars.  It is not known how effective this
-will be.  Clustering techniques used for chemical tagging  assume statistical 
-independence between abundances. Theory and observations agree that this assumption
-is incorrect: some elemental abundances are produced through multiple nucleosynthetic
-processes, and most nucleosynthetic processes generates multiple chemical abundances.
-Here we introduce a statistically consistent approach to chemical tagging, where we
-simultaneously infer the nucleosynthetic processes that produce chemical abundances,
-and we perform clustering in this lower dimensional latent space. \todo{we use galah}
-\todo{scales iwth data}
+present day photospheric abundances of stars. Clustering techniques used to date
+have treated all chemical abundances as independent, which we know is not true.
+Nucleosynthetic processes make multiple elements in varying quantities, and the
+dimensionality of chemical abundance space is typically lower than the reported
+number of abundances. Here we introduce a novel approach to chemical tagging 
+where a set of latent factors (e.g., nucleosynthetic yields) contribute to the
+data, and there is clustering in the latent space (e.g., relative counts of
+nucleosynthetic events). This approach allows us to infer contributions akin to
+nucleosynthetic yields, and the clustering becomes more efficient as it occurs in
+a lower dimensional latent space.
+We run experiments on literature chemical abundances,
+including the second \Galah\ data release. We find that 5 latent factors are
+preferred to explain the chemical abundances of metal-poor stars, and 8 are
+needed to account for \Galah\ data.
+\todo{something about the clusters or factors found}
+We release code associated with this \article\ that scales well with the 
+available data: enabling chemical tagging for $10^{6}$ stars on a standard
+desktop machine in minutes.
 \end{abstract}
 
 
@@ -122,12 +132,17 @@ and we perform clustering in this lower dimensional latent space. \todo{we use g
 
 \section{Introduction} \label{sec:intro}
 
-\begin{itemize}
-	\item Chemical tagging
-	\item Limits on the efficacy of chemical tagging
-	\item Clustering vs common traits
-	\item Dimensionality of data space
-\end{itemize}
+Chemical tagging describes the process of identifying individual star formation
+sites based on the present day photospheric abundances of stars \citep{Freeman;Bland-Hawthorn:2001}.
+Since the dynamical dissipation timescale for open clusters is relatively short
+\citep[\todo{timescale}][]{}, the ability to identify star formation sites long
+after the stars are no longer gravitationally bound could provide key insights
+on the early formation of the disc of the Milky Way galaxy. For this reason,
+much effort has been placed on obtaining observational data, methods for analysis,
+theory, etc, in order to improve the prospects of chemical tagging.
+
+
+
 
 
 
@@ -142,42 +157,90 @@ through the slow (e.g., Ba) and rapid neutron-capture process
 (e.g., Eu). These data provide an unparalleled view on the production
 of chemical elements in the Milky Way.
 
-\section{Methods} \label{sec:methods}
 
-%Factor analysis is a statistical method used to describe variability among observed, correlated variables in terms of a potentially lower number of unobserved variables called factors.
+\todo{early approaches on clustering metrics}
+
+\todo{work on lower limits of chemical homogeneity}
+
+
+All clustering techniques applied to chemical tagging assume that the data
+dimensions are independent. However, theory and observations agree this cannot
+be true. Nucleosynthetic processes produce multiple elements in varying
+quantities, and the dimensionality of stellar abundance datasets has been shown
+to be lower than the actual number of dimensions. Any clustering approach that
+treats each new elemental abundance as an indenpendent axis of information will
+therefore conclude with biased inferences about the star formation history of
+our Galaxy. On the other hand, it is difficult to prescribe the nucleosynthetic
+yields that have contributed to the chemical abundances of each star. There are
+qualitative statements that can be made for large numbers of stars, or particular
+types of stars, but quantifying the precise contribution of different processes
+to each star is an unsolved problem. For example, the [$\alpha$/Fe] `knee' in
+abundance ratios in the Milky Way can qualitatively be explained by 
+core-collapse supernovae being the predominant nucleosynthetic process in the
+early Milky Way before Type Ia contributions had a significant impact, but 
+efforts to date have not sought to try to explain the detailed abundances of a 
+single star as a contribution of yields from different systems (e.g., 20\% of the
+Ba was produced by 3 M$_\odot$ systems). This is in part because of the
+challenging and degenerate nature of the problem as described, and is complicated
+by the differences in yield predictions that account from prescriptions used in
+different codes.
+
+
+In this work we present a new approach to chemical tagging that allows us to 
+identify the latent factors that contribute to the chemical abundances of all 
+stars (e.g., something akin to nucleosynthetic yields), while simultaneously
+performing clustering in the latent space. Notwithstanding caveats that we will
+discuss in detail, this allows us to infer nucleosynthetic yields rather than
+strictly prescribe them from models. Moreover, the scale of the clustering
+problem reduces by a significant fraction because the clustering is performed in
+a lower dimensional latent space instead of the higher dimensional data space.
+In Section~\ref{sec:methods} we describe the model and the methods we use to
+estimate the model parameters. Section~\ref{sec:experiments} describe the 
+experiments performed using generated and real data sets. We discuss the results
+of these experiments in Section~\ref{sec:discussion}, including the caveats with
+the model as described. We conclude in Section~\ref{sec:conclusion}
+
+
+\section{Methods} \label{sec:methods}
 
 Factor analysis is a common statistical approach for describing correlated 
 observations with a lower number of latent variables \citep{factor-analysis}.
-\todo{Analagous approaches used in astrophysics: pca, etc}.
+Related techniques include principal component analysis \citep{pca} and its
+variants \citep{ppca}, singular value decomposition \citep{svd}, and other
+matrix factorization methods. While factor analysis on its own is a useful
+dimensionality reduction tool to identify latent factors that contribute to
+the chemical abundances of stars, it does not perform any clustering.
+Similarly, clustering techniques applied to chemical abundances to date 
+\citep[e.g.,][]{Hogg:2016} do not account for the lower dimensionality of the
+data. 
 
-Similarly, clustering techniques are commonly used to identify groups in 
-data space. 
 
-Here we use a combination of these methods that provides a
-consistent description of the data, given the latent variables and their 
-clustering in latent space. In this work the data $\vecdata$ is a 
+Here we use a combination of factor analysis and a gaussian mixture model to
+provide a consistent description of the data, given the latent variables and 
+their clustering in latent space. In this work the data $\vecdata$ is a 
 $\NumData \times \NumDimensions$ matrix where $\NumData$ is the number of 
 stars and $\NumDimensions$ is the number of chemical abundances measured 
-for each star. We assume a
-generative model for the data 
+for each star. We assume a generative model for the data 
 \begin{equation}
 	\vecdata = \factorloads\factorscores + \vec{e}
 	\label{eq:generative-model}
 \end{equation}
 
-\noindent{}where $\factorloads$ is a $\NumLatentFactors \times \NumDimensions$ matrix of factor
-loads that is common to all data points, and the factor scores for
-the $\numdata$th data point
+\noindent{}where $\factorloads$ is a $\NumLatentFactors \times \NumDimensions$ 
+matrix of factor loads that is common to all data points, and the factor scores 
+for the $\numdata$th data point
 \begin{equation}
 	\factorscores_\numdata \sim \mathcal{N}(\vec\xi_\numcomponents, \vec\Omega_\numcomponents)
 \end{equation}
-\noindent{}are drawn from the $\numcomponents$th multivariate  normal distribution.
+\noindent{}are drawn from the $\numcomponents$th multivariate normal distribution.
 The factor scores for all data points $\factorscores$ is then a 
-$\NumData \times \NumLatentFactors$ matrix.
- We assume $\vec{e} \sim \mathcal{N}\left(\vec{0}, \eye\specificvariance\right)$
+$\NumData \times \NumLatentFactors$ matrix, where each data point has a partial
+association to the components in latent space. 
+We assume $\vec{e} \sim \mathcal{N}\left(\vec{0}, \eye\specificvariance\right)$
 is independent of the latent space, and $\specificvariance$ is a
-diagonal matrix of $\NumDimensions$ entries. In Appendix~\ref{app:symbols}
-we list all mathematical symbols used in this work and their description.
+diagonal matrix of $\NumDimensions$ entries. 
+%In Appendix~\ref{app:symbols}
+%we list all mathematical symbols used in this work and their description.
 In this model each data point can be represented as being drawn
 from a mixture of multivariate normal components, except the components
 are \emph{clustered in the latent space} $\factorscores$ and projected
@@ -206,11 +269,12 @@ but this description of typical yields and relative event rates should
 help build intuition for the model parameters, and provide context
 within the astrophysical problem it is being applied.
 
-\todo{this model of orthogonality takes the independence into account}
 
-Another benefit of using a mixture of common factor analysers is
-for modelling stellar chemical abundances is the scaling with
-computational cost. If we considered data sets of order $3\times10^7$
+Including latent factors in the model description allows us to account for 
+processes that affect multiple elemental abundances. In this way we are 
+accounting for the fact that the data dimensions are not all independent of
+each other. Another benefit is the scaling with computational cost. If we 
+considered data sets of order $3\times10^7$
 entries (e.g., 30 chemical abundances for $10^6$ stars) purely as a
 clustering problem, then even the most efficient clustering
 algorithms would incur a significant cumulative computational 
@@ -284,7 +348,8 @@ the factor loads are orthogonal such that
 % 	
 We then initially assign each data point as belonging to one of the
 $\NumComponents$ components by drawing from a multinomial distribution
-and generating the responsibility matrix $\vec\tau$. Given the initial
+and generating the $\NumData \times \NumComponents$ responsibility matrix $\vec\tau$,
+where $\sum_{k=1}^{K} \tau_{nk} = 1$ for any $n$th row. Given the initial
 factor loads and assignments, we then estimate the relative weights
 $\vec\pi$, the mean factor scores of each component $\scoremeans$, and
 the covariance matrix of factor scores of each component $\scorecovs$.
@@ -483,6 +548,14 @@ Bayesian Information Criterion \citep{bic},
 \begin{equation}
 	\textrm{BIC} = Q\log{N} - 2\log\mathcal{L}\left(\data|\vec\Psi\right) \quad . \label{eq:bic}
 \end{equation} 
+
+These metrics are shown in Figure~\ref{fig:experiment-1-gridsearch}.
+Unsurprisingly the log likelihood increases with increasing numbers of latent
+factors $\NumLatentFactors$ and increasing numbers of components $\NumComponents$.
+The lowest BIC value is found at $\NumLatentFactors = 5$
+and $\NumComponents = 21$, close to the true values ($\NumLatentFactors_{true} = 5$,
+$\NumComponents_{true} = 20$). 
+
 %\noindent{}and the pseudo-Bayesian Information Criterion \citep{pseudo-bic}
 %\begin{equation}
 % \textrm{pseudo-BIC} = 6(1 + \gamma)\omega{}Q\log{N} - 2\log\mathcal{L}\left(\data|\vec\Psi\right) \label{eq:pseudo-bic}
@@ -490,7 +563,6 @@ Bayesian Information Criterion \citep{bic},
 %\noindent{}where $Q$ is the total number of model parameters in both equations,
 %and the unknown constants $\omega$ and $\gamma$ have constraints
 %$\omega \geq 1$ and $\gamma > 0$. Here we adopt $\gamma = 0.1$ and $\omega = 1$.
-These metrics are shown in Figure~\ref{fig:experiment-1-gridsearch}.
 
 
 
@@ -512,25 +584,6 @@ These metrics are shown in Figure~\ref{fig:experiment-1-gridsearch}.
 \end{figure}
 
 
-
-
-Unsurprisingly the log likelihood increases with increasing numbers of latent
-factors $\NumLatentFactors$ and increasing numbers of components $\NumComponents$.
-The lowest BIC value is found at $\NumLatentFactors = 5$
-and $\NumComponents = 8$, close to the true values ($\NumLatentFactors_{true} = 5$,
-$\NumComponents_{true} = 10$). The lowest pseudo-BIC value is also found at
-$\NumLatentFactors = 5$, but with fewer components: $\NumComponents = 4$.
-
-The estimated latent factor loads found during this grid search are shown in
-Figure~\ref{fig:fig:experiment-1-gridsearch-factors-init-random-and-random},
-where each panel shows the estimated latent factor loads found by
-expectation-maximization for a given number of latent factors and components.
-
-The latent factors $\factorloads$ in each panel are multiplied by a rotation
-matrix $\mathbf{R}$ to be as similar (up to orthogonal rotation) as those found
-from the same number of latent factors and $\NumComponents  =  1$.
-In doing so we find that the estimated latent factors vary slightly as
-the number of components $\NumComponents$ increases.
 
 
 %\begin{figure*}
@@ -641,7 +694,7 @@ as we initialise the model many (e.g., $\gtrsim 5$) times.
 \end{comment}
 
 
-\subsection{Experiment~2: Inferring astrophysically realistic latent factors}
+\subsection{Experiment~2:\\Inferring astrophysically realistic latent factors}
 
 Latent factors can only be identified up to orthogonality. That is to say that
 if the data were truely generated by latent factors $\factorloads_\textrm{true}$,
@@ -662,28 +715,35 @@ $\factorloads_\textrm{est}$ could therefore appear very different from the true
 values, but they only differ by an orthogonal rotation. 
 
 
-While it is trivial to find the rotation matrix $\vec{R}$ that rotates the estimated
-factor loads to the true factor loads, this property of factor analyzers limits
-how we can interpret the latent variables of our model. For example, if we seek
-to interpret the factor loads as being something analagous to nucleosynthetic
-processes, then the estimated factor loads will need to be rotated to something
-that looks astrophysically plausible before we could attribute one latent factor
-as being a particular nucleosynthetic process.
+If the true values are known then it is trivial to find a rotation matrix $\vec{R}$
+that rotates the estimated factor loads to the true factor loads. However, when
+the true values are not known, this property of factor analysis limits the
+extent to which we can interpret the latent variables in our model. For example,
+if we seek to interpret the factor loads as being something analagous to 
+nucleosynthetic processes, then the estimated factor loads will need to be 
+rotated to something that looks astrophysically plausible before we could 
+attribute one latent factor as being a particular nucleosynthetic process. 
+Although having to perform this rotation is not ideal, there is still utility in
+trying to identify the latent factors because the factors can only be rotated by
+some valid rotation matrix. That is to say that we will not only exactly what
+we have put in: the rotated factors will simply be the closest set of factor
+loads that are consistent with the data.
 
 
 In this experiment we use detailed chemical abundances of metal-poor stars as
-reported by \citet{Barklem:2003}, and we demonstrate the limitations in
-interpreting the latent factors as nucleosynthetic processes. The data contains
-14 measurements of chemical abundances for 61 stars ($N = 61$, $D = 14$): 
+reported by \citet{Barklem:2003}, and we demonstrate the utility and limitations
+in interpreting the latent factors as nucleosynthetic processes. The data 
+contains 14 measurements of chemical abundances for 61 stars ($N = 61$, $D = 14$): 
 Al (light odd-Z), Mg and Ca ($\alpha$), Sc, Ti, Cr, Mn, Fe, Co, and Ni (Fe-peak),
 as well as Sr, Y, Ba, and Eu ($s$/$r$-process). We performed a grid search for
 the optimal number of latent factors $J$ and components $K$, starting from
 $J = 1$ and $K = 1$, and trialling up until $J = 8$ and $K = 5$. We initialised
 the model parameters randomly for each permutation of $J$ and $K$, and ran E-M
-until a convergence threshold of $10^{-5}$ was reached. In Figure~\ref{fig:exp2-gridsearch-contours}
-we show the negative log likelihood and BIC recorded for the optimised set of
-model parameters for each permutation of $J$ and $K$. Hyperparameters of $J = 5$
-and $K = 1$ are preferred by BIC for this data set.
+until a convergence threshold of $10^{-5}$ was reached in the log likelihood. 
+In Figure~\ref{fig:exp2-gridsearch-contours} we show the negative log likelihood 
+and BIC recorded for the optimised set of model parameters for each permutation 
+of $J$ and $K$. The lowest BIC value is found for $J = 5$ and $K = 1$, indicating
+five latent factors are preferred, and no clustering.
 
 \begin{figure}
 	\includegraphics[width=0.45\textwidth]{experiments/exp2-gridsearch-ll.png}
@@ -776,17 +836,20 @@ as 0.01-0.02~dex (Mg, Ca, Ti, Mn, Fe, Y) up to 0.08-0.16~dex (Al and Ba).
 			from \Galah\ and elsewhere}
 \label{sec:exp3}
 
-After demonstrating that there is some interpretability in the latent factors,
-here we seek to experiment whether gravitationally bound stellar clusters can
-be reliably identified using the model described in Section~\ref{sec:model}.
+The previous experiment has demonstrated that the latent factors can be at least
+partially interpreted within the context of astrophysical processes. In this
+experiment we seek to test whether gravitationally bound stellar clusters can be
+reliably identified by their chemical abundances alone, and using only the model 
+described in Section~\ref{sec:model}.
+
+\todo{description  of the open cluster data used here}
 
 
 
 
 
-
-\subsection{Experiment 4: A subset of 14 chemical abundances in \Galah}
-\label{sec:experiment-galah}
+\subsection{Experiment 4: Chemical abundances in the \Galah\ survey}
+\label{sec:exp4}
 
 
 We use the second \Galah\ data release \citep{Buder:2018a} which
@@ -800,12 +863,12 @@ stars where there is reason to suspect that the stellar parameters
 (e.g., $\teff$, $\logg$) are unreliable, and as a result the 
 detailed chemical abundances are untrustworthy. 
 
-We included the following fourteen chemical abundances: Na, Mg, 
-Si, Ca, Sc, Ti, Cr, Mn, Fe, Ni, Cu, Zn, Ba, and Eu.
+We included the following fourteen chemical abundances: \todo{Na, Mg, 
+Si, Ca, Sc, Ti, Cr, Mn, Fe, Ni, Cu, Zn, Ba, and Eu}.
 By requiring that each star has \texttt{flag\_cannon = 0} and
 \texttt{flag\_<x> = 0} (where \texttt{<x>} is the relevant label)
 for each chemical abundance, this leaves
-us with a sample of 12,798 stars each with reliable stellar
+us with a sample of \todo{12,798} stars each with reliable stellar
 parameters ($\teff$, $\logg$) and chemical abundances.
 This is relevant to the approach we use here, as the method
 described here requires no missing data.
@@ -814,64 +877,33 @@ pathways, and it is this subsample that we will use for
 our initial chemical experiment with \Galah\ data.
 
 
-
-
-%\subsubsection{Search strategy} \label{sec:experiment-galah-search}
-
-The expectation-maximization procedure outlined in Section \ref{sec:methods} describes 
-the process of refining our estimate of the model parameters $\vec\psi$ until
-the improvement in log probability between iterations decreases below some
-pre-defined threshold. This method is valid for a pre-defined number of latent
-factors, and a pre-defined number of components to cluster in latent space.
-In practice these values are not known. For the purposes of this work, we 
-perform a grid-based search in $J$ and $K$, perform E-M for each combination of
-$J$ and $K$, and record the optimal parameters.
-
-We trial the number of latent factors from $J = 1$ to $J = 12$, and trial the
-number of clustering components from $K = 1$ to $K = 40$. We re-initialise the
-mixture for each new trial of $\{J, K\}$, and do not make use of results from
-`nearby' mixtures. After the E-M threshold of $10^{-5}$ has been reached, we
-record the log likelihood of the data given the model parameters, the
-Bayesian Information Criterion \citep{bic}, 
-\begin{equation}
-	\textrm{BIC} = Q\log{N} - 2\log\mathcal{L}\left(\data|\vec\Psi\right) \label{eq:bic}
-\end{equation} 
-\noindent{}and the pseudo-Bayesian Information Criterion \citep{pseudo-bic}
-\begin{equation}
- \textrm{pseudo-BIC} = 6(1 + \gamma)\omega{}Q\log{N} - 2\log\mathcal{L}\left(\data|\vec\Psi\right) \label{eq:pseudo-bic}
-\end{equation}
-\noindent{}where $Q$ is the total number of model parameters in both equations,
-and the unknown constants $\omega$ and $\gamma$ have constraints
-$\omega \geq 1$ and $\gamma > 0$. Here we adopt $\gamma = 0.1$ and $\omega = 1$.
-
-
-\todo{Discuss grid search, inferred factor loads, cluster variances, etc.}
+\todo{we perform a grid-based search for J and K}
 
 
 
-\begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/galah-experiment-2-gridsearch-ll-contours.png}
-	\includegraphics[width=0.45\textwidth]{experiments/galah-experiment-2-gridsearch-bic-contours.png}
-	\includegraphics[width=0.45\textwidth]{experiments/galah-experiment-2-gridsearch-pseudobic-contours.png}
-    \caption{Model performance metrics for Experiment 2 using a subset of 14 
-    		 \Galah\ chemical abundances measured from 12,798 stars. The top 
-		 	 panel shows the negative log-likelihood 
-			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
-			 evaluated at each combination of latent factors $J$ and number 
-			 of clusters $K$, the middle panel shows the Bayesian Information
-			 Criterion (Equation \ref{eq:bic}), and the lower panel shows
-			 the pseudo-Bayesian Information Criterion 
-			 (Equation~\ref{eq:pseudo-bic}). The white marker indicates the 
-			 lowest value in each panel.}
-    \label{fig:experiment-2-gridsearch}
-\end{figure}
+\subsection{Experiment 5: More chemical abundances in \Galah}
+\label{sec:exp5}
 
-
-
-\section{Results} \label{sec:results}
+\todo{which abundances, only require finite and \texttt{flag\_cannon} to be OK}
 
 \section{Discussion} \label{sec:discussion}
 
+\todo{
+\begin{itemize}
+	\item dimensionality of chemical abundance space
+	\item clustering approaches do not take this into account
+	\item introduced a model to simultaneously account for the clustering in
+		  a lower dimensional latent space
+	\item there are issues, though: this is probably  not the right model
+	\item identifiability
+	\item orthogonal rotation
+	\item can interpret these somehow as being astrophysically motivated
+	\item at low metallicities how many factors do we prefer, and what can we
+		  vaguely interpret these at?
+	\item when we do that to large galah data sets, what is the number of factors
+	\item clustering in galah
+\end{itemize}
+}
 \section{Conclusions} \label{sec:conclusion}
 
 \acknowledgements
