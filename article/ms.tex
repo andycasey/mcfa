@@ -356,7 +356,7 @@ As mentioned previously, the model as described is indeterminate in that
 there is no unique solution for the factor loads $\factorloads$ and scores
 $\factorscores$. These quantities can only be determined up until 
 orthogonality. However, accurate estimates of the parameter vector $\vec\Psi$
-can be obtained by the expectation-maximization algorithm \citep{EM}.
+can be obtained by the expectation-maximization algorithm \citep{Dempster:1977}.
 %The model described by Equation~\ref{eq:generative-model} is indeterminate:
 %there is no unique solution for the factor loads $\factorloads$ and scores
 %$\factorscores$. However, an accurate estimate of the parameter vector $\vec\Psi$ can be obtained by the expectation-maximization algorithm \citep{EM}. 
@@ -396,13 +396,12 @@ up until orthogonal rotation of the latent space.
 
 \subsection{Expectation-Maximization}
 
-We use the expectation-maximization algorithm to estimate the model parameters.
-With each expectation step we evaluate the log likelihood given the model 
-parameters $\vec\Psi$, and we re-calculate the responsibility 
-matrix $\vec\tau$ whose entries are the posterior probability
-that the $\numdata$th data point is associated to the $\numcomponents$th component,
-given the data $\vecdata$ and the current estimate of the 
-parameter vector $\vec\Psi$:
+We use the expectation-maximization algorithm to estimate the model parameters
+\citep{Dempster:1977}. With each expectation step we evaluate the log likelihood 
+given the model parameters $\vec\Psi$, and we re-calculate the responsibility 
+matrix $\vec\tau$ whose entries are the posterior probability that the 
+$\numdata$th data point is associated to the $\numcomponents$th component, given 
+the data $\vecdata$ and the current estimate of the parameter vector $\vec\Psi$:
 \begin{equation}
 	\tau_{\numdata\numcomponents} = \frac{\weight_\numcomponents\phi(\vecdata_\numdata;\factorloads\scoremeans_\numcomponents, \factorloads\scorecovs_\numcomponents\factorloads\transpose + \eye\specificvariance)}{\sum_{g=1}^{G}\weight_g\phi(\vecdata_\numdata;\factorloads\scoremeans_g, \factorloads\scorecovs_g\factorloads\transpose + \eye\specificvariance)} \quad .
 \end{equation}
@@ -469,13 +468,12 @@ by
 	\specificvariance\nextstep = \frac{1}{\NumData}\left[\sum^{\NumComponents}_{\numcomponents=1}\vec\tau_\numcomponents\transpose\left(\vecdata\odot\vecdata\right) - \sum_{j=1}^{J}\left(\factorloads\nextstep\factorloads_2\right)\odot\factorloads\nextstep\right]
 \end{equation}
 
-\noindent{}where $\odot$ denotes is the entry-wise (Hadamard) product. We repeated
-the expectation-maximization algorithm for up to 1,000 steps or until the log-likelihood
+\noindent{}where $\odot$ denotes is the entry-wise (Hadamard) product. We repeat
+the expectation-maximization cycle for up to 10,000 steps or until the log-likelihood
 improved by less than $10^{-5}$ between successive iterations. Although our implementation
 allows for a positive regularisation term to be added along the diagonal of the covariance
 matrices in latent space $\scorecovs$, we set this regularisation term to zero for all
 experiments performed here.
-
 
 
 \section{Experiments} \label{sec:experiments}
@@ -561,24 +559,29 @@ Here we treat the generated data set as if the true number of latent factors
 and the true number of components are not known. Starting with $\NumLatentFactors = 1$
 and $\NumComponents = 1$, we trialled each permutation of $\NumLatentFactors$ and $\NumComponents$
 until $\NumLatentFactors_{max} = 10$
-and   $\NumComponents_{max} = 40$ (e.g., twice $\NumLatentFactors_{true}$ and $\NumComponents_{true}$).
+and   $\NumComponents_{max} = 40$ (e.g., twice $\NumLatentFactors_\textrm{true}$ and $\NumComponents_\textrm{true}$).
 For each $\NumLatentFactors,\NumComponents$ permutation we initialised the factor
 loads and component assignments randomly. We performed expectation-maximization 
 cycles until the relative log-likelihood improved by less than $10^{-5}$. We then
 recorded the log-likelihood of the data given the model parameters, and the
-Bayesian Information Criterion \citep{Schwarz:1978}, 
+Bayesian Information Criterion \citep[BIC][]{Schwarz:1978}, 
 \begin{equation}
-	\textrm{BIC} = Q\log{N} - 2\log\mathcal{L}\left(\data|\vec\Psi\right) \quad . \label{eq:bic}
+	\textrm{BIC} = Q\log{N} - 2\log\mathcal{L}\left(\data|\vec\Psi\right) \quad , \label{eq:bic}
 \end{equation} 
+\noindent{}where $Q$ is the number of model parameters:
+\begin{equation}
+	%Q = \NumComponents + \NumDimensions - 1 + \NumLatentFactors(\NumDimensions + \NumComponents) + \frac{1}{2}\NumComponents\NumLatentFactors(\NumLatentFactors+1) - \NumLatentFactors^2 \quad .
+	Q = \frac{\NumLatentFactors}{2}\left[2\left(\NumDimensions - \NumLatentFactors\right) + \NumComponents\left(3 + \NumLatentFactors\right)\right] + \NumComponents + \NumDimensions - 1
+\end{equation}
 
 These metrics are shown in Figure~\ref{fig:experiment-1-gridsearch}.
 Unsurprisingly the log likelihood increases with increasing numbers of latent
 factors $\NumLatentFactors$ and increasing numbers of components $\NumComponents$.
 The lowest BIC value is found at $\NumLatentFactors = 5$
-and $\NumComponents = 21$, close to the true values ($\NumLatentFactors_{true} = 5$,
-$\NumComponents_{true} = 20$). 
+and $\NumComponents = 21$, close to the true values ($\NumLatentFactors_\textrm{true} = 5$,
+$\NumComponents_\textrm{true} = 20$). 
 
-We show a corner plot of the data in Figure~\ref{fig:toy-model-data}.
+We show a corner plot of the data in Figure~\ref{fig:exp1-data}.
 In this figure we have over-plotted 100000 samples drawn from the model
 with $J = 5$ and $K = 21$
 -- without adding variance $\specificvariance_\textrm{est}$ % Ref Factor load figure 
