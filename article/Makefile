@@ -1,5 +1,5 @@
 LATEX       = openout_any=a pdflatex
-
+BIBTEX      = bibtex
 all: ms.pdf
 
 vc.tex: ../.git/logs/HEAD
@@ -14,5 +14,6 @@ vc.tex: ../.git/logs/HEAD
 
 %.pdf: %.tex vc.tex
 	${LATEX} $<
+	${BIBTEX} ms.aux
 	${LATEX} $<
 	${LATEX} $<
