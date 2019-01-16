@@ -1,4 +1,4 @@
-\documentclass[twocolumn]{aastex61}
+\documentclass[twocolumn]{aastex62}
 \usepackage{bm}
 \usepackage{amsmath,amsfonts,amssymb}
 \usepackage{color}
@@ -101,30 +101,31 @@
 \affiliation{Faculty of Information Technology, 
 			 Monash University, 
 			 Wellington Rd, Clayton 3800, Victoria, Australia}
-
+			 
 \author{the GALAH team}
 
 
 \begin{abstract}
-Chemical tagging promises to distinguish unique star formation sites based on the
-present day photospheric abundances of stars. Clustering techniques used to date
-have treated all chemical abundances as independent, which we know is not true.
+Chemical tagging promises to distinguish unique star formation sites from 
+photospheric abundances.
+Clustering techniques used in chemical tagging have to date considered 
+chemical abundances as independent, a provably false assumption.
 Nucleosynthetic processes make multiple elements in varying quantities, and the
-dimensionality of chemical abundance space is typically lower than the reported
-number of abundances. Here we introduce a novel approach to chemical tagging 
-where a set of latent factors (e.g., nucleosynthetic yields) contribute to the
-data, and there is clustering in the latent space (e.g., relative counts of
-nucleosynthetic events). This approach allows us to infer contributions akin to
-nucleosynthetic yields, and the clustering becomes more efficient as it occurs in
-a lower dimensional latent space.
-We run experiments on literature chemical abundances,
-including the second \Galah\ data release. We find that 5 latent factors are
+dimensionality of chemical abundance space is usually lower than the 
+number of reported abundances. 
+Here we introduce a novel approach to chemical tagging where a set of 
+latent factors (e.g., nucleosynthetic yields) contribute to the
+data, and clustering is performed in the latent space (e.g., relative counts of
+nucleosynthetic events). In doing so we infer basis vectors that are analogous
+to nucleosynthetic yields, and the lower dimensional latent space allows for
+more efficient clustering. We run experiments on literature chemical abundances,
+including those from the second \Galah\ data release. \todo{We find that 5 latent factors are
 preferred to explain the chemical abundances of metal-poor stars, and 8 are
-needed to account for \Galah\ data.
-\todo{something about the clusters or factors found}
+needed to account for \Galah\ data.}
 We release code associated with this \article\ that scales well with the 
-available data: enabling chemical tagging for $10^{6}$ stars on a standard
-desktop machine in minutes.
+available data: enabling chemical tagging for $10^{7.5}$ abundance
+measurements on a standard desktop machine in minutes.
+
 \end{abstract}
 
 
@@ -141,17 +142,19 @@ a star's lifetime \citep[however see][]{Dotter:2017,Ness:2018b}, the dynamical
 dissipation timescale of open clusters in the Milky Way disc is of order a few 
 gigayears \citep{Portegies-Zwart:1998}. That makes chemical tagging an attractive 
 approach to identify star formation sites long after those stars are no longer 
-gravitationally bound.
+gravitationally bound to each other.
 
 
 Gravitationally bound star clusters have been useful laboratories for
 testing the limits and utility of chemical tagging. Although biases arise when
 only considering star clusters that are still gravitationally bound, the chemical
-homogenity of open clusters provides an empirical measure of how similar stars
+homogeneity of open clusters provides an empirical measure of how similar stars
 would need to be before they could be tagged as belonging to the same
 star formation site \citep{Mitschang:2014}. However, there are also analysis
 issues in understanding how well those chemical abundances can be measured
-\citep{Bovy:2016}. If open clusters were truely chemically homogeneous then our
+\citep{Bovy:2016}, and how chemically similar multiple unrelated stars (or
+doppleg\"angers) can be \citep{Ness:2018}.
+If open clusters were truely chemically homogeneous then our
 ability to chemically tag the Milky Way depends on the precision with which we
 can measure those chemical abundances in stars. Data-driven techniques are
 driving a revolution in this field \citep{Ness:2015,Ness:2018a,Ness:2018b,
@@ -188,7 +191,7 @@ Nucleosynthetic processes produce multiple elements in varying
 quantities, and the dimensionality of stellar abundance datasets has been shown
 to be lower than the actual number of dimensions \citep{Ting:2012, Price-Jones:2018}.
 Any clustering approach that treats each new elemental abundance as an 
-indenpendent axis of information will therefore conclude with biased inferences
+independent axis of information will therefore conclude with biased inferences
 about the star formation history of our Galaxy. 
 
 
@@ -216,7 +219,7 @@ with dynamical constraints to place joint prior probabilities on whether any
 two stars could have formed from the same star cluster, given some model of the
 Milky Way. In this work we focus on the former. Here we present a new approach
 to chemical tagging that allows us to identify the latent (unobserved) factors
-that contribute to the chemical abundances of all stars (e.g., nucleosythetic
+that contribute to the chemical abundances of all stars (e.g., nucleosynthetic
 yields) while simultaneously performing clustering in the latent space.
 Notwithstanding caveats that we will
 discuss in detail, this allows us to infer nucleosynthetic yields rather than
@@ -239,7 +242,8 @@ Related techniques include principal component analysis \citep{Hotelling:1933} a
 variants \citep{Tipping;Bishop:1999}, singular value decomposition \citep{Golub:1970}, and other
 matrix factorization methods. While factor analysis on its own is a useful
 dimensionality reduction tool to identify latent factors that contribute to
-the chemical abundances of stars \citep[e.g.,][]{Price-Jones:2018}, it does not perform any clustering.
+the chemical abundances of stars \citep[e.g.,][]{Price-Jones:2018}, factor
+analysis cannot describe clustering in the data (or latent) space.
 Similarly, clustering techniques applied to chemical abundances to date 
 \citep[e.g.,][]{Hogg:2016} do not account for the lower dimensionality of the
 data. 
@@ -271,8 +275,6 @@ association to the components in latent space.
 We assume $\vec{e} \sim \mathcal{N}\left(\vec{0}, \eye\specificvariance\right)$
 is independent of the latent space, and $\specificvariance$ is a
 diagonal matrix of $\NumDimensions$ entries. 
-%In Appendix~\ref{app:symbols}
-%we list all mathematical symbols used in this work and their description.
 In this model each data point can be represented as being drawn
 from a mixture of multivariate normal components, except the components
 are \emph{clustered in the latent space} $\factorscores$ and projected
@@ -296,7 +298,8 @@ but its rarity would be represented by associated factor
 scores being zero for most stars and thus have negligible contribution
 to the observed abundances. In practice the factor loads can only be 
 identified up to orthogonality and cannot be expressly interpreted as
-nucleosynthetic yields because they have limited physical meaning,
+nucleosynthetic yields because they have limited physical meaning
+(we discuss this further in Section~\ref{sec:discussion}),
 but this description of typical yields and relative event rates should
 help build intuition for the model parameters, and provide context
 within the astrophysical problem it is being applied.
@@ -304,9 +307,9 @@ within the astrophysical problem it is being applied.
 
 Including latent factors in the model description allows us to account for 
 processes that affect multiple elemental abundances. In this way we are 
-accounting for the fact that the data dimensions are not all independent of
+accounting for the fact that the data dimensions are not independent of
 each other. Another benefit is the scaling with computational cost. If we 
-considered data sets of order $3\times10^7$
+considered data sets of order $10^{7.5}$
 entries (e.g., 30 chemical abundances for $10^6$ stars) purely as a
 clustering problem, then even the most efficient clustering
 algorithms would incur a significant cumulative computational 
@@ -318,7 +321,7 @@ space} in which the data are clustered, and that clustering is
 projected into real space by common factor loads, the 
 dimensionality of the clustering problem is reduced from 
 $N \times D$ to $N \times J$. This reduces computational cost through
-faster execution of each E-M step, and on average fewer E-M steps
+faster execution of each optimization step, and on average fewer optimization steps
 needed to reach a specified convergence threshold.
 
 From a statistical standpoint, the primary advantage to using
@@ -329,8 +332,6 @@ within a statistically consistent framework. That is to say
 that we have a generative model for the data that can 
 quantitatively account for nucleosynthetic yields, variations in
 turbulence and gas mixing, or star formation efficiency,
-%can account
-%analogues of nucleosynthetic yields and star formation,
 and the parameters of this model can be estimated consistently
 given some data.
 
@@ -348,19 +349,17 @@ and $\weight_\numcomponents$ describes the relative weighting of the $\numcompon
 component in latent space and $\sum\weight_\numcomponents = 1$.
 The log likelihood is then given by
 \begin{equation}
-	\log\mathcal{L}(\vecdata|\vec\Psi) = \sum_{\numcomponents=1}^{\NumComponents}\log{f(\vecdata;\vec\Psi)} \quad .
+	\log\mathcal{L}(\vecdata|\vec\Psi) = \sum_{\numcomponents=1}^{\NumComponents}\log{f(\vecdata;\vec\Psi)} \quad . \label{eq:log-likelihood}
 \end{equation}
 
 
 As mentioned previously, the model as described is indeterminate in that
 there is no unique solution for the factor loads $\factorloads$ and scores
 $\factorscores$. These quantities can only be determined up until 
-orthogonality. However, accurate estimates of the parameter vector $\vec\Psi$
-can be obtained by the expectation-maximization algorithm \citep{Dempster:1977}.
-%The model described by Equation~\ref{eq:generative-model} is indeterminate:
-%there is no unique solution for the factor loads $\factorloads$ and scores
-%$\factorscores$. However, an accurate estimate of the parameter vector $\vec\Psi$ can be obtained by the expectation-maximization algorithm \citep{EM}. 
-
+orthogonality in $\factorloads$. However, as we will show, accurate estimates
+of the parameter vector $\vec\Psi$ can be obtained by the expectation-maximization
+algorithm \citep{Dempster:1977}. 
+% TODO: say something about "..with a suitable number of initial guesses?"
 
 
 \subsection{Initialisation}
@@ -375,9 +374,6 @@ the factor loads are orthogonal such that
 \begin{equation}
 	\factorloads \factorloads\transpose = \eye \quad .
 \end{equation}
-%        AL = linalg.cholesky(A.T @ A)
-%        A = A @ linalg.solve(AL, np.eye(self.n_latent_factors))
-% 	
 We then initially assign each data point as belonging to one of the
 $\NumComponents$ components by drawing from a multinomial distribution
 and generating the $\NumData \times \NumComponents$ responsibility matrix $\vec\tau$,
@@ -386,19 +382,18 @@ factor loads and assignments, we then estimate the relative weights
 $\vec\pi$, the mean factor scores of each component $\scoremeans$, and
 the covariance matrix of factor scores of each component $\scorecovs$.
 Finally, we initialise the specific variance $\specificvariance$ in each
-dimension as 1. 
-
-Other initialisation methods are available in the code 
-associated with this \emph{Article}. In later Sections we show that 
-the optimised model parameters are insensitive to the choice initialisation, 
-up until orthogonal rotation of the latent space.
+dimension as the variance in each data dimension. Other initialisation 
+methods are available in the code associated with this \emph{Article}. 
+Throughout this work we found that the optimised model parameters are 
+insensitive to the choice of initialisation, up until orthogonal 
+rotation of the latent space.
 
 
 \subsection{Expectation-Maximization}
 
 We use the expectation-maximization algorithm to estimate the model parameters
 \citep{Dempster:1977}. With each expectation step we evaluate the log likelihood 
-given the model parameters $\vec\Psi$, and we re-calculate the responsibility 
+given the model parameters $\vec\Psi$, and we re-calculate the $\NumData \times \NumComponents$ responsibility 
 matrix $\vec\tau$ whose entries are the posterior probability that the 
 $\numdata$th data point is associated to the $\numcomponents$th component, given 
 the data $\vecdata$ and the current estimate of the parameter vector $\vec\Psi$:
@@ -409,21 +404,22 @@ the data $\vecdata$ and the current estimate of the parameter vector $\vec\Psi$:
 
 At the maximization step we update our estimates of the parameters,
 conditioned on the data $\vecdata$ and the responsibility matrix $\vec\tau$.
-First we estimate the relative weights $\vec\weight\nextstep$ given
-the responsibility matrix $\vec\tau$
+The updated parameters estimates are found by setting the second derivative
+of the log-likelihood (Eq.~\ref{eq:log-likelihood}) to zero and solving for
+the parameter values. In doing so this guarantees that every updated
+estimate of the model parameters is guaranteed to increase the log-likelihood.
+Although there are no guarantees against converging on local minima, in 
+general it is sufficient to run expectation-maximization from multiple
+initialisations in order to ensure that the global minima is reached.
+At the maximization step we first update our estimate of the relative weights 
+$\vec\weight\nextstep$ given the responsibility matrix $\vec\tau$
 \begin{equation}
 	\weight_\numcomponents\nextstep = \frac{1}{\NumData} \sum_{\numdata=1}^{\NumData}\tau_{\numdata\numcomponents}
 	% Include proof.
 \end{equation}
 \noindent{}where the $\vec{X}\thisstep$ superscript refers to the current estimate of a variable
 and $\vec{X}\nextstep$ refers to the updated estimate for the next iteration.
-%\footnote{Here $\vec\textrm{X}\now$ refers to the current estimate of a variable $\vec\textrm{X}$ and $\vec\textrm{X}\nextstep$ refers to the updated estimate for the next iteration.}
 
-
-%\noindent{}In the equations that follow (Equation~\ref{eq:X} to \ref{eq:Y})
-%when we refer to any value in $\{\factorloads,\vec\pi,\scoremeans,\scorecovs,\specificvariance\}$ for brevity we are referring to the current estimate of that
-%parameter (e.g., $\factorloads\thisstep$). The updated estimates are marked as such
-%(e.g., $\scoremeans\nextstep$). 
 
 The updated estimates of the mean factor scores 
 $\scoremeans\nextstep$ for each component are then given by
@@ -457,7 +453,6 @@ can be found from
 \begin{eqnarray}
 	\factorloads_1 &=& \sum_{\numcomponents=1}^{\NumComponents}\left[ \vec\tau_\numcomponents\transpose\vecdata\left(\scoremeans_\numcomponents\thisstep\right)\transpose + 
 	\vec{G}\transpose\vec\tau_\numcomponents\vec{Z}\transpose\vec{G}\right] \\
-	%\left(\scoremeans_k\thisstep\vecdata\transpose\vec\tau_k\right)\transpose \left(\vec{G}\transpose\vec{Z}\vec\tau_k\transpose\vec{G}\right)\transpose\right]  \\
 	\factorloads_2 &=& N\sum_{\numcomponents=1}^{\NumComponents}\left[\weight_\numcomponents\nextstep\left(\scorecovs_\numcomponents\nextstep + \scoremeans_\numcomponents\nextstep\left(\scoremeans_\numcomponents\nextstep\right)\transpose\right)\right]
 \end{eqnarray}
 
@@ -481,13 +476,13 @@ experiments performed here.
 
 \subsection{Experiment 1: Toy model with generated data} \label{sec:experiment-toy-model}
 
-We generated a data set with ${\NumData = 100000}$ data points, each with
+We generated a data set with ${\NumData = 1}$00,000 data points, each with
 $\NumDimensions = 15$ dimensions, and assumed that those data are generated by
 latent space of $\NumLatentFactors = 5$ ($\NumLatentFactors \times \NumDimensions$) factor loads, and there are $\NumComponents = 20$
 clusters in the latent space. The relative weights $\vec\weight$
 are drawn from a multinomial distribution and the means of the clusters
 in factor scores $\scoremeans$ are drawn from a standard normal
-distribution. The covariance matrices in factor scores $\scorecovs$ are assumed to be diagonal matrices, where the non-zero entries are drawn from a gamma distribution $\scorecovs_{\numcomponents,i,i} \sim \vec\Gamma\left(1\right)$. The variance in 
+distribution. The off-diagonal entries in the covariance matrices in factor scores $\scorecovs$ are drawn from a gamma distribution $\scorecovs_{\numcomponents,i,i} \sim \vec\Gamma\left(1\right)$. The variance in 
 each dimension $\specificvariance$ are also drawn $\specificvariance \sim \vec\Gamma\left(1\right)$.
 The $\numdata$th data point (which belongs to the $\numcomponents$th cluster) is then
 generated by drawing $\factorscores_{\numdata} \sim \mathcal{N}(\scoremeans_\numcomponents,\scorecovs_\numcomponents)$, projecting by the factor loads, and adding variance.
@@ -506,73 +501,26 @@ generated by drawing $\factorscores_{\numdata} \sim \mathcal{N}(\scoremeans_\num
 \end{figure*}
 
 
-%\begin{figure*}
-%	\includegraphics[width=1.0\textwidth]{experiments/toy-model-latent-space.png}
-%    \caption{A corner plot showing all $\NumLatentFactors$ dimensions in
-%    		 latent space, where each data point is coloured by the component
-%		 	 that it is estimated to belong to.}
-%    \label{fig:toy-model-latent-space}
-%\end{figure*}
-
-
-%\subsubsection{Given the true number of latent factors and components}
-
-%We initialised the factor loads and component assignments randomly, and
-%fit this generated data set using the expectation-maximization algorithm
-%as described in the previous Section. After \todo{58} iterations
-%(and a serial processing time of \todo{40} seconds) we
-%reached our convergence threshold: the log probability increased by
-%less than $10^{-5}$ with each iteration (Figure~\ref{fig:exp1-ll-iterations}). For this experiment we specified
-%the number of latent factors $\NumLatentFactors$ and the number of clustering components
-%$\NumComponents$ to include, but below we repeat this experiment where the number
-%of latent factors and clustering components is not known.
-
-\begin{figure}
-	\includegraphics[width=0.5\textwidth]{experiments/exp1-ll-iterations.png}
-	\caption{Log-likelihood of the model given the data $\mathcal{L}\left(\vec\data|\vec\Psi\right)$ for Experiment 1 as a function of the number of expectation-maximization iterations. After \todo{X} iterations the improvement in log-likelihood per
-    expectation-maximization cycle was less than $10^{-5}$.}
-    \label{fig:exp1-ll-iterations}
-\end{figure}
-
-
-
-%While the estimated model parameters can generate the data and demonstrate
-%%clustering in latent space, caution is needed when interpreting the 
-%model latent variables.
-%Latent factor models are by definition indeterminate in that there are
-%multiple solutions of the parameter vector $\vec\Psi$ which provide
-%an identical data-generating process. This can be trivially shown by
-%the fact that the factors loads and scores can be rotated by taking the
-%dot product
-%with some rotation
-%matrix $\textbf{R}$ and generate the exact same data. 
-%We discuss how this limitation applies to later experiments.
-
-%This is further complicated by orientation and order
-%of the latent factors: even if the inferred factor loads were very close
-%to the true factor loads, they could be ordered differently, or have
-%their signs reversed. We discuss this further in later sections.
-
-%\subsubsection{Grid search for the number of latent factors and components}
+%\ref{fig:exp1-latent-space}
 
 Here we treat the generated data set as if the true number of latent factors
 and the true number of components are not known. Starting with $\NumLatentFactors = 1$
 and $\NumComponents = 1$, we trialled each permutation of $\NumLatentFactors$ and $\NumComponents$
 until $\NumLatentFactors_{max} = 10$
 and   $\NumComponents_{max} = 40$ (e.g., twice $\NumLatentFactors_\textrm{true}$ and $\NumComponents_\textrm{true}$).
-For each $\NumLatentFactors,\NumComponents$ permutation we initialised the factor
+For each $\NumLatentFactors$, $\NumComponents$ permutation we initialised the factor
 loads and component assignments randomly. We performed expectation-maximization 
 cycles until the relative log-likelihood improved by less than $10^{-5}$. We then
-recorded the log-likelihood of the data given the model parameters, and the
-Bayesian Information Criterion \citep[BIC][]{Schwarz:1978}, 
+recorded the log-likelihood of the data given the model parameters, the
+Bayesian Information Criterion \citep[BIC;][]{Schwarz:1978}, 
 \begin{equation}
 	\textrm{BIC} = Q\log{N} - 2\log\mathcal{L}\left(\data|\vec\Psi\right) \quad , \label{eq:bic}
 \end{equation} 
 \noindent{}where $Q$ is the number of model parameters:
 \begin{equation}
-	%Q = \NumComponents + \NumDimensions - 1 + \NumLatentFactors(\NumDimensions + \NumComponents) + \frac{1}{2}\NumComponents\NumLatentFactors(\NumLatentFactors+1) - \NumLatentFactors^2 \quad .
-	Q = \frac{\NumLatentFactors}{2}\left[2\left(\NumDimensions - \NumLatentFactors\right) + \NumComponents\left(3 + \NumLatentFactors\right)\right] + \NumComponents + \NumDimensions - 1
+	Q = \frac{\NumLatentFactors}{2}\left[2\left(\NumDimensions - \NumLatentFactors\right) + \NumComponents\left(3 + \NumLatentFactors\right)\right] + \NumComponents + \NumDimensions - 1 \quad .
 \end{equation}
+%\todo{\noindent{}and the Message Length.}
 
 These metrics are shown in Figure~\ref{fig:experiment-1-gridsearch}.
 Unsurprisingly the log likelihood increases with increasing numbers of latent
@@ -584,21 +532,15 @@ $\NumComponents_\textrm{true} = 20$).
 We show a corner plot of the data in Figure~\ref{fig:exp1-data}.
 In this figure we have over-plotted 100000 samples drawn from the model
 with $J = 5$ and $K = 21$
--- without adding variance $\specificvariance_\textrm{est}$ % Ref Factor load figure 
+-- without adding variance $\specificvariance_\textrm{est}$
 -- in order to illustrate that the
 estimated model parameters can realistically generate the data.
 The estimated latent space of factor scores is shown in 
 Figure~\ref{fig:exp1-latent-space} where the colours indicate the
 most likely component that the data point is associated with.
+%todo: number of correct associations?
 
 
-%\noindent{}and the pseudo-Bayesian Information Criterion \citep{pseudo-bic}
-%\begin{equation}
-% \textrm{pseudo-BIC} = 6(1 + \gamma)\omega{}Q\log{N} - 2\log\mathcal{L}\left(\data|\vec\Psi\right) \label{eq:pseudo-bic}
-%\end{equation}
-%\noindent{}where $Q$ is the total number of model parameters in both equations,
-%and the unknown constants $\omega$ and $\gamma$ have constraints
-%$\omega \geq 1$ and $\gamma > 0$. Here we adopt $\gamma = 0.1$ and $\omega = 1$.
 
 
 
@@ -731,71 +673,62 @@ as we initialise the model many (e.g., $\gtrsim 5$) times.
 
 \subsection{Experiment~2:\\Inferring astrophysically realistic latent factors}
 
-Latent factors can only be identified up to orthogonality. That is to say that
+In this experiment we use detailed chemical abundances of metal-poor stars 
+\citep{Barklem:2005} to demonstrate the utility and limitations
+in interpreting the latent factors as nucleosynthetic processes. The data 
+can be described as 14 chemical abundance measurements from 61 stars ($\NumData = 61$, $\NumDimensions = 14$), that trace multiple nucleosynthetic pathways. Specifically the chemical
+abundances measured include Al (light odd-Z), Mg and Ca ($\alpha$), Sc, Ti, Cr, Mn, Fe, Co, and Ni (Fe-peak), as well as Sr, Y, Ba, and Eu ($s$/$r$-process). 
+
+We performed a grid search for the optimal number of latent factors $\NumLatentFactors$ and 
+components $\NumComponents$, starting from $\NumLatentFactors = 1$ and $K = 1$, and trialling up until $\NumLatentFactors = \todo{8}$ and $\NumComponents = 5$. We initialised
+the model parameters randomly for each permutation of $J$ and $K$, and ran E-M
+until a convergence threshold of $10^{-5}$ was reached in the log likelihood. 
+In Figure~\ref{fig:exp2-gridsearch-contours} we show the negative log likelihood 
+and BIC recorded for the optimised set of model parameters for each permutation 
+of $J$ and $K$. The lowest BIC value is found for $J = 5$ and $K = 1$, indicating
+five latent factors are preferred, with no clustering.
+
+Some technical discussion is warranted before we interpret the estimated factor loads.
+In principle the latent factors are analogous to nucleosynthetic yields, but 
+these can only be identified up to an orthogonal rotation. That is to say that
 if the data were truely generated by latent factors $\factorloads_\textrm{true}$,
-then our estimates of those latent factors $\factorloads_\textrm{est}$ may not
-be identical to the true values. For example, the ordering of the estimated factors
+then our estimates of those latent factors $\factorloads_\textrm{est}$ do not need
+to be identical to the true values. For example, the ordering of the estimated factors
 could be different from the true factors, and the ordering of the dimensionality
-in latent space would be correspondingly different. Another possibility is that
-the estimated factor loads could be flipped in sign relative to the true factor
-loads, and the scores would similarly be flipped. In both of these situations
-(re-ordering or flipped signs) the log likelihood given the data and the
-estimated factor loads $\factorloads_\textrm{est}$ would be identical to the
-log likelihood given the data and the true factor loads $\factorloads_\textrm{true}$
-despite the difference in ordering and sign. These examples illustrate a more 
+in latent space would be correspondingly different. Since the ordering of the 
+factor loads is not prescribed during expectation-maximization, there is no 
+assurance (or requirement) that our factor loads match the true factor loads.
+
+Another possibility is that the estimated factor loads could be flipped in sign 
+relative to the true factor loads, and the scores would similarly be flipped. 
+In both of these situations (reordering or flipped signs) the log likelihood 
+given the data and the estimated factor loads $\factorloads_\textrm{est}$ would 
+be identical to the log likelihood given the data and the true factor loads 
+$\factorloads_\textrm{true}$
+despite the difference in ordering and sign. These examples serve to illustrate a more 
 general property that the factor loads and factor scores can be orthogonally 
-rotated by any rotation matrix\footnote{A rotation matrix is valid if 
+rotated by \emph{any rotation matrix}\footnote{A rotation matrix is valid if 
 $\vec{R}\vec{R}\transpose = \vec{I}$} $\vec{R}$. The estimated factor loads 
 $\factorloads_\textrm{est}$ could therefore appear very different from the true 
 values, but they only differ by an orthogonal rotation. 
 
 
 If the true values are known then it is trivial to find a rotation matrix $\vec{R}$
-that rotates the estimated factor loads to the true factor loads. However, when
+that rotates the estimated factor loads to be as close to the true factor loads as
+possible. However, when
 the true values are not known, this property of factor analysis limits the
 extent to which we can interpret the latent variables in our model. For example,
 if we seek to interpret the factor loads as being something analagous to 
 nucleosynthetic processes, then the estimated factor loads will need to be 
 rotated to something that looks astrophysically plausible before we could 
 attribute one latent factor as being a particular nucleosynthetic process. 
-Although having to perform this rotation is not ideal, there is still utility in
+Although having to perform this rotation is not comforting, there is utility in
 trying to identify the latent factors because the factors can only be rotated by
 some valid rotation matrix. That is to say that we will not only exactly what
 we have put in: the rotated factors will simply be the closest set of factor
-loads that are consistent with the data.
+loads that are consistent with the data, allowing us to identify the factor
+loads that are astrophysically plausible.
 
-
-In this experiment we use detailed chemical abundances of metal-poor stars as
-reported by \citet{Barklem:2005}, and we demonstrate the utility and limitations
-in interpreting the latent factors as nucleosynthetic processes. The data 
-contains 14 measurements of chemical abundances for 61 stars ($N = 61$, $D = 14$): 
-Al (light odd-Z), Mg and Ca ($\alpha$), Sc, Ti, Cr, Mn, Fe, Co, and Ni (Fe-peak),
-as well as Sr, Y, Ba, and Eu ($s$/$r$-process). We performed a grid search for
-the optimal number of latent factors $J$ and components $K$, starting from
-$J = 1$ and $K = 1$, and trialling up until $J = 8$ and $K = 5$. We initialised
-the model parameters randomly for each permutation of $J$ and $K$, and ran E-M
-until a convergence threshold of $10^{-5}$ was reached in the log likelihood. 
-In Figure~\ref{fig:exp2-gridsearch-contours} we show the negative log likelihood 
-and BIC recorded for the optimised set of model parameters for each permutation 
-of $J$ and $K$. The lowest BIC value is found for $J = 5$ and $K = 1$, indicating
-five latent factors are preferred, and no clustering.
-
-\begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/exp2-gridsearch-ll.png}
-	\includegraphics[width=0.45\textwidth]{experiments/exp2-gridsearch-bic.png}
-    \caption{Model performance metrics resulting from a gridsearch using the
-    		 \citet{Barklem:2005} data in Experiment~2.
-    		 The top panel shows the negative log-likelihood 
-			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
-			 evaluated at each combination of latent factors $J$ and number 
-			 of clusters $K$, and the lower panel shows the BIC (Equation \ref{eq:bic}).
-			 The cross at
-			 $J=8$ and $K=5$ indicates that the model could not converge without
-			 adding a regularisation constant to the diagonals of $\scorecovs$.
-			 The marker indicates the lowest value in each panel, showing that
-			 $J = 5$ and $K = 1$ is preferred by BIC.}
-    \label{fig:exp2-gridsearch-contours}
-\end{figure}
 
 
 Using our preferred model with $J = 5$ and $K = 1$, we rotated the estimated
@@ -819,10 +752,32 @@ in that latent factor, in order to ensure that $\factorloads_\textrm{A}$ is
 orthonormal. We optimise the $J$ angles needed to make the estimated factor loads
 $\factorloads_\textrm{est}$ as close to the astrophysical factor loads $\factorloads_\textrm{A}$.
 In practice we take the product of many  Givens rotation matrices \citep{Givens},
-which reduces to Euler angle rotation in three or fewer dimensions. In Figure
+which reduces to Euler angle rotation in three or fewer dimensions.
+%\footnote{Clifford
+%algebra offers a more efficient algorithm that is more suitable for high dimensions, 
+%but we found Givens rotation matrices to be suitable for our purposes here.}
+In Figure
 \ref{fig:exp2-factor-loads} we show the rotated factor loads found by our
 preferred model, where the shaded regions indicate the projected uncertainty on
 the rotation angles -- not including any uncertainty on the factor loads themselves.
+
+
+\begin{figure}
+	\includegraphics[width=0.45\textwidth]{experiments/exp2-gridsearch-ll.png}
+	\includegraphics[width=0.45\textwidth]{experiments/exp2-gridsearch-bic.png}
+    \caption{Model performance metrics resulting from a gridsearch using the
+    		 \citet{Barklem:2005} data in Experiment~2.
+    		 The top panel shows the negative log-likelihood 
+			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
+			 evaluated at each combination of latent factors $J$ and number 
+			 of clusters $K$, and the lower panel shows the BIC (Equation \ref{eq:bic}).
+			 The cross at
+			 $J=8$ and $K=5$ indicates that the model could not converge without
+			 adding a regularisation constant to the diagonals of $\scorecovs$.
+			 The marker indicates the lowest value in each panel, showing that
+			 $J = 5$ and $K = 1$ is preferred by BIC.}
+    \label{fig:exp2-gridsearch-contours}
+\end{figure}
 
 
 The rotated loads are not precisely the same as the target astrophysical loads
@@ -842,10 +797,12 @@ Eu, and could be interpreted as production from the rapid nucleosynthesis proces
 The relatively wide uncertainty regions on these factors is perhaps not
 surprising given that only 61 stars were used in this data set. However, this
 experiment hopefully demonstrates that the rotated latent factors have some
-interpretability, albeit limited. After accounting for the contributions by all
+interpretability. After accounting for the contributions by all
 $J = 5$ factors, the specific scatter remaining in each dimension is shown in
 Figure~\ref{fig:exp2-specific-scatter}. The remaining scatter varies from as low 
-as 0.01-0.02~dex (Mg, Ca, Ti, Mn, Fe, Y) up to 0.08-0.16~dex (Al and Ba). 
+as 0.01 to 0.02~dex (Mg, Ca, Ti, Mn, Fe, Y) up to 0.08 or 0.16~dex (Al and Ba). 
+% TODO: matches Barklem variances?
+
 
 
 \begin{figure*}
