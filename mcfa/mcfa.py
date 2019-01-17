@@ -8,7 +8,7 @@ import warnings
 from copy import deepcopy
 from inspect import signature as inspect_signature
 from scipy import linalg, spatial, stats
-from scipy.special import logsumexp
+from scipy.special import logsumexp, gammaln, gamma
 from sklearn import cluster
 from sklearn.utils import check_random_state
 from sklearn.utils.extmath import row_norms
@@ -569,6 +569,81 @@ class MCFA(object):
         return 6 * (1 + gamma) * omega * np.log(N) * Q - 2 * log_likelihood
 
 
+    def message_length(self, X, theta=None):
+        r"""
+        Estimate the explanation length given the model and the data.
+
+        :param X:
+            The data, :math:`X`, which is expected to be an array of shape
+            [n_samples, n_features].
+
+        :param theta: [optional]
+            The model parameters :math:`\theta`. If None is given then the
+            model parameters from `self.theta_` will be used.
+        """
+
+        if theta is None:
+            theta = self.theta_
+
+        N, D = np.atleast_2d(X).shape
+        log_likelihood, tau = self.expectation(X, *theta)
+
+        # For just MLF:
+        pi, A, xi, omega, psi = theta
+        J, K = self.n_latent_factors, self.n_components
+
+        # In Wallace nomenclature, J = number of factors (here also J)
+        #                          K = dimensionality of data (here is D)
+        #                          N = number of data (here also N)
+
+        # Recall:
+        # X! = gamma(X + 1)
+        # S_m = (m * np.pi**(m/2))/((m/2)!)
+        log_S = lambda m: np.log(m) + (m/2) * np.log(np.pi) - gammaln(m/2 + 1)
+
+        # Approximate the normalization constants (p308 of Wallace 2005)
+        #  J = [1     2     3     4     5      6]
+        A_Js = [0, 0.24, 1.35, 3.68, 7.45, 12.64]
+        B_Js = [0, 0.58, 0.64, 0.73, 0.86,  1.21]
+
+        #bj_sq = A**2
+        #v = self.factor_scores(X)[1]
+        #vj_sq = np.diag((v.T @ v)) # very unsure about this.
+        
+
+        if J > len(A_Js):
+
+            #raise NotImplementedError("too many latent factors; "
+            #                          "cannot approximate normalization constants")
+            logger.warn("Too many latent factors; "
+                        "cannot approximate normalization constants when J > 6")
+
+            A_J, B_J = (A_Js[-1], B_Js[-1])
+
+        else:
+            A_J, B_J = (A_Js[int(J) - 1], B_Js[int(J) - 1])
+
+        log_GNK = -(A_J + 0.5 * J * (J - 1) * np.log(D - B_J))
+
+
+        # Add weights for mixture (A.4 of GMMMML paper)
+        # kappa varies between 1/12 and 1/(2*pi*e), so assume kappa = 1/12
+        kappa = 1/12.
+        I_1 = 0.5 * (K - 1) * np.log(N) - 0.5 * np.sum(np.log(pi)) \
+            - gammaln(K) + 0.5 * K * np.log(kappa)
+            
+        # Encode covariance matrices. (A.11 of GMMMML paper)
+        # Wishart prior on covariance matrix.
+        # Note here we use J instead of D because the mixing is done in latent
+        # space.
+        slogdet_omega = np.linalg.slogdet(omega.T)[1]
+
+        I_2 = 0.25 * J * (J + 3) * np.sum(np.log(N * pi)) \
+            - 0.5 * (2 * J + 3) * np.sum(slogdet_omega) \
+            - 0.5 * (K * J) * np.log(2)
+
+        return I_0 + I_1 + I_2
+
 
     def sample(self, n_samples=1, theta=None):
         r"""
@@ -738,7 +813,7 @@ def _initial_components_by_kmeans_pp(X, A, n_components):
 
 
 
-def _expectation(X, pi, A, xi, omega, psi, verbose=1):
+def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
     r"""
     Compute the conditional expectation of the complete-data log-likelihood
     given the observed data :math:`X` and the given model parameters.
@@ -821,7 +896,11 @@ def _expectation(X, pi, A, xi, omega, psi, verbose=1):
     with np.errstate(under="ignore"):
         log_tau = weighted_log_prob - log_prob[:, np.newaxis]
 
-    return (np.sum(log_prob), np.exp(log_tau))
+    if not full_output:
+        return (np.sum(log_prob), np.exp(log_tau))
+
+    else:
+        return (np.sum(log_prob), np.exp(log_tau))
 
 
 def _maximization(X, tau, pi, A, xi, omega, psi,
@@ -1058,4 +1137,54 @@ if __name__ == "__main__":
 
     fig = plot_latent_space(model, X)
 
+
+"""
+        S = lambda m: (m*np.pi**(0.5 * m))/np.exp(gammaln(0.5*m + 1))
+
+        pi, A, xi, omega, psi = theta
+
+        # Approximate the normalization constants (p308 of Wallace 2005)
+        #  J = [1     2     3     4     5      6]
+        A_Js = [0, 0.24, 1.35, 3.68, 7.45, 12.64]
+        B_Js = [0, 0.58, 0.64, 0.73, 0.86,  1.21]
+
+        bj_sq = A**2
+        v = self.factor_scores(X)[1]
+        vj_sq = np.diag((v.T @ v)) # very unsure about this.
+        
+
+        if J > len(A_Js):
+
+            #raise NotImplementedError("too many latent factors; "
+            #                          "cannot approximate normalization constants")
+            logger.warn("Too many latent factors; "
+                        "cannot approximate normalization constants when J > 6")
+
+            A_J, B_J = (A_Js[-1], B_Js[-1])
+
+        else:
+            A_J, B_J = (A_Js[int(J) - 1], B_Js[int(J) - 1])
+
+        log_GNK = -(A_J + 0.5 * J * (J - 1) * np.log(D - B_J))
+
+        # I_0 is term for MLF model (no mixture)
+        # TODO: missing term related to S(N-1) ?
+        # TODO: commented-out missing terms
+        I_0 = (D/2 - 2 * J) * np.log(2) + D * np.log(N) \
+            + 0.5 * J * N * np.log(2 * np.pi) \
+            - gammaln(J + 1) - J * np.log(S(N)) \
+            - J * np.log(S(D)/S(D + 1)) \
+            + (N - 1) * np.sum(0.5 * np.log(psi)) \
+            + np.sum(log_likelihood) \
+            - 0.5 * D * np.log(2 * np.pi) + 0.5 * np.log(D * np.pi) \
+            - log_GNK #\
+            #+ 0.5 * np.sum(vj_sq)
+            #+ 0.5 * (D - J + 1) * np.sum(np.log(vj_sq))
+            #+ 0.5 * (N + D - 1) * np.sum(np.log(1 + bj_sq)) 
+            #+ 0.5 * np.sum(np.sum(vj_sq, axis=0) * np.sum(bj_sq, axis=0))
+            #- np.sum(b_j.T @ X @ b_j / Q_j) \
+        
+        if J > 3 and K > 2:
+            raise a
+"""
 

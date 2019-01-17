@@ -25,6 +25,7 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, mcfa_kwds=None,
     converged = np.zeros(shape, dtype=bool)
     ll = np.nan * np.ones(shape)
     bic = np.nan * np.ones(shape)
+    mml = np.nan * np.ones(shape)
     pseudo_bic = np.nan * np.ones(shape)
 
     for j, J in enumerate(Js):
@@ -45,10 +46,13 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, mcfa_kwds=None,
             else:
                 ll[k, j] = model.log_likelihood_
                 bic[k, j] = model.bic(X)
+                mml[k, j] = model.message_length(X)
                 pseudo_bic[k, j] = model.pseudo_bic(X, **pseudo_bic_kwds)
                 converged[k, j] = True
 
-    return (J_grid, K_grid, converged, ll, bic, pseudo_bic)
+
+    metrics = dict(ll=ll, bic=bic, pseudo_bic=pseudo_bic, message_length=mml)
+    return (J_grid, K_grid, converged, metrics)#ll, bic, pseudo_bic)
 
 
 def best(trial_n_latent_factors, trial_n_components, metric, 

@@ -6,8 +6,8 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from scipy.stats import binned_statistic_2d
-from matplotlib.colors import LogNorm
-from matplotlib.ticker import MaxNLocator
+from matplotlib.colors import (BoundaryNorm, LinearSegmentedColormap, LogNorm)
+from matplotlib.ticker import MaxNLocator, FormatStrFormatter, FuncFormatter
 from matplotlib.patches import Ellipse
 
 from .utils import find_rotation_matrix, givens_rotation_matrix
@@ -81,6 +81,20 @@ mpl_style = {
 
 matplotlib.style.use(mpl_style)
 
+
+
+def discrete_cmap(N, base_cmap=None):
+    """Create an N-bin discrete colormap from the specified input map"""
+
+    # Note that if base_cmap is a string or None, you can simply do
+    #    return plt.cm.get_cmap(base_cmap, N)
+    # The following works for string, None, or a colormap instance:
+
+    base = plt.cm.get_cmap(base_cmap)
+    color_list = base(np.linspace(0, 1, N))
+    cmap_name = base.name + str(N)
+    #return base.from_list(cmap_name, color_list, N)
+    return LinearSegmentedColormap.from_list(cmap_name, color_list, N)
 
 def plot_latent_factors(model, label_names=None):
 
@@ -363,7 +377,7 @@ def corner_scatter(X, label_names=None, show_ticks=False, fig=None, figsize=None
     
     axes = np.array(fig.axes).reshape((K, K)).T
 
-    kwds = dict(s=1, c="tab:blue", alpha=0.5)
+    kwds = dict(s=1, c="tab:blue", alpha=0.5, rasterized=True)
     kwds.update(kwargs)
     
     for i, x in enumerate(X.T):
@@ -397,9 +411,10 @@ def corner_scatter(X, label_names=None, show_ticks=False, fig=None, figsize=None
     return fig
 
 
-def plot_filled_contours(J, K, Z, N=100, colorbar_label=None, 
+def plot_filled_contours(J, K, Z, N=1000, colorbar_label=None, 
                          converged=None, converged_kwds=None, 
                          marker_function=None, marker_kwds=None, 
+                         truth=None,
                          ax=None, **kwargs):
     power = None
         
@@ -416,13 +431,19 @@ def plot_filled_contours(J, K, Z, N=100, colorbar_label=None,
     else:
         fig = ax.figure
 
-    cf = ax.contourf(J, K, Z, N, **kwargs)
+
+    #levels = np.linspace(np.floor(np.min(Z)), np.ceil(np.max(Z)), N).astype(int)
+    #norm = BoundaryNorm(levels, 256)
+
+    cf = ax.contourf(J, K, Z, N, vmin=np.min(Z), vmax=np.max(Z), 
+                     **kwargs)
 
     ax.set_xlabel(r"$\textrm{Number of latent factors } J$")
     ax.set_ylabel(r"$\textrm{Number of clusters } K$")
 
     if converged is not None:
-        kwds = dict(marker="x", c="#000000", s=10, linewidth=1, alpha=0.3)
+        kwds = dict(marker="x", c="#000000", s=10, linewidth=1, alpha=0.3,
+                    rasterized=True)
         if converged_kwds is not None:
             kwds.update(converged_kwds)
 
@@ -439,14 +460,34 @@ def plot_filled_contours(J, K, Z, N=100, colorbar_label=None,
 
         ax.scatter(j_m, k_m, **kwds)
 
+        if truth is not None:
+            J_t, K_t = truth
+
+            ax.scatter([J_t], [K_t], facecolor="#000000", edgecolor="#000000",
+                       s=10, zorder=14)
+
+            ax.plot([J_t, j_m], [K_t, k_m], "-", c="#000000", lw=1.5, zorder=14)
+
     if colorbar_label is not None:
+
         cbar = plt.colorbar(cf)
+
         if power is not None:
             cbar.set_label(colorbar_label + " $/\,\,10^{0}$".format(power))
         else:
             cbar.set_label(colorbar_label)
             
         cbar.ax.yaxis.set_major_locator(MaxNLocator(5))
+        #cbarlabels = np.linspace(np.min(Z), np.max(Z), num=5, endpoint=True)
+        #cbar.set_ticklabels(cbarlabels)
+
+
+        # TODO; only show integers but WHAT THE ACTUAL FUCK MATPLOTLIB
+        #cbar_labels = [_.get_text() for _ in cbar.ax.get_yticklabels()]
+        #cbar_labels = [f"${float(ea.strip('$')):.0f}$" for ea in cbar_labels]
+        #cbar.set_ticklabels(cbar_labels)
+        #kcbar.ax.yaxis.set_major_formatter(FuncFormatter(lambda x, pos: "${:+5.0f}$".format(x)))
+
 
     edge_percent = 0.025
     x_range = np.ptp(J)
@@ -457,14 +498,24 @@ def plot_filled_contours(J, K, Z, N=100, colorbar_label=None,
     ax.set_ylim(K.min() - y_range * edge_percent,
                 K.max() + y_range * edge_percent)
     
-    ax.xaxis.set_major_locator(MaxNLocator(9))
-    ax.yaxis.set_major_locator(MaxNLocator(9))
+    if np.unique(J.flatten()).size < 9:
+        ax.set_xticks(np.sort(np.unique(J.flatten())).astype(int))
+    else:
+        ax.xaxis.set_major_locator(MaxNLocator(9))
+
+    if np.unique(K.flatten()).size < 9:
+        ax.set_yticks(np.sort(np.unique(K.flatten())).astype(int))
+    else:
+        ax.yaxis.set_major_locator(MaxNLocator(9))
+
 
     ax.set_xticks(J[0].astype(int))
     ax.yaxis.set_tick_params(width=0)
     ax.xaxis.set_tick_params(width=0)
 
     fig.tight_layout()
+    for c in cf.collections:
+        c.set_edgecolor("face")
 
     return fig
 

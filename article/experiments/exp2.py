@@ -14,14 +14,18 @@ from mcfa import (mcfa, grid_search, mpl_utils, utils)
 
 matplotlib.style.use(mpl_utils.mpl_style)
 
+here = os.path.dirname(os.path.realpath(__file__))  
 
 def savefig(fig, suffix):
     prefix = os.path.basename(__file__)[:-3]
-    filename = f"{prefix}-{suffix}.png"
-    fig.savefig(filename, dpi=150)
+    filename = os.path.join(here, f"{prefix}-{suffix}")
+    fig.savefig(f"{filename}.pdf", dpi=300)
+    fig.savefig(f"{filename}.png", dpi=150)
+    print(f"Created figures {filename}.png and {filename}.pdf")
     
 
-with open("../../catalogs/barklem.pkl", "rb") as fp:
+
+with open(os.path.join(here, "../../catalogs/barklem.pkl"), "rb") as fp:
     X_H, label_names, mask = pickle.load(fp)
 
 # Do not include C
@@ -118,27 +122,46 @@ fig_factor_loads.tight_layout()
 
 
 # Run a grid search.
-max_n_latent_factors = 8
+max_n_latent_factors = 7
 max_n_components = 5
 
 Js = 1 + np.arange(max_n_latent_factors)
 Ks = 1 + np.arange(max_n_components)
 
-Jg, Kg, converged, ll, bic, pseudo_bic = grid_search.grid_search(Js, Ks, X, 
-                                                                 mcfa_kwds)
+Jg, Kg, converged, metrics = grid_search.grid_search(Js, Ks, X, mcfa_kwds)
+
+ll = metrics["ll"]
+bic = metrics["bic"]
+pseudo_bic = metrics["pseudo_bic"]
+message_length = metrics["message_length"]
 
 J_best_ll, K_best_ll = grid_search.best(Js, Ks, -ll)
 J_best_bic, K_best_bic = grid_search.best(Js, Ks, bic)
+J_best_mml, K_best_mml = grid_search.best(Js, Ks, message_length)
 
 print(f"Best log likelihood  at J = {J_best_ll} and K = {K_best_ll}")
 print(f"Best BIC value found at J = {J_best_bic} and K = {K_best_bic}")
+print(f"Best MML value found at J = {J_best_mml} and K = {K_best_mml}")
 
 # Plot some contours.
-plot_filled_contours_kwds = dict(converged=converged, marker_function=np.nanargmin)
+plot_filled_contours_kwds = dict(converged=converged,
+                                 marker_function=np.nanargmin,
+                                 cmap="Spectral_r")
 fig_ll = mpl_utils.plot_filled_contours(Jg, Kg, -ll,
                                         colorbar_label=r"$-\log\mathcal{L}$",
                                         **plot_filled_contours_kwds)
 savefig(fig_ll, "gridsearch-ll")
+
+
+plot_filled_contours_kwds = dict(converged=converged,
+                                 marker_function=np.nanargmin,
+                                 cmap="Spectral_r")
+fig_ll = mpl_utils.plot_filled_contours(Jg, Kg, message_length,
+                                        colorbar_label=r"$\textrm{MML}$",
+                                        **plot_filled_contours_kwds)
+savefig(fig_ll, "gridsearch-mml")
+
+
 
 fig_bic = mpl_utils.plot_filled_contours(Jg, Kg, bic,
                                          colorbar_label=r"$\textrm{BIC}$",

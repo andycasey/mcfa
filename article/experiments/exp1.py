@@ -5,7 +5,6 @@ import os
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
-from scipy import stats
 from time import time
 
 sys.path.insert(0, "../../")
@@ -16,84 +15,14 @@ matplotlib.style.use(mpl_utils.mpl_style)
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 
-# Should all go into exp1.yaml
-"""
-data_kwds = dict(n_samples=100_000,
-                 n_features=15,
-                 n_components=10,
-                 n_latent_factors=3,
-                 random_seed=42)
-"""
-
-
-
-def savefig(fig, suffix):
-    prefix = os.path.basename(__file__)[:-3]
-    filename = f"{prefix}-{suffix}.png"
-    fig.savefig(filename, dpi=150)
-
-
-mcfa_kwds = dict(tol=1e-5, 
-                 max_iter=1_000,
-                 init_factors="svd",
-                 init_components="kmeans++",
-                 random_seed=42)
-
-# Done with vars
-"""
-Y, truth = utils.generate_data(**data_kwds)
-"""
-"""
-def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2,
-                  omega_scale=1, noise_scale=1, random_seed=0):
-
-    rng = np.random.RandomState(random_seed)
-
-    #A = rng.randn(n_features, n_latent_factors)
-    A = stats.ortho_group.rvs(n_features, random_state=rng)[:, :n_latent_factors]
-    AL = linalg.cholesky(A.T @ A)
-    A = A @ linalg.solve(AL, np.eye(n_latent_factors))
-
-    # latent variables
-    pvals = np.ones(n_components) / n_components
-    R = np.argmax(rng.multinomial(1, pvals, size=n_samples), axis=1)
-    pi = np.array([np.sum(R == i) for i in range(n_components)])/n_samples
-
-    xi = rng.randn(n_latent_factors, n_components)
-    omega = np.zeros((n_latent_factors, n_latent_factors, n_components))
-    for i in range(n_components):
-        omega[(*np.diag_indices(n_latent_factors), i)] = \
-            rng.gamma(1, scale=omega_scale, size=n_latent_factors)**2
-
-    scores = np.empty((n_samples, n_latent_factors))
-    for i in range(n_components):
-        match = (R == i)
-        scores[match] = rng.multivariate_normal(xi.T[i], omega.T[i], 
-                                                size=sum(match))
-
-    psi = rng.gamma(1, scale=noise_scale, size=n_features)
-
-    noise = np.sqrt(psi) * rng.randn(n_samples, n_features)
-
-    X = scores @ A.T + noise
-
-    truth = dict(A=A, pi=pi, xi=xi, omega=omega, psi=psi,
-                 noise=noise, R=R, scores=scores)
-
-    return (X, truth)
-
-Y, truth = generate_data(**data_kwds)
-"""
-
-
 n_features = 15
 n_components = 20
 n_latent_factors = 5
-n_samples = 100000
+n_samples = 1000
 
 omega_scale = 1
 noise_scale = 1
-random_seed = 1
+random_seed = 123
 
 data_kwds = dict(n_features=n_features,
                  n_components=n_components,
@@ -104,8 +33,24 @@ data_kwds = dict(n_features=n_features,
                  random_seed=random_seed)
 
 
-def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2,
-                  omega_scale=1, noise_scale=1, random_seed=0):
+def savefig(fig, suffix):
+    prefix = os.path.basename(__file__)[:-3]
+    here = os.path.dirname(os.path.realpath(__file__))
+    filename = os.path.join(here, f"{prefix}-{suffix}")
+    fig.savefig(f"{filename}.pdf", dpi=300)
+    fig.savefig(f"{filename}.png", dpi=150)
+    print(f"Created figures {filename}.png and {filename}.pdf")
+
+
+mcfa_kwds = dict(tol=1e-8, 
+                 max_iter=1_000,
+                 init_factors="random",
+                 init_components="random",
+                 random_seed=123)
+
+
+def generate_data(n_samples, n_features, n_latent_factors, n_components,
+                  omega_scale, noise_scale, random_seed=0):
 
     rng = np.random.RandomState(random_seed)
 
@@ -139,7 +84,59 @@ def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2
 
     return (X, truth)
 
-Y, truth = generate_data(**data_kwds)
+
+def new_generate_data(n_samples, n_features, n_latent_factors, n_components,
+                      omega_scale, noise_scale, random_seed=0):
+
+    from scipy.stats import special_ortho_group
+    from scipy import linalg
+
+    rng = np.random.RandomState(random_seed)
+
+    A = special_ortho_group.rvs(n_features, random_state=rng)
+    A = A[:, :n_latent_factors]
+    AL = linalg.cholesky(A.T @ A)
+    A = A @ linalg.solve(AL, np.eye(n_latent_factors))
+
+    pvals = np.ones(n_components) / n_components
+    R = np.argmax(rng.multinomial(1, pvals, size=n_samples), axis=1)
+    pi = np.array([np.sum(R == i) for i in range(n_components)])/n_samples
+
+    xi = rng.randn(n_latent_factors, n_components)
+    omega = np.zeros((n_latent_factors, n_latent_factors, n_components))
+    for i in range(n_components):
+        omega[(*np.diag_indices(n_latent_factors), i)] = \
+            rng.gamma(1, scale=omega_scale, size=n_latent_factors)**2
+
+    scores = np.empty((n_samples, n_latent_factors))
+    for i in range(n_components):
+        match = (R == i)
+        scores[match] = rng.multivariate_normal(xi.T[i], omega.T[i], 
+                                                size=sum(match))
+
+    psi = rng.gamma(1, scale=noise_scale, size=n_features)
+
+    noise = np.sqrt(psi) * rng.randn(n_samples, n_features)
+
+    X = scores @ A.T + noise
+
+    truth = dict(A=A, pi=pi, xi=xi, omega=omega, psi=psi,
+                 noise=noise, R=R, scores=scores)
+
+    return (X, truth)
+
+
+Y, truth = new_generate_data(**data_kwds)
+truth_packed = (truth["pi"], truth["A"], truth["xi"], truth["omega"], truth["psi"])
+
+fig_data2 = mpl_utils.corner_scatter(Y, 
+                                    c=truth["R"], cmap="Spectral",
+                                    s=1, alpha=0.5, figsize=(8, 8),
+                                    label_names=[r"$\mathbf{{Y}}_{{{0}}}$".format(i) for i in range(n_features)])
+fig_data2.tight_layout()
+fig_data2.subplots_adjust(hspace=0, wspace=0)
+savefig(fig_data2, "data-colour")
+
 
 gridsearch_max_latent_factors = 2 * data_kwds["n_latent_factors"]
 gridsearch_max_components = 2 * data_kwds["n_components"]
@@ -185,6 +182,31 @@ fig_data.subplots_adjust(hspace=0, wspace=0)
 savefig(fig_data, "data")
 
 
+# Plot the latent space.
+
+
+cmap = mpl_utils.discrete_cmap(n_components, "Spectral")
+
+label_names = [f"$\\mathbf{{S}}_{{{i}}}$" for i in range(n_latent_factors)]
+fig_latent = mpl_utils.plot_latent_space(model, Y, cmap=cmap,
+                                         label_names=label_names)
+for ax in fig_latent.axes:
+    if ax.get_visible():
+        if ax.is_last_row():
+            ax.xaxis.set_major_locator(MaxNLocator(3))
+        if ax.is_first_col():
+            ax.yaxis.set_major_locator(MaxNLocator(3))
+
+        xlim = np.max(np.abs(ax.get_xlim()))
+        ylim = np.max(np.abs(ax.get_ylim()))
+        ax.set_xlim(-xlim, +xlim)
+        ax.set_ylim(-ylim, +ylim)
+fig_latent.tight_layout()
+fig_latent.subplots_adjust(hspace=0, wspace=0)
+savefig(fig_latent, "latent")
+
+
+
 # Plot the true latent factors w.r.t. the estimated ones, after rotation.
 A_true = truth["A"]
 A_est = model.theta_[model.parameter_names.index("A")]
@@ -216,6 +238,33 @@ ax.set_yticks([-ylim, 0, ylim])
 fig_factor_loads.tight_layout()
 savefig(fig_factor_loads, "factor_loads")
 
+
+# Take model with true number of components and latent factors.
+
+# Perform rotation.
+
+# Compare factor loads to true values.
+
+fig, ax = plt.subplots()
+ax.scatter(A_true.flatten(), A_est_rot.flatten(), s=1)
+
+
+# Compare factor scores to true values.
+S = model.factor_scores(Y)[1]
+
+fig, ax = plt.subplots()
+ax.scatter(truth["scores"].flatten(), (S @ R).flatten(), s=1)
+
+lims = np.hstack([ax.get_xlim(), ax.get_ylim()])
+lims = (np.min(lims), np.max(lims))
+ax.set_xlim(lims)
+ax.set_ylim(lims)
+
+
+# Compare specific scatter to true values.
+
+
+
 # Do a grid search.
 Js = np.arange(1, 1 + gridsearch_max_latent_factors)
 Ks = np.arange(1, 1 + gridsearch_max_components)
@@ -224,8 +273,6 @@ Jm, Km = np.meshgrid(Js, Ks)
 
 ll = np.nan * np.ones_like(Jm)
 bic = np.nan * np.ones_like(Jm)
-pseudo_bic = np.nan * np.ones_like(Jm)
-pseudo_bic_kwds = dict(omega=1, gamma=0.1)
 
 converged = np.zeros(Jm.shape, dtype=bool)
 
@@ -245,7 +292,6 @@ for j, J in enumerate(Js):
         else:
             ll[k, j] = model.log_likelihood_
             bic[k, j] = model.bic(Y)
-            pseudo_bic[k, j] = model.pseudo_bic(Y, **pseudo_bic_kwds)
             converged[k, j] = True
 
             idx = np.nanargmin(bic)
@@ -257,30 +303,30 @@ for j, J in enumerate(Js):
 idx = np.nanargmin(bic)
 jm_b, km_b = Js[idx % bic.shape[1]], Ks[int(idx / bic.shape[1])]
 
-idx = np.nanargmin(pseudo_bic)
-jm_pb, km_pb = Js[idx % pseudo_bic.shape[1]], Ks[int(idx / pseudo_bic.shape[1])]
-
 J_true, K_true = (data_kwds["n_latent_factors"], data_kwds["n_components"])
 
 print(f"BIC is lowest at J = {jm_b} and K = {km_b}")
-print(f"pseudo-BIC is lowest at J = {jm_pb} and K = {km_pb}")
 print(f"True values are  J = {J_true} and K = {K_true}")
 
 
-kwds = dict(converged=converged, marker_function=np.nanargmin)
-fig_ll = mpl_utils.plot_filled_contours(Jm, Km, -ll,
+kwds = dict(converged=converged, 
+            marker_function=np.nanargmin, 
+            N=1000, 
+            cmap="Spectral_r",
+            truth=(J_true, K_true))
+
+fig_ll = plot_filled_contours(Jm, Km, -ll,
                                         colorbar_label=r"$-\log\mathcal{L}$", 
                                         **kwds)
 
 
-fig_bic = mpl_utils.plot_filled_contours(Jm, Km, bic,
+fig_bic = plot_filled_contours(Jm, Km, bic,
                                          colorbar_label=r"$\textrm{BIC}$", 
                                          **kwds)
 
-fig_pseudo_bic = mpl_utils.plot_filled_contours(Jm, Km, pseudo_bic,
-                                                colorbar_label=r"$\textrm{pseudo-BIC}$", 
-                                                **kwds)
 
 savefig(fig_ll, "gridsearch-ll-contours")
 savefig(fig_bic, "gridsearch-bic-contours")
-savefig(fig_pseudo_bic, "gridsearch-pseudo-bic-contours")
+
+
+
