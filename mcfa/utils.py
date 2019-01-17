@@ -1,34 +1,50 @@
 
 import numpy as np
-from scipy import (optimize as op, stats)
+from scipy import (linalg, optimize as op, stats)
 
 def whiten(X, axis=0):
     return (X - np.mean(X, axis=axis))/np.std(X, axis=axis)
 
 
-def generate_data_from_leuton_drton():
+def generate_data(n_samples, n_features, n_latent_factors, n_components,
+                  omega_scale, noise_scale, random_seed=0):
 
-    A = np.array([
-        [ 0.97,  0.00,  0.00],
-        [ 0.04,  0.90,  0.00],
-        [ 1.00, -1.12,  0.57],
-        [ 2.03,  0.42,  0.57],
-        [ 0.31,  0.47,  0.09],
-        [ 0.43, -0.21, -0.35],
-        [ 0.75,  0.31,  0.68],
-        [ 0.45, -0.48, -1.50],
-        [-2.21,  1.45,  0.38],
-        [ 1.98, -0.30,  0.96],
-        [-2.63,  0.41,  1.09],
-        [-0.72,  1.39,  0.97],
-        [-0.88,  2.01, -0.39],
-        [-0.53,  0.04,  0.59],
-        [-0.95,  1.39,  0.37]
-    ])
+    rng = np.random.RandomState(random_seed)
 
-    raise NotImplementedError
+    A = stats.special_ortho_group.rvs(n_features, random_state=rng)
+    A = A[:, :n_latent_factors]
+    AL = linalg.cholesky(A.T @ A)
+    A = A @ linalg.solve(AL, np.eye(n_latent_factors))
 
-def generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2,
+    pvals = np.ones(n_components) / n_components
+    R = np.argmax(rng.multinomial(1, pvals, size=n_samples), axis=1)
+    pi = np.array([np.sum(R == i) for i in range(n_components)])/n_samples
+
+    xi = rng.randn(n_latent_factors, n_components)
+    omega = np.zeros((n_latent_factors, n_latent_factors, n_components))
+    for i in range(n_components):
+        omega[(*np.diag_indices(n_latent_factors), i)] = \
+            rng.gamma(1, scale=omega_scale, size=n_latent_factors)**2
+
+    scores = np.empty((n_samples, n_latent_factors))
+    for i in range(n_components):
+        match = (R == i)
+        scores[match] = rng.multivariate_normal(xi.T[i], omega.T[i], 
+                                                size=sum(match))
+
+    psi = rng.gamma(1, scale=noise_scale, size=n_features)
+
+    noise = np.sqrt(psi) * rng.randn(n_samples, n_features)
+
+    X = scores @ A.T + noise
+
+    truth = dict(A=A, pi=pi, xi=xi, omega=omega, psi=psi,
+                 noise=noise, R=R, scores=scores)
+
+    return (X, truth)
+
+
+def old_generate_data(n_samples=20, n_features=5, n_latent_factors=3, n_components=2,
                   omega_scale=1, noise_scale=1, latent_scale=1, random_seed=0):
 
     rng = np.random.RandomState(random_seed)
@@ -390,6 +406,20 @@ def find_rotation_matrix(A, B, init=None, n_inits=25, full_output=True, **kwargs
         return (best_R, p_opt, cov, infodict, mesg, ier)
 
     return best_R
+
+
+def exact_rotation_matrix(A_true, A_est):
+
+    N, J = A_true.shape
+
+    def cost(R):
+        return np.sum(np.abs((A_true - A_est @ R.reshape((J, J))).flatten()))
+
+    p_opt = op.minimize(cost, np.zeros(J**2), method="Powell")
+
+    return p_opt.x.reshape((J, J))
+
+
 
 
 if __name__ == "__main__":

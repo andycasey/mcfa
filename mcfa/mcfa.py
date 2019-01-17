@@ -682,7 +682,7 @@ class MCFA(object):
         return X
 
 
-    def apply_rotation(self, R):
+    def apply_rotation(self, R, atol=1e-3, rtol=1e-5):
         r"""
         Rotate the factor loads and factor scores by the given rotation matrix.
 
@@ -698,10 +698,12 @@ class MCFA(object):
         if J != J_:
             raise ValueError("rotation matrix is not square")
 
-        if not np.allclose(R @ R.T, np.eye(J)):
+        if not np.allclose(R @ R.T, np.eye(J), atol=atol, rtol=rtol):
             raise ValueError("R is not a valid rotation matrix")
 
         pi, A, xi, omega, psi = self.theta_
+
+        R_inv = np.linalg.solve(R, np.eye(J))
 
         A_rot = A @ R
         xi_rot = np.ones_like(xi)
@@ -709,13 +711,12 @@ class MCFA(object):
         
         # [TODO] There is a better way than sampling,...
         for k, (xi_, omega_) in enumerate(zip(xi.T, omega.T)):
-
             draws = np.random.multivariate_normal(xi_, omega_, size=1000000)
-            draws_rot = draws @ R.T
+            draws_rot = draws @ R #R_inv
             xi_rot[:, k] = np.mean(draws_rot, axis=0)
             omega_rot[:, :, k] = np.cov(draws_rot.T)
 
-        return pi, A_rot, xi_rot, omega_rot, psi
+        self.theta_ = (pi, A_rot, xi_rot, omega_rot, psi)
 
 
 

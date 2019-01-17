@@ -18,11 +18,11 @@ colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 n_features = 15
 n_components = 20
 n_latent_factors = 5
-n_samples = 1000
+n_samples = 100000
 
-omega_scale = 1
+omega_scale = 3
 noise_scale = 1
-random_seed = 123
+random_seed = 101
 
 data_kwds = dict(n_features=n_features,
                  n_components=n_components,
@@ -42,91 +42,16 @@ def savefig(fig, suffix):
     print(f"Created figures {filename}.png and {filename}.pdf")
 
 
-mcfa_kwds = dict(tol=1e-8, 
+mcfa_kwds = dict(tol=1e-5, 
                  max_iter=1_000,
                  init_factors="random",
                  init_components="random",
                  random_seed=123)
 
 
-def generate_data(n_samples, n_features, n_latent_factors, n_components,
-                  omega_scale, noise_scale, random_seed=0):
-
-    rng = np.random.RandomState(random_seed)
-
-    A = rng.randn(n_features, n_latent_factors)
-
-    # latent variables
-    pvals = np.ones(n_components) / n_components
-    R = np.argmax(rng.multinomial(1, pvals, size=n_samples), axis=1)
-    pi = np.array([np.sum(R == i) for i in range(n_components)])/n_samples
-
-    xi = rng.randn(n_latent_factors, n_components)
-    omega = np.zeros((n_latent_factors, n_latent_factors, n_components))
-    for i in range(n_components):
-        omega[(*np.diag_indices(n_latent_factors), i)] = \
-            rng.gamma(1, scale=omega_scale, size=n_latent_factors)**2
-
-    scores = np.empty((n_samples, n_latent_factors))
-    for i in range(n_components):
-        match = (R == i)
-        scores[match] = rng.multivariate_normal(xi.T[i], omega.T[i], 
-                                                size=sum(match))
-
-    psi = rng.gamma(1, scale=noise_scale, size=n_features)
-
-    noise = np.sqrt(psi) * rng.randn(n_samples, n_features)
-
-    X = scores @ A.T + noise
-
-    truth = dict(A=A, pi=pi, xi=xi, omega=omega, psi=psi,
-                 noise=noise, R=R, scores=scores)
-
-    return (X, truth)
 
 
-def new_generate_data(n_samples, n_features, n_latent_factors, n_components,
-                      omega_scale, noise_scale, random_seed=0):
-
-    from scipy.stats import special_ortho_group
-    from scipy import linalg
-
-    rng = np.random.RandomState(random_seed)
-
-    A = special_ortho_group.rvs(n_features, random_state=rng)
-    A = A[:, :n_latent_factors]
-    AL = linalg.cholesky(A.T @ A)
-    A = A @ linalg.solve(AL, np.eye(n_latent_factors))
-
-    pvals = np.ones(n_components) / n_components
-    R = np.argmax(rng.multinomial(1, pvals, size=n_samples), axis=1)
-    pi = np.array([np.sum(R == i) for i in range(n_components)])/n_samples
-
-    xi = rng.randn(n_latent_factors, n_components)
-    omega = np.zeros((n_latent_factors, n_latent_factors, n_components))
-    for i in range(n_components):
-        omega[(*np.diag_indices(n_latent_factors), i)] = \
-            rng.gamma(1, scale=omega_scale, size=n_latent_factors)**2
-
-    scores = np.empty((n_samples, n_latent_factors))
-    for i in range(n_components):
-        match = (R == i)
-        scores[match] = rng.multivariate_normal(xi.T[i], omega.T[i], 
-                                                size=sum(match))
-
-    psi = rng.gamma(1, scale=noise_scale, size=n_features)
-
-    noise = np.sqrt(psi) * rng.randn(n_samples, n_features)
-
-    X = scores @ A.T + noise
-
-    truth = dict(A=A, pi=pi, xi=xi, omega=omega, psi=psi,
-                 noise=noise, R=R, scores=scores)
-
-    return (X, truth)
-
-
-Y, truth = new_generate_data(**data_kwds)
+Y, truth = utils.generate_data(**data_kwds)
 truth_packed = (truth["pi"], truth["A"], truth["xi"], truth["omega"], truth["psi"])
 
 fig_data2 = mpl_utils.corner_scatter(Y, 
@@ -138,8 +63,8 @@ fig_data2.subplots_adjust(hspace=0, wspace=0)
 savefig(fig_data2, "data-colour")
 
 
-gridsearch_max_latent_factors = 2 * data_kwds["n_latent_factors"]
-gridsearch_max_components = 2 * data_kwds["n_components"]
+gridsearch_max_latent_factors = 10
+gridsearch_max_components = 30
 
 
 # Fit with true number of latent factors and components.
@@ -183,8 +108,6 @@ savefig(fig_data, "data")
 
 
 # Plot the latent space.
-
-
 cmap = mpl_utils.discrete_cmap(n_components, "Spectral")
 
 label_names = [f"$\\mathbf{{S}}_{{{i}}}$" for i in range(n_latent_factors)]
@@ -207,12 +130,24 @@ savefig(fig_latent, "latent")
 
 
 
+
+
 # Plot the true latent factors w.r.t. the estimated ones, after rotation.
 A_true = truth["A"]
 A_est = model.theta_[model.parameter_names.index("A")]
 
-R, *_ = utils.find_rotation_matrix(A_true, A_est, n_inits=100)
+#R, *_ = utils.find_rotation_matrix(A_true, A_est, n_inits=100)
+
+# Get exact transformation.
+R = utils.exact_rotation_matrix(A_true, A_est)
+
+# Now make it a valid rotation matrix.
+L = linalg.cholesky(R.T @ R)
+R = R @ linalg.solve(L, np.eye(n_latent_factors))
+
+
 A_est_rot = A_est @ R
+
 
 D, J = A_true.shape
 xi = 1 + np.arange(D)
@@ -239,30 +174,101 @@ fig_factor_loads.tight_layout()
 savefig(fig_factor_loads, "factor_loads")
 
 
+model.apply_rotation(R, atol=1e-2)
+
 # Take model with true number of components and latent factors.
 
-# Perform rotation.
-
 # Compare factor loads to true values.
+from matplotlib import gridspec
 
-fig, ax = plt.subplots()
-ax.scatter(A_true.flatten(), A_est_rot.flatten(), s=1)
+fig = plt.figure()
+gs = gridspec.GridSpec(2, 1, height_ratios=[1, 4])
 
+ax_residual = fig.add_subplot(gs[0])
+ax = fig.add_subplot(gs[1])
 
-# Compare factor scores to true values.
-S = model.factor_scores(Y)[1]
+A_est = model.theta_[model.parameter_names.index("A")]
 
-fig, ax = plt.subplots()
-ax.scatter(truth["scores"].flatten(), (S @ R).flatten(), s=1)
+x, y = (A_true.flatten(), A_est.flatten())
+ax.scatter(x, y, s=5)
+ax_residual.scatter(x, y - x, s=5)
 
 lims = np.hstack([ax.get_xlim(), ax.get_ylim()])
 lims = (np.min(lims), np.max(lims))
+kwds = dict(c="#666666", linestyle=":", linewidth=0.5, zorder=-1)
+ax.plot(lims, lims, "-", **kwds)
+ax_residual.plot(lims, [0, 0], "-", **kwds)
+
 ax.set_xlim(lims)
 ax.set_ylim(lims)
+ax_residual.set_xlim(lims)
+ylim = np.max(np.abs(ax_residual.get_ylim()))
+ax_residual.set_ylim(-ylim, +ylim)
+
+
+ax_residual.yaxis.set_major_locator(MaxNLocator(3))
+ax_residual.xaxis.set_major_locator(MaxNLocator(5))
+ax.xaxis.set_major_locator(MaxNLocator(5))
+ax.yaxis.set_major_locator(MaxNLocator(5))
+
+ax_residual.set_xticklabels([])
+
+ax.set_xlabel(r"$\mathbf{L}_\textrm{true}$")
+ax.set_ylabel(r"$\mathbf{L}_\textrm{est}$")
+ax_residual.set_ylabel(r"$\Delta\mathbf{L}$")
+
+fig.tight_layout()
+
+savefig(fig, "compare-loads")
+
+
+
+# Compare factor scores to true values.
+x = truth["scores"].flatten()
+y = model.factor_scores(Y)[1].flatten()
+ 
+
+# Compare factor loads to true values.
+fig = plt.figure()
+gs = gridspec.GridSpec(2, 1, height_ratios=[1, 4])
+
+ax_residual = fig.add_subplot(gs[0])
+ax = fig.add_subplot(gs[1])
+
+ax.scatter(x, y, s=5, alpha=0.5)
+ax_residual.scatter(x, y - x, s=5, alpha=0.5)
+
+lims = np.hstack([ax.get_xlim(), ax.get_ylim()])
+lims = (np.min(lims), np.max(lims))
+kwds = dict(c="#666666", linestyle=":", linewidth=0.5, zorder=-1)
+ax.plot(lims, lims, "-", **kwds)
+ax_residual.plot(lims, [0, 0], "-", **kwds)
+
+ax.set_xlim(lims)
+ax.set_ylim(lims)
+ax_residual.set_xlim(lims)
+ylim = np.max(np.abs(ax_residual.get_ylim()))
+ax_residual.set_ylim(-ylim, +ylim)
+
+ax_residual.yaxis.set_major_locator(MaxNLocator(3))
+ax_residual.xaxis.set_major_locator(MaxNLocator(5))
+ax.xaxis.set_major_locator(MaxNLocator(5))
+ax.yaxis.set_major_locator(MaxNLocator(5))
+ax_residual.set_xticklabels([])
+
+
+ax.set_xlabel(r"$\mathbf{S}_\textrm{true}$")
+ax.set_ylabel(r"$\mathbf{S}_\textrm{est}$")
+ax_residual.set_ylabel(r"$\Delta\mathbf{S}$")
+
+fig.tight_layout()
+
+savefig(fig, "compare-scores")
+
 
 
 # Compare specific scatter to true values.
-
+# TODO:
 
 
 # Do a grid search.
