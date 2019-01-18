@@ -20,9 +20,9 @@ n_components = 20
 n_latent_factors = 5
 n_samples = 100000
 
-omega_scale = 3
+omega_scale = 1
 noise_scale = 1
-random_seed = 101
+random_seed = 42
 
 data_kwds = dict(n_features=n_features,
                  n_components=n_components,
@@ -46,7 +46,7 @@ mcfa_kwds = dict(tol=1e-5,
                  max_iter=1_000,
                  init_factors="random",
                  init_components="random",
-                 random_seed=123)
+                 random_seed=random_seed)
 
 
 
@@ -54,17 +54,7 @@ mcfa_kwds = dict(tol=1e-5,
 Y, truth = utils.generate_data(**data_kwds)
 truth_packed = (truth["pi"], truth["A"], truth["xi"], truth["omega"], truth["psi"])
 
-fig_data2 = mpl_utils.corner_scatter(Y, 
-                                    c=truth["R"], cmap="Spectral",
-                                    s=1, alpha=0.5, figsize=(8, 8),
-                                    label_names=[r"$\mathbf{{Y}}_{{{0}}}$".format(i) for i in range(n_features)])
-fig_data2.tight_layout()
-fig_data2.subplots_adjust(hspace=0, wspace=0)
-savefig(fig_data2, "data-colour")
 
-
-gridsearch_max_latent_factors = 10
-gridsearch_max_components = 30
 
 
 # Fit with true number of latent factors and components.
@@ -76,57 +66,6 @@ model.fit(Y)
 tock = time()
 
 print(f"Model took {tock - tick:.1f} seconds")
-
-# Plot the log-likelihood with increasing iterations.
-fig_iterations, ax = plt.subplots()
-
-ll = model.log_likelihoods_
-iterations = 1 + np.arange(len(ll))
-ax.plot(iterations, ll, "-", lw=2, drawstyle="steps-mid")
-ax.set_xlabel(r"$\textrm{iteration}$")
-ax.set_ylabel(r"$\log{\mathcal{L}}$")
-ax.set_xlim(0, iterations[-1] + 1)
-ax.xaxis.set_major_locator(MaxNLocator(6))
-ax.yaxis.set_major_locator(MaxNLocator(6))
-xt = ax.get_xticks()
-ax.set_xticks(xt + np.hstack([1, np.zeros(xt.size - 1)]))
-ax.set_xlim(0, iterations[-1] + 1)
-fig_iterations.tight_layout()
-savefig(fig_iterations, "ll-iterations")
-
-
-# Plot the data, with samples
-Y_drawn = model.sample(data_kwds["n_samples"])
-fig_data = mpl_utils.corner_scatter(Y, 
-                                    c="#000000", s=1, alpha=0.5, figsize=(8, 8))
-mpl_utils.corner_scatter(Y_drawn,
-                         c="tab:blue", s=1, alpha=0.25, zorder=10, fig=fig_data)
-
-fig_data.tight_layout()
-fig_data.subplots_adjust(hspace=0, wspace=0)
-savefig(fig_data, "data")
-
-
-# Plot the latent space.
-cmap = mpl_utils.discrete_cmap(n_components, "Spectral")
-
-label_names = [f"$\\mathbf{{S}}_{{{i}}}$" for i in range(n_latent_factors)]
-fig_latent = mpl_utils.plot_latent_space(model, Y, cmap=cmap,
-                                         label_names=label_names)
-for ax in fig_latent.axes:
-    if ax.get_visible():
-        if ax.is_last_row():
-            ax.xaxis.set_major_locator(MaxNLocator(3))
-        if ax.is_first_col():
-            ax.yaxis.set_major_locator(MaxNLocator(3))
-
-        xlim = np.max(np.abs(ax.get_xlim()))
-        ylim = np.max(np.abs(ax.get_ylim()))
-        ax.set_xlim(-xlim, +xlim)
-        ax.set_ylim(-ylim, +ylim)
-fig_latent.tight_layout()
-fig_latent.subplots_adjust(hspace=0, wspace=0)
-savefig(fig_latent, "latent")
 
 
 
@@ -174,9 +113,43 @@ fig_factor_loads.tight_layout()
 savefig(fig_factor_loads, "factor_loads")
 
 
-model.apply_rotation(R, atol=1e-2)
+
+# Plot the latent space.
+cmap = mpl_utils.discrete_cmap(n_components, "Spectral")
+
+label_names = [f"$\\mathbf{{S}}_{{{i}}}$" for i in range(n_latent_factors)]
+fig_latent = mpl_utils.plot_latent_space(model, Y, cmap=cmap,
+                                         label_names=label_names)
+for ax in fig_latent.axes:
+    if ax.get_visible():
+        if ax.is_last_row():
+            ax.xaxis.set_major_locator(MaxNLocator(3))
+        if ax.is_first_col():
+            ax.yaxis.set_major_locator(MaxNLocator(3))
+
+        xlim = np.max(np.abs(ax.get_xlim()))
+        ylim = np.max(np.abs(ax.get_ylim()))
+        ax.set_xlim(-xlim, +xlim)
+        ax.set_ylim(-ylim, +ylim)
+fig_latent.tight_layout()
+fig_latent.subplots_adjust(hspace=0, wspace=0)
+savefig(fig_latent, "latent")
+
+
+
+ll, tau = model.expectation(Y, *model.theta_)
+
+model.rotate(R)
+
+ll2, tau = model.expectation(Y, *model.theta_)
+
+print(f"Difference in log-likeihood after rotation: {ll - ll2}")
+
 
 # Take model with true number of components and latent factors.
+
+scatter_kwds = dict(s=25, rasterized=True, c="tab:blue")
+
 
 # Compare factor loads to true values.
 from matplotlib import gridspec
@@ -190,18 +163,18 @@ ax = fig.add_subplot(gs[1])
 A_est = model.theta_[model.parameter_names.index("A")]
 
 x, y = (A_true.flatten(), A_est.flatten())
-ax.scatter(x, y, s=5)
-ax_residual.scatter(x, y - x, s=5)
+ax.scatter(x, y, **scatter_kwds)
+ax_residual.scatter(x, y - x, **scatter_kwds)
 
-lims = np.hstack([ax.get_xlim(), ax.get_ylim()])
-lims = (np.min(lims), np.max(lims))
+lims =lims = np.max(np.abs(np.hstack([ax.get_xlim(), ax.get_ylim()])))
 kwds = dict(c="#666666", linestyle=":", linewidth=0.5, zorder=-1)
-ax.plot(lims, lims, "-", **kwds)
-ax_residual.plot(lims, [0, 0], "-", **kwds)
+ax.plot([-lims, +lims], [-lims, +lims], "-", **kwds)
+ax_residual.plot([-lims, +lims], [0, 0], "-", **kwds)
 
-ax.set_xlim(lims)
-ax.set_ylim(lims)
-ax_residual.set_xlim(lims)
+
+ax.set_xlim(-lims, +lims)
+ax.set_ylim(-lims, +lims)
+ax_residual.set_xlim(-lims, +lims)
 ylim = np.max(np.abs(ax_residual.get_ylim()))
 ax_residual.set_ylim(-ylim, +ylim)
 
@@ -211,7 +184,7 @@ ax_residual.xaxis.set_major_locator(MaxNLocator(5))
 ax.xaxis.set_major_locator(MaxNLocator(5))
 ax.yaxis.set_major_locator(MaxNLocator(5))
 
-ax_residual.set_xticklabels([])
+ax_residual.set_xticks([])
 
 ax.set_xlabel(r"$\mathbf{L}_\textrm{true}$")
 ax.set_ylabel(r"$\mathbf{L}_\textrm{est}$")
@@ -220,7 +193,6 @@ ax_residual.set_ylabel(r"$\Delta\mathbf{L}$")
 fig.tight_layout()
 
 savefig(fig, "compare-loads")
-
 
 
 # Compare factor scores to true values.
@@ -235,18 +207,17 @@ gs = gridspec.GridSpec(2, 1, height_ratios=[1, 4])
 ax_residual = fig.add_subplot(gs[0])
 ax = fig.add_subplot(gs[1])
 
-ax.scatter(x, y, s=5, alpha=0.5)
-ax_residual.scatter(x, y - x, s=5, alpha=0.5)
+ax.scatter(x, y, **scatter_kwds)
+ax_residual.scatter(x, y - x, **scatter_kwds)
 
-lims = np.hstack([ax.get_xlim(), ax.get_ylim()])
-lims = (np.min(lims), np.max(lims))
+lims = np.max(np.abs(np.hstack([ax.get_xlim(), ax.get_ylim()])))
 kwds = dict(c="#666666", linestyle=":", linewidth=0.5, zorder=-1)
-ax.plot(lims, lims, "-", **kwds)
-ax_residual.plot(lims, [0, 0], "-", **kwds)
+ax.plot([-lims, +lims], [-lims, +lims], "-", **kwds)
+ax_residual.plot([-lims, +lims], [0, 0], "-", **kwds)
 
-ax.set_xlim(lims)
-ax.set_ylim(lims)
-ax_residual.set_xlim(lims)
+ax.set_xlim(-lims, +lims)
+ax.set_ylim(-lims, +lims)
+ax_residual.set_xlim(-lims, +lims)
 ylim = np.max(np.abs(ax_residual.get_ylim()))
 ax_residual.set_ylim(-ylim, +ylim)
 
@@ -254,7 +225,7 @@ ax_residual.yaxis.set_major_locator(MaxNLocator(3))
 ax_residual.xaxis.set_major_locator(MaxNLocator(5))
 ax.xaxis.set_major_locator(MaxNLocator(5))
 ax.yaxis.set_major_locator(MaxNLocator(5))
-ax_residual.set_xticklabels([])
+ax_residual.set_xticks([])
 
 
 ax.set_xlabel(r"$\mathbf{S}_\textrm{true}$")
@@ -266,9 +237,98 @@ fig.tight_layout()
 savefig(fig, "compare-scores")
 
 
+# Compare specific scatter values to true values.
+x = truth["psi"].flatten()
+y = model.theta_[-1]
+
+
+fig = plt.figure()
+gs = gridspec.GridSpec(2, 1, height_ratios=[1, 4])
+
+ax_residual = fig.add_subplot(gs[0])
+ax = fig.add_subplot(gs[1])
+
+
+ax.scatter(x, y, **scatter_kwds)
+ax_residual.scatter(x, y - x, **scatter_kwds)
+
+lims = np.max(np.abs(np.hstack([ax.get_xlim(), ax.get_ylim()])))
+kwds = dict(c="#666666", linestyle=":", linewidth=0.5, zorder=-1)
+ax.plot([-lims, +lims], [-lims, +lims], "-", **kwds)
+ax_residual.plot([-lims, +lims], [0, 0], "-", **kwds)
+
+ax.set_xlim(0, +lims)
+ax.set_ylim(0, +lims)
+ax_residual.set_xlim(0, lims)
+ylim = np.max(np.abs(ax_residual.get_ylim()))
+ax_residual.set_ylim(-ylim, +ylim)
+
+ax_residual.yaxis.set_major_locator(MaxNLocator(3))
+ax_residual.xaxis.set_major_locator(MaxNLocator(5))
+ax.xaxis.set_major_locator(MaxNLocator(5))
+ax.yaxis.set_major_locator(MaxNLocator(5))
+ax_residual.set_xticks([])
+
+
+ax.set_xlabel(r"$\mathbf{\Psi}_\textrm{true}$")
+ax.set_ylabel(r"$\mathbf{\Psi}_\textrm{est}$")
+ax_residual.set_ylabel(r"$\Delta\mathbf{\Psi}$")
+
+fig.tight_layout()
+
+savefig(fig, "compare-specific-scatter")
+
+
+
+# Plot the log-likelihood with increasing iterations.
+fig_iterations, ax = plt.subplots()
+
+ll = model.log_likelihoods_
+iterations = 1 + np.arange(len(ll))
+ax.plot(iterations, ll, "-", lw=2, drawstyle="steps-mid")
+ax.set_xlabel(r"$\textrm{iteration}$")
+ax.set_ylabel(r"$\log{\mathcal{L}}$")
+ax.set_xlim(0, iterations[-1] + 1)
+ax.xaxis.set_major_locator(MaxNLocator(6))
+ax.yaxis.set_major_locator(MaxNLocator(6))
+xt = ax.get_xticks()
+ax.set_xticks(xt + np.hstack([1, np.zeros(xt.size - 1)]))
+ax.set_xlim(0, iterations[-1] + 1)
+fig_iterations.tight_layout()
+savefig(fig_iterations, "ll-iterations")
+
+
+# Plot the data, with samples
+Y_drawn = model.sample(data_kwds["n_samples"])
+fig_data = mpl_utils.corner_scatter(Y, 
+                                    c="#000000", s=1, alpha=0.5, figsize=(8, 8))
+mpl_utils.corner_scatter(Y_drawn,
+                         c="tab:blue", s=1, alpha=0.25, zorder=10, fig=fig_data)
+
+fig_data.tight_layout()
+fig_data.subplots_adjust(hspace=0, wspace=0)
+savefig(fig_data, "data")
+
+
+
+
 
 # Compare specific scatter to true values.
 # TODO:
+
+
+
+fig_data2 = mpl_utils.corner_scatter(Y, 
+                                    c=truth["R"], cmap="Spectral",
+                                    s=1, alpha=0.5, figsize=(8, 8),
+                                    label_names=[r"$\mathbf{{Y}}_{{{0}}}$".format(i) for i in range(n_features)])
+fig_data2.tight_layout()
+fig_data2.subplots_adjust(hspace=0, wspace=0)
+savefig(fig_data2, "data-colour")
+
+
+gridsearch_max_latent_factors = 10
+gridsearch_max_components = 40
 
 
 # Do a grid search.
@@ -321,12 +381,12 @@ kwds = dict(converged=converged,
             cmap="Spectral_r",
             truth=(J_true, K_true))
 
-fig_ll = plot_filled_contours(Jm, Km, -ll,
+fig_ll = mpl_utils.plot_filled_contours(Jm, Km, -ll,
                                         colorbar_label=r"$-\log\mathcal{L}$", 
                                         **kwds)
 
 
-fig_bic = plot_filled_contours(Jm, Km, bic,
+fig_bic = mpl_utils.plot_filled_contours(Jm, Km, bic,
                                          colorbar_label=r"$\textrm{BIC}$", 
                                          **kwds)
 
@@ -335,4 +395,4 @@ savefig(fig_ll, "gridsearch-ll-contours")
 savefig(fig_bic, "gridsearch-bic-contours")
 
 
-
+# Save grid search output in case we need it in future.

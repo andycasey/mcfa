@@ -408,16 +408,21 @@ def find_rotation_matrix(A, B, init=None, n_inits=25, full_output=True, **kwargs
     return best_R
 
 
-def exact_rotation_matrix(A_true, A_est):
+def exact_rotation_matrix(A_true, A_est, p0=None, full_output=False, **kwargs):
 
     N, J = A_true.shape
 
     def cost(R):
         return np.sum(np.abs((A_true - A_est @ R.reshape((J, J))).flatten()))
 
-    p_opt = op.minimize(cost, np.zeros(J**2), method="Powell")
+    if p0 is None:
+        p0 = np.zeros(J**2)
 
-    return p_opt.x.reshape((J, J))
+    kwds = dict(method="Powell")
+    kwds.update(kwargs)
+    p_opt = op.minimize(cost, p0, **kwds)
+    
+    return p_opt.x.reshape((J, J)) if not full_output else p_opt
 
 
 

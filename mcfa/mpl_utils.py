@@ -418,9 +418,9 @@ def plot_filled_contours(J, K, Z, N=1000, colorbar_label=None,
                          ax=None, **kwargs):
     power = None
         
-    if np.all(Z > 0):
-        power = np.min(np.log10(Z).astype(int))
-        Z = Z.copy() / (10**power)
+    #if np.all(Z > 0):
+    #    power = np.min(np.log10(Z).astype(int))
+    #    Z = Z.copy() / (10**power)
     
     if ax is None:
         w = 0.2 + 4 + 0.1
@@ -524,11 +524,12 @@ def plot_factor_loads(factor_loads, scales=1, separate_axes=False,
                       target_loads=None, show_target_loads=True, 
                       load_labels=None, n_rotation_inits=25,
                       flip_loads=None, xlabel=None, xticklabels=None,
-                      legend_kwds=None, figsize=None):
+                      legend_kwds=None, colors=None, figsize=None, **kwargs):
 
 
 
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    if colors is None:
+        colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
     D, J = factor_loads.shape
     if flip_loads is None:
@@ -582,8 +583,10 @@ def plot_factor_loads(factor_loads, scales=1, separate_axes=False,
         axes = ax[j] if separate_axes else ax[0]
         color = colors[j % len(colors)]
 
+        default_kwds = dict(lw=2)
+        default_kwds.update(kwargs)
         axes.plot(xi, rotated_percentiles[1, :, j], "-", 
-                  lw=2, c=color, label=load_labels[j])
+                  c=color, label=load_labels[j], **default_kwds)
         axes.fill_between(xi, 
                           rotated_percentiles[0, :, j], 
                           rotated_percentiles[2, :, j],
@@ -593,7 +596,7 @@ def plot_factor_loads(factor_loads, scales=1, separate_axes=False,
             axes.plot(xi, target_loads.T[j], ":", c=color)
 
 
-    for axes in ax:
+    for i, axes in enumerate(ax):
 
         axes.set_xticks(xi)
         ylim = max(np.ceil(10 * np.abs(axes.get_ylim()).max()) / 10, 1)
@@ -616,7 +619,10 @@ def plot_factor_loads(factor_loads, scales=1, separate_axes=False,
             axes.set_xticklabels([""] * D)
 
         if axes.is_first_col():
-            axes.set_ylabel(r"$\mathbf{L}$")
+            if separate_axes:
+                axes.set_ylabel(r"$\mathbf{{L}}_{{{0}}}$".format(i))
+            else:
+                axes.set_ylabel(r"$\mathbf{{L}}$")
 
         if load_labels is not None:
             kwds = dict(frameon=False, fontsize=12.0)

@@ -642,7 +642,7 @@ class MCFA(object):
             - 0.5 * (2 * J + 3) * np.sum(slogdet_omega) \
             - 0.5 * (K * J) * np.log(2)
 
-        return I_0 + I_1 + I_2
+        return 0#I_0 + I_1 + I_2
 
 
     def sample(self, n_samples=1, theta=None):
@@ -682,14 +682,31 @@ class MCFA(object):
         return X
 
 
-    def apply_rotation(self, R, atol=1e-3, rtol=1e-5):
+    def rotate(self, R, X=None, ensure_valid_rotation=True, atol=1e-3, rtol=1e-5):
         r"""
-        Rotate the factor loads and factor scores by the given rotation matrix.
+        Rotate the factor loads and factor scores by a valid rotation matrix.
 
         :param R:
             A `J` times `J` rotation matrix, where `J` is the number of latent
             factors.
+        
+        :param X: [optional]
+            The data, which is expected to be an array with shape [n_samples,
+            n_features]. If given, the log-likelihood will be evaluated before
+            and after rotation. A warning will be raised if the log-likelihood
+            changes by more than the convergence tolerance.
 
+        :param ensure_valid_rotation: [optional]
+            If the rotation matrix does not follow R @ R.T = I, then the nearest
+            rotation matrix with this property will be used.
+
+        :param atol: [optional]
+            The absolute tolerance acceptable for individual entries in the
+            matrix I - R @ R.T. Default is 1e-3.
+
+        :param rtol:
+            The relative tolerance acceptable for individual entries in the
+            matrix I - R @ R.T. Default is 1e-5.
         """
 
         # Check that it is a rotation matrix.
@@ -699,25 +716,39 @@ class MCFA(object):
             raise ValueError("rotation matrix is not square")
 
         if not np.allclose(R @ R.T, np.eye(J), atol=atol, rtol=rtol):
-            raise ValueError("R is not a valid rotation matrix")
+
+            # Do our own rotation.
+            L = linalg.cholesky(R.T @ R)
+            R = R @ linalg.solve(L, np.eye(self.n_latent_factors))
+
+            if not np.allclose(R @ R.T, np.eye(J), atol=atol, rtol=rtol):
+                raise ValueError("R is not a valid rotation matrix")
+
+        if X is not None:
+            ll, tau = self.expectation(X, *self.theta_)
 
         pi, A, xi, omega, psi = self.theta_
 
-        R_inv = np.linalg.solve(R, np.eye(J))
+        # A covariance matrix can be decomposed as:
+        # \Sigma = Q @ \Lambda @ Q'
+        # Where Q is a valid rotation matrix and \Lambda acts like a scaling
+        # matrix.
 
-        A_rot = A @ R
-        xi_rot = np.ones_like(xi)
-        omega_rot = np.ones_like(omega)
-        
-        # [TODO] There is a better way than sampling,...
-        for k, (xi_, omega_) in enumerate(zip(xi.T, omega.T)):
-            draws = np.random.multivariate_normal(xi_, omega_, size=1000000)
-            draws_rot = draws @ R #R_inv
-            xi_rot[:, k] = np.mean(draws_rot, axis=0)
-            omega_rot[:, :, k] = np.cov(draws_rot.T)
+        # Thus a rotated covariance matrix is:
+        # \Sigma_rot = R.T @ omega_ @ R
+        self.theta_ = (pi, A @ R, (xi.T @ R).T, (R.T @ omega.T @ R).T, psi)
 
-        self.theta_ = (pi, A_rot, xi_rot, omega_rot, psi)
+        if X is not None:
+            ll_r, tau_r = self.expectation(X, *self.theta_)
 
+            if np.abs(ll - ll_r) > self.tol:
+                logger.warning(f"Log-likelihood changed after rotation: "\
+                               f"{ll - ll_r} (>{self.tol})")
+
+        return True
+
+
+    
 
 
 
