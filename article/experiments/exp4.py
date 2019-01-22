@@ -10,6 +10,7 @@ import sys
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 from collections import Counter
 from scipy import linalg
 
@@ -22,42 +23,101 @@ import galah_dr3 as galah
 
 matplotlib.style.use(mpl_utils.mpl_style)
 
+here = os.path.dirname(os.path.realpath(__file__))
+
 
 def savefig(fig, suffix):
+    here = os.path.dirname(os.path.realpath(__file__))
     prefix = os.path.basename(__file__)[:-3]
-    filename = f"{prefix}-{suffix}.png"
-    fig.savefig(filename, dpi=150)
+    filename = os.path.join(here, f"{prefix}-{suffix}")
+    fig.savefig(f"{filename}.png", dpi=150)
+    fig.savefig(f"{filename}.pdf", dpi=300)
+
+
+N_elements = 18
+use_galah_flags = True
 
 
 mcfa_kwds = dict(init_factors="random", init_components="random", tol=1e-5,
-                 max_iter=10000, random_seed=42)
-
-
-use_galah_flags = 0
+                 max_iter=10000)
 
 
 abundance_counts = galah.get_abundances_breakdown(galah.available_elements,
                                                   use_galah_flags=use_galah_flags)
 
-print(f"Abundance counts: {abundance_counts}")
+xlabels = abundance_counts.keys()
+latex_labels = [r"{1}$\textrm{{{0}}}$".format(ea, "\n" if i % 2 else "") for i, ea in enumerate(xlabels)]
+x = np.arange(len(xlabels))
+y_independent = np.array(list(abundance_counts.values()))
+y_cumulative = np.zeros_like(y_independent)
 
-elements = "Fe, Mg, Na, K, Sc, Ca, O, Zn, Al, Cu, Mn, Cr, Ba, Ti, Ni, Si, Y, "\
-           "Co, V, La, Ce, Zr, Eu".split(", ")
+mask = np.ones(len(galah.data), dtype=bool)
 
-elements = ["Na", "Mg", "Fe", "Sc", "Ti", "Zn", "Mn", "Y", "Ca", "Ni", "Cr", "O",
-            "Si", "K", "Ba", "V", "Cu", "Al", "La", "Eu"]
-#            # "Ni", "Mn", "Cr", "Ti", "Al", "Mg", "Na", "K", "Sc", "Ca", "O", "Zn", "Ba", "Y", "Ba", "Eu"]
-
+for i, xlabel in enumerate(xlabels):
+    mask *= galah._abundance_mask(xlabel, use_galah_flags)
+    y_cumulative[i] = np.sum(mask)
 
 
+def xystack(x, y, h_align="mid"):
+    xx = x.repeat(2)[1:]
+    # Now: the average x binwidth
+    xstep = np.repeat((x[1:] - x[:-1]), 2)
+    xstep = np.concatenate(([xstep[0]], xstep, [xstep[-1]]))
+    # Now: add one step at end of row.
+    xx = np.append(xx, xx.max() + xstep[-1])
+
+    # Make it possible to chenge step alignment.
+    if h_align == 'mid':
+        xx = xx - xstep / 2.
+    elif h_align == 'right':
+        xx = xx - xstep
+
+    # Also, duplicate each y coordinate in both arrays
+    y1 = y.repeat(2)#[:-1]
+
+    return (xx, y1)
+
+kwds = dict(lw=2)
+
+xs, y_i = xystack(x, y_independent)
+xs, y_c = xystack(x, y_cumulative)
+fig, ax = plt.subplots()
+ax.plot(xs, y_i, "-", c="tab:blue", label=r"$\textrm{Independent (single element reported)}$", **kwds)
+ax.plot(xs, y_c, "-", c="#000000", label=r"$\textrm{Cumulative (all elements leftward reported)}$", **kwds)
+
+ax.set_xticks(x)
+ax.xaxis.set_tick_params(width=0, which="major")
+ax.set_xticks(x - 0.5, minor=True)
+ax.xaxis.set_tick_params(direction="out", which="minor")
+
+ax.set_xticklabels(latex_labels)
+
+plt.legend(frameon=False, loc="lower left")
+
+ax.set_yscale("log")
+ax.set_xlim(xs[0], xs[-1])
+ylim = (1e3, 1e6)
+
+
+ax.set_ylabel(r"$\textrm{number of measurements in second GALAH data release}$")
+
+x_ = N_elements - 0.5
+ax.plot([x_, x_], ylim, "-", c="#666666", zorder=-1, linewidth=1, linestyle=":")
+
+
+ax.set_ylim(*ylim)
+fig.tight_layout()
+
+savefig(fig, "abundance-counts")
+
+
+
+
+elements = list(xlabels)[:N_elements]
 
 mask = galah.get_abundance_mask(elements, use_galah_flags=use_galah_flags)
 
 print(f"Number of stars: {sum(mask)}")
-
-suggested_elements = galah.suggest_abundances_to_include(mask, elements, 
-                                                         use_galah_flags=use_galah_flags, 
-                                                         percentage_threshold=10)
 
 
 X_H, label_names = galah.get_abundances_wrt_h(elements, 
@@ -67,17 +127,17 @@ print(f"Data shape: {X_H.shape}")
 
 
 X = utils.whiten(X_H)
-#X = X_H
+N, D = X.shape
 
 # Do a gridsearch.
-max_n_latent_factors = 10
-max_n_components = 10
+max_n_latent_factors = D - 1
+max_n_components = 5
 
 Js = 1 + np.arange(max_n_latent_factors)
 Ks = 1 + np.arange(max_n_components)
 
-Jg, Kg, converged, ll, bic, pseudo_bic = grid_search.grid_search(Js, Ks, X, 
-                                                                 mcfa_kwds)
+Jg, Kg, converged, metrics = grid_search.grid_search(Js, Ks, X,
+                                                     N_inits=3, mcfa_kwds=mcfa_kwds)
 
 J_best_ll, K_best_ll = grid_search.best(Js, Ks, -ll)
 J_best_bic, K_best_bic = grid_search.best(Js, Ks, bic)
@@ -85,8 +145,12 @@ J_best_bic, K_best_bic = grid_search.best(Js, Ks, bic)
 print(f"Best log likelihood  at J = {J_best_ll} and K = {K_best_ll}")
 print(f"Best BIC value found at J = {J_best_bic} and K = {K_best_bic}")
 
+raise a
+
 # Plot some contours.
-plot_filled_contours_kwds = dict(converged=converged, marker_function=np.nanargmin)
+plot_filled_contours_kwds = dict(converged=converged,
+                                 marker_function=np.nanargmin,
+                                 cmap="Spectral_r")
 fig_ll = mpl_utils.plot_filled_contours(Jg, Kg, -ll,
                                         colorbar_label=r"$-\log\mathcal{L}$",
                                         **plot_filled_contours_kwds)
@@ -97,7 +161,7 @@ fig_bic = mpl_utils.plot_filled_contours(Jg, Kg, bic,
                                          **plot_filled_contours_kwds)
 savefig(fig_bic, "gridsearch-bic")
 
-# 
+
 
 model = mcfa.MCFA(n_components=K_best_bic, n_latent_factors=J_best_bic,
                   **mcfa_kwds)
@@ -107,14 +171,22 @@ model.fit(X)
 A_est = model.theta_[model.parameter_names.index("A")]
 
 
-# Draw as-is.
-xlabel = r"$\textrm{element}$"
-xticklabels = [r"$\textrm{{{0}}}$".format(ln.split("_")[0].title()) \
-                        for ln in label_names]
+# Draw unrotated.
+J = model.n_latent_factors
+L = model.theta_[model.parameter_names.index("A")]
+cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
+colors = [cmap(1 + j) for j in range(J)]
 
-fig_factors_unrotated = mpl_utils.plot_factor_loads(A_est,
-                                                    xlabel=xlabel,
-                                                    xticklabels=xticklabels)
+fig = mpl_utils.visualize_factor_loads(L, latex_label_names, colors=colors)
+savefig(fig, "latent-factors")
+
+# Plot clustering in latent space.
+
+
+
+raise a
+
+
 
 # Set some groups that we will try to rotate to.
 astrophysical_grouping = [
@@ -123,14 +195,6 @@ astrophysical_grouping = [
     ["ni", "co", "v", "fe", "mn", "cr", "ti", "sc"],
     ["ca", "mg", "o", "si"],
     ["al", "na", "k"],
-]
-
-load_labels = [
-r"$\textrm{odd-Z?}$",
-r"$\textrm{alpha-process?}$",
-r"$\textrm{CCSN?}$",
-r"$\textrm{s-process?}$",
-r"$\textrm{r-process?}$",
 ]
 
 

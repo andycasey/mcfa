@@ -431,12 +431,10 @@ def plot_filled_contours(J, K, Z, N=1000, colorbar_label=None,
     else:
         fig = ax.figure
 
-
     #levels = np.linspace(np.floor(np.min(Z)), np.ceil(np.max(Z)), N).astype(int)
     #norm = BoundaryNorm(levels, 256)
 
-    cf = ax.contourf(J, K, Z, N, vmin=np.min(Z), vmax=np.max(Z), 
-                     **kwargs)
+    cf = ax.contourf(J, K, Z, N, vmin=np.nanmin(Z), vmax=np.nanmax(Z), **kwargs)
 
     ax.set_xlabel(r"$\textrm{Number of latent factors } J$")
     ax.set_ylabel(r"$\textrm{Number of clusters } K$")
@@ -518,6 +516,93 @@ def plot_filled_contours(J, K, Z, N=1000, colorbar_label=None,
         c.set_edgecolor("face")
 
     return fig
+
+
+def visualize_factor_loads(L, label_names=None, colors=None, line_kwds=None,
+                          **kwargs):
+
+    L = np.atleast_2d(L)
+    D, J = L.shape
+
+    #fig = plt.figure()
+    #gs = matplotlib.gridspec.GridSpec(J, 2, width_ratios=[2, 1], height_ratios=np.hstack([np.ones(J)/J, 1]))
+    #axes = [fig.add_subplot(gs[j]) for j in range(J + 1)]
+
+    if label_names is not None:
+        latex_label_names = [r"$\textrm{{{0}}}$".format(ea) for ea in label_names]
+
+
+    #fig, axes = plt.subplots(1 + J)
+    fig = plt.figure()
+
+    K = 4
+    shape = (J, K)
+    axes = [plt.subplot2grid(shape, (j, 0), colspan=K-1) for j in range(J)]
+    axes += [plt.subplot2grid(shape, (0, K - 1), rowspan=J, colspan=1)]
+
+    if colors is None:
+        cmap = discrete_cmap(J, base_cmap="Spectral_r")
+        colors = [cmap(j) for j in range(J)]
+
+
+    line_kwds_ = dict(lw=5)
+    line_kwds_.update(line_kwds or dict())
+
+    x = np.arange(D)
+    for j, (ax, color) in enumerate(zip(axes, colors)):
+
+        ax.plot(x, L.T[j], "-", c=color, **line_kwds_)
+        ax.axhline(0, linewidth=1, c="#666666", linestyle=":", zorder=-1)
+        ax.set_xlim(0, D)
+
+        ax.set_ylabel(r"$\mathbf{{L}}_{{{0}}}$".format(j))
+        ax.set_ylim(-1.1, 1.1)
+        ax.set_yticks([-1, 0, 1])
+
+        if ax.is_last_row():
+            if label_names is not None:
+                ax.set_xticks(x.astype(int))
+                ax.set_xticklabels(latex_label_names)
+
+        else:
+            ax.set_xticks([])
+
+        ax.set_xlim(x[0] - 0.5, x[-1] + 0.5)
+
+    # On last figure, show visualisation.
+
+    F = np.abs(L)/np.atleast_2d(np.sum(np.abs(L), axis=1)).T
+    indices = np.argsort(1.0/F, axis=1)
+
+    ax = axes[-1]
+    for d, (f, idx) in enumerate(zip(F, indices)):
+
+        left = 0
+        for i in idx:
+            ax.barh(D - d, f[i], left=left, facecolor=colors[i])
+            left += f[i]
+
+        ax.barh(D - d, 1, left=0, edgecolor='#000000', zorder=-1, linewidth=2)
+
+
+    ax.set_yticks(np.arange(1, 1 + D))
+    if label_names is not None:
+        ax.set_yticklabels(latex_label_names[::-1])
+
+    ax.set_ylim(0.5, D + 0.5)
+    ax.set_xlim(-0.01, 1.01)
+    ax.set_xticks([])
+    ax.yaxis.set_tick_params(width=0)
+
+    ax.set_frame_on(False)
+
+    ax.set_xlabel(r"${|\mathbf{L}_\textrm{d}|} / {\sum_{j}|\mathbf{L}_\textrm{j,d}|}$")
+
+    fig.tight_layout()
+
+    return fig
+
+
 
 
 def plot_factor_loads(factor_loads, scales=1, separate_axes=False,

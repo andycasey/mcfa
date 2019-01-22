@@ -192,7 +192,8 @@ max_n_components = 3
 Js = 1 + np.arange(max_n_latent_factors)
 Ks = 1 + np.arange(max_n_components)
 
-Jg, Kg, converged, metrics = grid_search.grid_search(Js, Ks, X, mcfa_kwds)
+Jg, Kg, converged, metrics = grid_search.grid_search(Js, Ks, X, 
+                                                     mcfa_kwds=mcfa_kwds)
 
 ll = metrics["ll"]
 bic = metrics["bic"]
@@ -289,6 +290,14 @@ R = R_opt if chi2 < chi1 else R
 
 # Now make it a valid rotation matrix.
 model.rotate(R, X=X, ensure_valid_rotation=True)
+J = model.n_latent_factors
+L = model.theta_[model.parameter_names.index("A")]
+cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
+colors = [cmap(1 + j) for j in range(J)]
+
+fig = mpl_utils.visualize_factor_loads(L, label_names, colors=colors)
+savefig(fig, "latent-factors-visualize")
+
 
 load_labels=[
   r"$\textrm{Al}$",
@@ -299,13 +308,14 @@ load_labels=[
 ]
 
 #colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
+cmap = mpl_utils.discrete_cmap(2 + model.n_latent_factors, base_cmap="Spectral_r")
 #cmap = matplotlib.cm.Set2
 colors = [cmap(1 + j) for j in range(J)]
 
 
 
 A_est = model.theta_[model.parameter_names.index("A")]
+
 
 
 fig_factors_rotated = mpl_utils.plot_factor_loads(A_est, separate_axes=True,
@@ -326,10 +336,10 @@ savefig(fig_factors_rotated, "latent-factors")
 # Plot the specific variances.
 fig_scatter = mpl_utils.plot_specific_scatter(model, 
                                               steps=True,
-                                              xlabel=xlabel, 
+                                              xlabel="", 
                                               xticklabels=xticklabels,
                                               ylabel=r"$\textrm{specific scatter / dex}$")
-fig_scatter.axes[0].set_yticks(np.linspace(0, 0.25, 6))
+#fig_scatter.axes[0].set_yticks(np.linspace(0, 0.25, 6))
 savefig(fig_scatter, "specific-scatter")
 
 
@@ -344,6 +354,7 @@ indices = np.argsort(1.0/f_A, axis=1)
 cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
 #cmap = matplotlib.cm.Set2
 colors = [cmap(1 + j) for j in range(J)]
+
 
 fig, ax = plt.subplots(figsize=(3.19, 6))
 

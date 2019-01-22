@@ -7,8 +7,8 @@ from .mcfa import MCFA
 
 logger = logging.getLogger(__name__)
 
-def grid_search(trial_n_latent_factors, trial_n_components, X, mcfa_kwds=None, 
-                pseudo_bic_kwds=None):
+def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
+                mcfa_kwds=None, pseudo_bic_kwds=None):
 
     Js = np.array(trial_n_latent_factors)
     Ks = np.array(trial_n_components)
@@ -31,26 +31,35 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, mcfa_kwds=None,
     for j, J in enumerate(Js):
         for k, K in enumerate(Ks):
 
-            print(f"At J = {J}, K = {K}")
+            models = []
+            for n in range(N_inits):
 
-            model = MCFA(n_latent_factors=J, n_components=K, **mcfa_kwds)
+                print(f"At J = {J}, K = {K}, N = {n}")
 
-            try:
-                model.fit(X)
+                model = MCFA(n_latent_factors=J, n_components=K, **mcfa_kwds)
 
-            except:
-                logger.exception(f"Exception occurred during grid search at "\
-                                 f"J = {J}, K = {K}:")
-                continue
+                try:
+                    model.fit(X)
 
-            else:
+                except:
+                    logger.exception(f"Exception occurred during grid search at "\
+                                     f"J = {J}, K = {K}:")
+                    continue
+
+                else:
+                    models.append(model)
+
+            if len(models) > 0:
+                idx = np.nanargmax([model.log_likelihood_ for model in models])
+                model = models[idx]
+
                 ll[k, j] = model.log_likelihood_
                 bic[k, j] = model.bic(X)
                 mml[k, j] = model.message_length(X)
                 pseudo_bic[k, j] = model.pseudo_bic(X, **pseudo_bic_kwds)
                 converged[k, j] = True
 
-
+    # Best of each?
     metrics = dict(ll=ll, bic=bic, pseudo_bic=pseudo_bic, message_length=mml)
     return (J_grid, K_grid, converged, metrics)#ll, bic, pseudo_bic)
 

@@ -417,7 +417,7 @@ class MCFA(object):
 
         assert np.isfinite(current)
         if previous > current:
-            logger.warn(f"Log-likelihood *decreased* by {previous-current:.2f}")
+            logger.warn(f"Log-likelihood *decreased* by {previous-current:.2e}")
 
         #assert current > previous # depends on objective function
 
@@ -707,6 +707,9 @@ class MCFA(object):
         :param rtol:
             The relative tolerance acceptable for individual entries in the
             matrix I - R @ R.T. Default is 1e-5.
+
+        :returns:
+            The actual rotation matrix applied.
         """
 
         # Check that it is a rotation matrix.
@@ -745,7 +748,7 @@ class MCFA(object):
                 logger.warning(f"Log-likelihood changed after rotation: "\
                                f"{ll - ll_r} (>{self.tol})")
 
-        return True
+        return R
 
 
     

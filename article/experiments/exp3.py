@@ -19,68 +19,108 @@ from mcfa import (mcfa, grid_search, mpl_utils, utils)
 
 import galah
 
+np.random.seed(100)
+
 
 matplotlib.style.use(mpl_utils.mpl_style)
 
 
 def savefig(fig, suffix):
+    here = os.path.dirname(os.path.realpath(__file__))
     prefix = os.path.basename(__file__)[:-3]
-    filename = f"{prefix}-{suffix}.png"
-    fig.savefig(filename, dpi=150)
+    filename = os.path.join(here, f"{prefix}-{suffix}")
+    fig.savefig(f"{filename}.png", dpi=150)
+    fig.savefig(f"{filename}.pdf", dpi=300)
 
 
-mcfa_kwds = dict(init_factors="random", init_components="random", tol=1e-5,
-                 max_iter=10000, random_seed=42)
+mcfa_kwds = dict(init_factors="svd", init_components="kmeans++", tol=1e-8,
+                 max_iter=10000)
 
+
+# Use a few carefully-selected clusters.
 
 use_galah_flags = True
 
-cluster_names = None
+#cluster_names = ("M67", "Trumpler20", "NGC2204")
+cluster_names = ("NGC1817", "NGC2204", "Berkeley32", "M67", "Trumpler20", "NGC6253",
+                 "Ruprecht147")
+cluster_names = ()
 
 abundance_counts = galah.get_abundances_breakdown(galah.available_elements,
                                                   cluster_names,
                                                   use_galah_flags=use_galah_flags)
 
 print(f"Abundance counts: {abundance_counts}")
+for k, v in abundance_counts.items():
+    print(k, v)
 
+
+
+
+
+
+
+"""
 elements = "Fe, Mg, Na, K, Sc, Ca, O, Zn, Al, Cu, Mn, Cr, Ba, Ti, Ni, Si, Y, "\
            "Co, V, La, Ce, Zr, Eu".split(", ")
 
 elements = ["Fe", "Ni", "Mn", "Cr", "Ti", "Al", "Mg", "Na", "K", "Sc", "Ca", "O", "Zn", "Ba", "Y", "Ba", "Eu"]
+"""
 
+#elements = "Mg Al Ca Sc Ti Cr Mn Fe Co Ni Sr Y Ba".split()
+elements = "Fe Mg Na K Sc Ca O Zn Al Cu Mn Cr Ba Ti Ni Si Y Eu".split()
+elements = "Fe Mg Na K Sc Ca O Zn Al Cu Mn Cr Ba Ti Ni Si Y".split()
 
 
 mask = galah.get_abundance_mask(elements, cluster_names,
                                 use_galah_flags=use_galah_flags)
 
-print(f"Number of stars: {sum(mask)}")
+
+minimum_clkuster_members = 10
+cluster_names = []
+for cluster_name, count in Counter(galah.data["wg4_field"][mask]).items():
+    if count >= minimum_clkuster_members:
+      cluster_names.append(cluster_name)
+
+mask = galah.get_abundance_mask(elements, cluster_names,
+                                use_galah_flags=use_galah_flags)
+
+print(f"Number of stars after requiring minimum cluster members of {minimum_clkuster_members}: {sum(mask)}")
 
 X_H, label_names = galah.get_abundances_wrt_h(elements, cluster_names, 
                                               use_galah_flags=use_galah_flags)
 
 print(f"Data shape: {X_H.shape}")
 
-
 X = utils.whiten(X_H)
 
+
 # Do a gridsearch.
-max_n_latent_factors = 8
-max_n_components = 5
+max_n_latent_factors = 15
+max_n_components = 15
 
 Js = 1 + np.arange(max_n_latent_factors)
 Ks = 1 + np.arange(max_n_components)
 
-Jg, Kg, converged, ll, bic, pseudo_bic = grid_search.grid_search(Js, Ks, X, 
-                                                                 mcfa_kwds)
+Jg, Kg, converged, metrics = grid_search.grid_search(Js, Ks, X, 
+                                                     N_inits=5,
+                                                     mcfa_kwds=mcfa_kwds)
+
+ll = metrics["ll"]
+bic = metrics["bic"]
 
 J_best_ll, K_best_ll = grid_search.best(Js, Ks, -ll)
 J_best_bic, K_best_bic = grid_search.best(Js, Ks, bic)
+
 
 print(f"Best log likelihood  at J = {J_best_ll} and K = {K_best_ll}")
 print(f"Best BIC value found at J = {J_best_bic} and K = {K_best_bic}")
 
 # Plot some contours.
-plot_filled_contours_kwds = dict(converged=converged, marker_function=np.nanargmin)
+plot_filled_contours_kwds = dict(converged=converged, 
+                                 marker_function=np.nanargmin,
+                                 cmap="Spectral_r")
+
 fig_ll = mpl_utils.plot_filled_contours(Jg, Kg, -ll,
                                         colorbar_label=r"$-\log\mathcal{L}$",
                                         **plot_filled_contours_kwds)
@@ -92,76 +132,87 @@ fig_bic = mpl_utils.plot_filled_contours(Jg, Kg, bic,
 savefig(fig_bic, "gridsearch-bic")
 
 
-# 
+lls = []
+models = []
+for i in range(10):
 
-model = mcfa.MCFA(n_components=K_best_bic, n_latent_factors=J_best_bic,
-                  **mcfa_kwds)
+    model = mcfa.MCFA(n_components=K_best_bic, n_latent_factors=J_best_bic,
+                      **mcfa_kwds)
+    try:
+        model.fit(X)
 
-model.fit(X)
+    except:
+        continue
+
+    else:
+        models.append(model)
+        lls.append(model.log_likelihood_)
+
+model = models[np.argmax(lls)]
+
 
 A_est = model.theta_[model.parameter_names.index("A")]
 
-
-# Draw as-is.
-xlabel = r"$\textrm{element}$"
-xticklabels = [r"$\textrm{{{0}}}$".format(ln.split("_")[0].title()) \
-                        for ln in label_names]
-
-fig_factors_unrotated = mpl_utils.plot_factor_loads(A_est,
-                                                    xlabel=xlabel,
-                                                    xticklabels=xticklabels)
-
-# Set some groups that we will try to rotate to.
+# Rotate to be lose to astrophysical.
 astrophysical_grouping = [
-    ["eu", "ce"],
-    ["ba", "y", "la"],
-    ["ni", "co", "v", "fe", "mn", "cr", "ti", "sc"],
-    ["ca", "mg", "o", "si"],
-    ["al", "na", "k"],
+    ["al", "k"],
+    ["na", "o"],
+    ["ca", "mg", "ti", "si"],
+    ["ni", "co", "zn", "fe", "mn", "cr", "ti", "sc", "cu"],
+    ["sr", "y", "ba"],
+    ["eu"]
 ]
-
-load_labels = [
-r"$\textrm{odd-Z?}$",
-r"$\textrm{alpha-process?}$",
-r"$\textrm{CCSN?}$",
-r"$\textrm{s-process?}$",
-r"$\textrm{r-process?}$",
-]
-
-
 
 A_astrophysical = np.zeros_like(A_est)
-for i, tes in enumerate(astrophysical_grouping[:J_best_bic]):
-    for j, te in enumerate(tes):
-        try:
-            idx = label_names.index("{0}_h".format(te.lower()))
+for i, tes in enumerate(astrophysical_grouping):
+    for j, t in enumerate(tes):
+        te = f"{t}_h"
+        #idx = label_names.index("{0}_h".format(te.lower()))
+        if te not in label_names:
+            print(f"ignoring {te}")
+            continue
 
-        except ValueError:
-            print(f"Skipping {te}")
+        idx = label_names.index(te)
+        A_astrophysical[idx, i] = 1.0
 
-        else:
-            A_astrophysical[idx, i] = 1.0
-
-#AL = linalg.cholesky(A_astrophysical.T @ A_astrophysical)
-#A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(model.n_latent_factors))
+A_astrophysical /= np.sqrt(np.sum(A_astrophysical, axis=0))
+A_astrophysical[~np.isfinite(A_astrophysical)] = 0.0
 
 
-np.random.seed(42)
+R, p_opt, cov, *_ = utils.find_rotation_matrix(A_astrophysical, A_est, 
+                                               full_output=True)
 
-fig_factors_rotated = mpl_utils.plot_factor_loads(A_est, 
-                                                  separate_axes=True,
-                                                  target_loads=A_astrophysical,
-                                                  flip_loads=None,
-                                                  n_rotation_inits=1000,
-                                                  show_target_loads=False,
-                                                  xlabel=xlabel,
-                                                  load_labels=load_labels,
-                                                  xticklabels=xticklabels,
-                                                  legend_kwds=dict(loc="upper left",
-                                                                   fontsize=14.0),
-                                                  figsize=(5.5, 7.75)
-                                                  )
-savefig(fig_factors_rotated, "latent-factors")
+R_opt = utils.exact_rotation_matrix(A_astrophysical, A_est, 
+                                    p0=np.random.uniform(-np.pi, np.pi, model.n_latent_factors**2))
+
+chi1 = np.sum(np.abs(A_est @ R - A_astrophysical))
+chi2 = np.sum(np.abs(A_est @ R_opt - A_astrophysical))
+
+R = R_opt if chi2 < chi1 else R
+
+# Now make it a valid rotation matrix.
+R = model.rotate(R, X=X, ensure_valid_rotation=True)
+
+J = model.n_latent_factors
+L = model.theta_[model.parameter_names.index("A")]
+cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
+colors = [cmap(1 + j) for j in range(J)]
+
+latex_label_names = [ea.split("_")[0].title() for ea in label_names]
+fig = mpl_utils.visualize_factor_loads(L, latex_label_names, colors=colors)
+savefig(fig, "latent-factors-visualize")
+
+
+raise a
+fig_data = mpl_utils.corner_scatter(X, c=np.argmax(model.tau_, axis=1))
+fig_data.tight_layout()
+fig_data.subplots_adjust(hspace=0, wspace=0)
+#savefig(fig_data, "data")
+
+
+raise a
+
+
 
 # PLot the clustering in latent space?
 

@@ -4,10 +4,12 @@ import numpy as np
 from astropy.table import Table
 from collections import OrderedDict
 from operator import itemgetter
-
+import os
 #data = Table.read("GALAH_iDR3_OpenClusters.fits")
 
-data = Table.read("../../catalogs/GALAH_DR2.1_catalog.fits")
+here = os.path.dirname(os.path.realpath(__file__))
+
+data = Table.read(os.path.join(here, "../../catalogs/GALAH_DR2.1_catalog.fits"))
 
 periodic_table = """H                                                  He
                     Li Be                               B  C  N  O  F  Ne

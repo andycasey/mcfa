@@ -70,12 +70,12 @@
 
 \submitjournal{AAS Journals}
 
-\shorttitle{A novel approach to chemical tagging in lower-dimensional latent space}
+\shorttitle{Chemical tagging in lower-dimensional latent space}
 \shortauthors{Casey et al.}
 
 \begin{document}
 
-\title{A novel approach to chemical tagging in lower-dimensional latent space}
+\title{Chemical tagging in lower-dimensional latent space}
 
 \correspondingauthor{Andrew R. Casey}
 \email{andrew.casey@monash.edu}
@@ -654,7 +654,7 @@ abundances measured include Al (light odd-Z), Mg and Ca ($\alpha$-process), Sc, 
 We performed a grid search for the optimal number of latent factors 
 $\NumLatentFactors$ and components $\NumComponents$, starting from 
 $\NumLatentFactors = 1$ and $K = 1$, and trialling up until 
-$\NumLatentFactors = \todo{8}$ and $\NumComponents = 5$. 
+$\NumLatentFactors = 7$ and $\NumComponents = 5$. 
 We found that models with higher numbers of latent factors were unable to
 converge without adding a regularization constant to the diagonals of the
 covariance matrices $\scorecovs$ in latent space. Although it is common
@@ -705,9 +705,9 @@ in that latent factor, in order to ensure that $\factorloads_\textrm{A}$ is
 mutually orthogonal. We then found the valid rotation matrix $\vec{R}$ that most
 closely approximated the astrophysical loads $\factorloads_\textrm{A}$.
 In Figure~\ref{fig:exp2-factor-loads} we show the rotated factor loads found by our
-preferred model, where the shaded regions indicate \emph{only} the projected uncertainty on
-the rotation angles -- and does not include any uncertainty on the factor loads 
-themselves.
+preferred model, and illustrate the relative contributions (positive or negative)
+to each element.
+
 
 \begin{figure}
 	\includegraphics[width=0.45\textwidth]{experiments/exp2-gridsearch-ll.pdf}
@@ -729,10 +729,11 @@ themselves.
 
 The rotated loads are not precisely the same as the target astrophysical loads
 in part because the target loads only seek to \emph{identify} and \emph{order}
-factors that can be interpreted within an astrophysical context. For example,
+factors that can be interpreted within an astrophysical context. 
+\todo{For example,
 the first factor does show positive contributions to Al, like the target load,
 but it also shows a slight negative contribution with respect to alpha elements
-(Mg, Ca), and a gradual increase among Fe-peak elements up to Ni. Similarly while
+(Mg, Ca)}, and a gradual increase among Fe-peak elements up to Ni. Similarly while
 Ca and Mg are indeed positive in the second factor, as targeted, there is a
 weak negative contribution to Mn abundances, which was not part of the target
 loads. The fourth factor shows a positive contributions to Sr, Y, Ba, and to a
@@ -740,33 +741,33 @@ lesser extent, Eu, which is representative of slow neutron capture production.
 Similarly, the last component shows a very strong positive contribution towards
 Eu, and could be interpreted as production from the rapid nucleosynthesis process.
 
-
-\begin{figure}
-	\includegraphics[width=0.5\textwidth]{experiments/exp2-latent-contributions.pdf}
-	\caption{Rotated latent factors found in Experiment~2 using the \citet{Barklem:2005}
-			 data. \todo{elaborate latent factors}}
-    \label{fig:exp2-latent-contribution}
-\end{figure}
-
-
-
-The relatively wide uncertainty regions on these factors is perhaps not
-surprising given that only 61 stars were used in this data set. However, this
-experiment hopefully demonstrates that the rotated latent factors have some
-interpretability. After accounting for the contributions by all
+After accounting for the contributions by all
 $J = 5$ factors, the specific scatter remaining in each dimension is shown in
 Figure~\ref{fig:exp2-specific-scatter}. The remaining scatter varies from as low 
-as 0.01 to 0.02~dex (Mg, Ca, Ti, Mn, Fe, Y) up to 0.08 or 0.16~dex (Al and Ba). 
-% TODO: matches Barklem variances?
+as 0.08~dex (Mn, Y) up to 0.40~dex (Al, Ba, Ni). Al is not found to have any 
+predominant factor in these data: it has non-zero contributions from all loads
+(Figure~\ref{fig:exp2-factor-loads}. A similar pattern is seen in Cr, Co, and Ni,
+although the specific scatter for Cr and Co is half that of what is found for
+Ni (0.2\,dex instead of 0.4\,dex).
 
-
+% TODO: anything else to say here?
 
 \begin{figure*}
-	\includegraphics[width=\textwidth]{experiments/exp2-latent-factors.png}
+	\includegraphics[width=\textwidth]{experiments/exp2-latent-factors-visualize.pdf}
 	\caption{Rotated latent factors found in Experiment~2 using the \citet{Barklem:2005}
-			 data. \todo{elaborate latent factors}}
-    \label{fig:exp2-latent-factors}
+			 data. The panels on the left show the entries for each factor load. On
+			 the right hand side we show the absolute fractional contributions to
+			 each element, which illustrates the loads that contribute most to each
+			 element (either by positive or negative factor loads).}
+    \label{fig:exp2-factor-loads}
 \end{figure*}
+
+
+
+%The relatively wide uncertainty regions on these factors is perhaps not
+%surprising given that only 61 stars were used in this data set. However, this
+%experiment hopefully demonstrates that the rotated latent factors have some
+%interpretability. 
 
 
 
