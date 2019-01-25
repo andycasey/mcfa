@@ -592,57 +592,57 @@ class MCFA(object):
         pi, A, xi, omega, psi = theta
         J, K = self.n_latent_factors, self.n_components
 
-        # In Wallace nomenclature, J = number of factors (here also J)
-        #                          K = dimensionality of data (here is D)
-        #                          N = number of data (here also N)
+        # Let's do this by parts.
+        I_parts = dict()
 
-        # Recall:
-        # X! = gamma(X + 1)
-        # S_m = (m * np.pi**(m/2))/((m/2)!)
-        log_S = lambda m: np.log(m) + (m/2) * np.log(np.pi) - gammaln(m/2 + 1)
+        # Mixing weights.
+        # I(w) = -log\gamma(K) + 0.5 * (K-1)\log{NN} -0.5\sum_{K}\log\weight_k
+        slog_pi = np.sum(np.log(pi))
+        I_parts["pi"] = -gammaln(K) + 0.5 * (K - 1) * np.log(N) - 0.5 * slog_pi
 
-        # Approximate the normalization constants (p308 of Wallace 2005)
-        #  J = [1     2     3     4     5      6]
-        A_Js = [0, 0.24, 1.35, 3.68, 7.45, 12.64]
-        B_Js = [0, 0.58, 0.64, 0.73, 0.86,  1.21]
+        # Means and covariance matrices of various components.
+        # I(epsilon, omega)
+        _, logdet_omega = np.linalg.slogdet(omega.T)
+        I_parts["xi,omega"] = -(J + 3/2) * np.sum(logdet_omega) \
+                            + 0.25 * J * (J + 3) * (slog_pi + K * np.log(N)) \
+                            - 0.5 * J * K * np.log(2)
 
-        #bj_sq = A**2
-        #v = self.factor_scores(X)[1]
-        #vj_sq = np.diag((v.T @ v)) # very unsure about this.
-        
-
-        if J > len(A_Js):
-
-            #raise NotImplementedError("too many latent factors; "
-            #                          "cannot approximate normalization constants")
-            logger.warn("Too many latent factors; "
-                        "cannot approximate normalization constants when J > 6")
-
-            A_J, B_J = (A_Js[-1], B_Js[-1])
-
-        else:
-            A_J, B_J = (A_Js[int(J) - 1], B_Js[int(J) - 1])
-
-        log_GNK = -(A_J + 0.5 * J * (J - 1) * np.log(D - B_J))
+        # Factor loads.
+        # I(A) = -log(p(A)) + 0.5 * log|F(A)|
+        # TODO: Don't know 0.5 * log|F(A)| yet, so I(A) here = -log(p(A))
+        # log(p(A)) = -
 
 
-        # Add weights for mixture (A.4 of GMMMML paper)
-        # kappa varies between 1/12 and 1/(2*pi*e), so assume kappa = 1/12
-        kappa = 1/12.
-        I_1 = 0.5 * (K - 1) * np.log(N) - 0.5 * np.sum(np.log(pi)) \
-            - gammaln(K) + 0.5 * K * np.log(kappa)
-            
-        # Encode covariance matrices. (A.11 of GMMMML paper)
-        # Wishart prior on covariance matrix.
-        # Note here we use J instead of D because the mixing is done in latent
-        # space.
-        slogdet_omega = np.linalg.slogdet(omega.T)[1]
+        S = np.atleast_2d(np.cov(A.T))
+        _, logdet_S = np.linalg.slogdet(S)
+        S_inv = np.linalg.solve(S, np.eye(J))
 
-        I_2 = 0.25 * J * (J + 3) * np.sum(np.log(N * pi)) \
-            - 0.5 * (2 * J + 3) * np.sum(slogdet_omega) \
-            - 0.5 * (K * J) * np.log(2)
+        M = A.T @ A
+        _, logdet_M = np.linalg.slogdet(M)
 
-        return 0#I_0 + I_1 + I_2
+        I_parts["A"] = 0.5 * np.trace(S_inv @ M) \
+                     - 0.5 * (D - J - 1) * logdet_M \
+                     + 0.5 * D * J * np.log(2) \
+                     + 0.5 * D * logdet_S \
+                     + gammaln(D/2)
+
+        # Encode the number of components.
+        # Assume p(K) \propto 2^{-K}
+        # I(K) = -log(p(K)) = K * log(2)
+        I_parts["K"] = K * np.log(2)
+
+        # Encode the number of factors.
+        # Assume p(J) \propto 2^{-J}
+        # I(J) = -log(p(J)) = J * log(2)
+        I_parts["J"] = J * np.log(2)
+
+        I_parts["nll"] = -np.sum(log_likelihood)
+
+        # Constant terms:
+        I_parts["CD"] = 0
+
+        return np.sum(np.array(list(I_parts.values())))
+
 
 
     def sample(self, n_samples=1, theta=None):

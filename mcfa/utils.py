@@ -7,7 +7,7 @@ def whiten(X, axis=0):
 
 
 def generate_data(n_samples, n_features, n_latent_factors, n_components,
-                  omega_scale, noise_scale, random_seed=0):
+                  omega_scale, noise_scale, random_seed=0, force=None):
 
     rng = np.random.RandomState(random_seed)
 
@@ -22,9 +22,24 @@ def generate_data(n_samples, n_features, n_latent_factors, n_components,
 
     xi = rng.randn(n_latent_factors, n_components)
     omega = np.zeros((n_latent_factors, n_latent_factors, n_components))
+
+    if force is not None:
+        if "xi" in force:
+            xi = force["xi"]
+            print("using forced xi")
+        if "A" in force:
+            A = force["A"]
+            print("using forced A")
+
     for i in range(n_components):
         omega[(*np.diag_indices(n_latent_factors), i)] = \
             rng.gamma(1, scale=omega_scale, size=n_latent_factors)**2
+
+    if force is not None:
+        if "omega" in force:
+            omega = force["omega"]
+            print("using forced omega")
+
 
     scores = np.empty((n_samples, n_latent_factors))
     for i in range(n_components):

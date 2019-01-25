@@ -34,6 +34,7 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
             models = []
             for n in range(N_inits):
 
+
                 print(f"At J = {J}, K = {K}, N = {n}")
 
                 model = MCFA(n_latent_factors=J, n_components=K, **mcfa_kwds)
@@ -58,6 +59,7 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
                 mml[k, j] = model.message_length(X)
                 pseudo_bic[k, j] = model.pseudo_bic(X, **pseudo_bic_kwds)
                 converged[k, j] = True
+
 
     # Best of each?
     metrics = dict(ll=ll, bic=bic, pseudo_bic=pseudo_bic, message_length=mml)

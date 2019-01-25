@@ -65,9 +65,9 @@ def g(A_flat, Y, pi, xi, omega, psi):
     A = A_flat.reshape((D, J))
 
     I_psi = np.eye(D) * psi
-
+    
     v = np.ones((N, K, D, J))
-
+    
     ll, tau = model.expectation(Y, pi, A, xi, omega, psi)
     
     for i in range(N):
@@ -83,10 +83,11 @@ def g(A_flat, Y, pi, xi, omega, psi):
 
             T2 = T0 @ (Y[[i]].T - T1)
             v[i, k, :] = T2 @ M.T \
-                        + T2 @ (Y[[i]] + (-T1).T) @ T0 @ A @ O \
-                        - T0 @ A @ O
+                       + T2 @ (Y[[i]] - T1.T) @ T0 @ A @ O \
+                       - T0 @ A @ O
 
     return np.sum(np.sum(v.T * tau.T, axis=-1), axis=-1).T.flatten()
+
 
 
 def h(A_flat, Y, pi, xi, omega, psi):
