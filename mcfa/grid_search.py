@@ -55,11 +55,12 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
                 idx = np.nanargmax([model.log_likelihood_ for model in models])
                 model = models[idx]
 
-                ll[k, j] = model.log_likelihood_
-                bic[k, j] = model.bic(X, log_likelihood=model.log_likelihood_)
-                mml[k, j] = model.message_length(X, log_likelihood=model.log_likelihood_)
-                #pseudo_bic[k, j] = model.pseudo_bic(X, **pseudo_bic_kwds)
-                converged[k, j] = True
+                j_bic_best, k_bic_best = best(Js, Ks, bic)
+                logger.info(f"Model with minimum BIC so far has J = {j_bic_best} and K = {k_bic_best}")
+                j_mml_best, k_mml_best = best(Js, Ks, mml)
+                logger.info(f"Model with minimum I so far has J = {j_mml_best} and K = {k_mml_best}")
+                j_ll_best, k_ll_best = best(Js, Ks, -ll)
+                logger.info(f"Model with maximum log-likelihood so far has J = {j_ll_best} and K = {k_ll_best}")
 
 
     # Best of each?
