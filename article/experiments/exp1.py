@@ -9,20 +9,20 @@ from time import time
 
 sys.path.insert(0, "../../")
 
-from mcfa import (mcfa, mpl_utils, utils)
+from mcfa import (mcfa, grid_search, mpl_utils, utils)
 
 matplotlib.style.use(mpl_utils.mpl_style)
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 
 n_features = 15
-n_components = 20
+n_components = 10
 n_latent_factors = 5
-n_samples = 100000
+n_samples = 100_000
 
 omega_scale = 1
 noise_scale = 1
-random_seed = 42
+random_seed = 100
 
 data_kwds = dict(n_features=n_features,
                  n_components=n_components,
@@ -55,8 +55,6 @@ Y, truth = utils.generate_data(**data_kwds)
 truth_packed = (truth["pi"], truth["A"], truth["xi"], truth["omega"], truth["psi"])
 
 
-
-
 # Fit with true number of latent factors and components.
 model = mcfa.MCFA(n_components=data_kwds["n_components"],
                   n_latent_factors=data_kwds["n_latent_factors"],
@@ -64,6 +62,8 @@ model = mcfa.MCFA(n_components=data_kwds["n_components"],
 tick = time()
 model.fit(Y)
 tock = time()
+
+model.message_length(Y)
 
 print(f"Model took {tock - tick:.1f} seconds")
 
@@ -280,10 +280,96 @@ savefig(fig, "compare-specific-scatter")
 
 
 
+
+scatter_kwds = dict(s=1, rasterized=True, c="#000000")
+
+fig = plt.figure(figsize=(7.5, 3.09))
+
+
+gs = gridspec.GridSpec(2, 3, height_ratios=[1, 4], width_ratios=[1, 1, 1])
+
+A_est = model.theta_[model.parameter_names.index("A")]
+
+xs = [
+    A_true.flatten(),
+    truth["scores"].flatten(),
+    truth["psi"].flatten()
+]
+
+ys = [
+    A_est.flatten(),
+    model.factor_scores(Y)[1].flatten(),
+    model.theta_[-1]
+]
+
+xlabels = [
+    r"$\mathbf{L}_\textrm{true}$",
+    r"$\mathbf{S}_\textrm{true}$",
+    r"$\mathbf{\Psi}_\textrm{true}$"
+]
+
+ylabels = [
+    r"$\mathbf{L}_\textrm{est}$",
+    r"$\mathbf{S}_\textrm{est}$",
+    r"$\mathbf{\Psi}_\textrm{est}$"
+]
+
+delta_labels = [
+    r"$\Delta\mathbf{L}$",
+    r"$\Delta\mathbf{S}$",
+    r"$\Delta\mathbf{\Psi}$"
+]
+
+idx = 0
+for i in range(3):
+    ax_residual = fig.add_subplot(gs[idx])
+    ax = fig.add_subplot(gs[idx +3])
+
+    x, y = (xs[i], ys[i])
+
+    ax.scatter(x, y, **scatter_kwds)
+    ax_residual.scatter(x, y - x, **scatter_kwds)
+
+    lims = np.max(np.abs(np.hstack([ax.get_xlim(), ax.get_ylim()])))
+    if i == 2:
+        lims = (0, +lims)
+    else:
+        lims = (-lims, +lims)
+
+    kwds = dict(c="#666666", linestyle=":", linewidth=0.5, zorder=-1)
+    ax.plot([lims[0], +lims[1]], [lims[0], +lims[1]], "-", **kwds)
+    ax_residual.plot([lims[0], +lims[1]], [0, 0], "-", **kwds)
+
+    ax.set_xlim(lims[0], +lims[1])
+    ax.set_ylim(lims[0], +lims[1])
+    ax_residual.set_xlim(lims[0], +lims[1])
+    ylim = np.max(np.abs(ax_residual.get_ylim()))
+    ax_residual.set_ylim(-ylim, +ylim)
+
+    ax_residual.yaxis.set_major_locator(MaxNLocator(3))
+    ax_residual.xaxis.set_major_locator(MaxNLocator(3))
+    ax.xaxis.set_major_locator(MaxNLocator(3))
+    ax.yaxis.set_major_locator(MaxNLocator(3))
+    ax_residual.set_xticks([])
+
+
+    ax.set_xlabel(xlabels[i])
+    ax.set_ylabel(ylabels[i])
+    ax_residual.set_ylabel(delta_labels[i])
+
+    #ax.set_aspect(1.0)
+    #ax_residual.set_aspect(1)
+    idx += 1
+
+fig.tight_layout()
+savefig(fig, "compare-all")
+
+
+
 # Plot the log-likelihood with increasing iterations.
 fig_iterations, ax = plt.subplots()
 
-ll = model.log_likelihoods_
+ll = np.array(model.log_likelihoods_)
 iterations = 1 + np.arange(len(ll))
 ax.plot(iterations, ll, "-", lw=2, drawstyle="steps-mid")
 ax.set_xlabel(r"$\textrm{iteration}$")
@@ -328,51 +414,34 @@ savefig(fig_data2, "data-colour")
 
 
 gridsearch_max_latent_factors = 10
-gridsearch_max_components = 40
+gridsearch_max_components = 20
 
 
 # Do a grid search.
-Js = np.arange(1, 1 + gridsearch_max_latent_factors)
-Ks = np.arange(1, 1 + gridsearch_max_components)
 
-Jm, Km = np.meshgrid(Js, Ks)
-
-ll = np.nan * np.ones_like(Jm)
-bic = np.nan * np.ones_like(Jm)
-
-converged = np.zeros(Jm.shape, dtype=bool)
-
-for j, J in enumerate(Js):
-    for k, K in enumerate(Ks):
-
-        print(f"At J = {J}, K = {K}")
-
-        model = mcfa.MCFA(n_latent_factors=J, n_components=K, **mcfa_kwds)
-
-        try:
-            model.fit(Y)
-
-        except:
-            continue
-
-        else:
-            ll[k, j] = model.log_likelihood_
-            bic[k, j] = model.bic(Y)
-            converged[k, j] = True
-
-            idx = np.nanargmin(bic)
-            jm_b, km_b = Js[idx % bic.shape[1]], Ks[int(idx / bic.shape[1])]
-
-            print(f"Lowest BIC so far is at J = {jm_b} and K = {km_b}")
-
+Jm = np.arange(1, 1 + gridsearch_max_latent_factors)
+Km = np.arange(1, 1 + gridsearch_max_components)
+J_grid, K_grid, converged, metrics = grid_search.grid_search(Jm, Km, Y,
+                                                             N_inits=1,
+                                                             mcfa_kwds=mcfa_kwds)
+ll = metrics["ll"]
+bic = metrics["bic"]
+mml = metrics["message_length"]
 
 idx = np.nanargmin(bic)
-jm_b, km_b = Js[idx % bic.shape[1]], Ks[int(idx / bic.shape[1])]
+jm_b, km_b = Jm[idx % bic.shape[1]], Km[int(idx / bic.shape[1])]
+
+idx = np.nanargmin(mml)
+jm_m, km_m = Jm[idx % mml.shape[1]], Km[int(idx / mml.shape[1])]
+
 
 J_true, K_true = (data_kwds["n_latent_factors"], data_kwds["n_components"])
 
 print(f"BIC is lowest at J = {jm_b} and K = {km_b}")
+print(f"MML is lowest at J = {jm_m} and K = {km_m}")
+
 print(f"True values are  J = {J_true} and K = {K_true}")
+
 
 
 kwds = dict(converged=converged, 
@@ -381,18 +450,26 @@ kwds = dict(converged=converged,
             cmap="Spectral_r",
             truth=(J_true, K_true))
 
-fig_ll = mpl_utils.plot_filled_contours(Jm, Km, -ll,
-                                        colorbar_label=r"$-\log\mathcal{L}$", 
+fig_ll = mpl_utils.plot_filled_contours(J_grid, K_grid, ll,
+                                        colorbar_label=r"$-\log\mathcal{L}(\boldsymbol{\mathbf{Y}}|\boldsymbol{\mathbf{\Psi}})$", 
                                         **kwds)
+fig_ll.axes[0].set_yticks([1, 5, 10, 15, 20])
 
-
-fig_bic = mpl_utils.plot_filled_contours(Jm, Km, bic,
+fig_bic = mpl_utils.plot_filled_contours(J_grid, K_grid, bic,
                                          colorbar_label=r"$\textrm{BIC}$", 
                                          **kwds)
+fig_bic.axes[0].set_yticks([1, 5, 10, 15, 20])
+
+
+fig_mml = mpl_utils.plot_filled_contours(J_grid, K_grid, mml,
+                                         colorbar_label=r"$I\left(\boldsymbol{\mathbf{Y}}|\boldsymbol{\mathbf{\Psi}}\right)$", 
+                                         **kwds)
+fig_mml.axes[0].set_yticks([1, 5, 10, 15, 20])
 
 
 savefig(fig_ll, "gridsearch-ll-contours")
 savefig(fig_bic, "gridsearch-bic-contours")
+savefig(fig_mml, "gridsearch-mml-contours")
 
 
 # Save grid search output in case we need it in future.
