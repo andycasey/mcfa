@@ -8,7 +8,7 @@ from .mcfa import MCFA
 logger = logging.getLogger(__name__)
 
 def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
-                mcfa_kwds=None, pseudo_bic_kwds=None):
+                suppress_exceptions=True, mcfa_kwds=None, pseudo_bic_kwds=None):
 
     Js = np.array(trial_n_latent_factors)
     Ks = np.array(trial_n_components)
@@ -34,7 +34,6 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
             models = []
             for n in range(N_inits):
 
-
                 print(f"At J = {J}, K = {K}, N = {n}")
 
                 model = MCFA(n_latent_factors=J, n_components=K, **mcfa_kwds)
@@ -45,6 +44,8 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
                 except:
                     logger.exception(f"Exception occurred during grid search at "\
                                      f"J = {J}, K = {K}:")
+                    if not suppress_exceptions:
+                        raise
                     continue
 
                 else:
@@ -55,9 +56,9 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
                 model = models[idx]
 
                 ll[k, j] = model.log_likelihood_
-                bic[k, j] = model.bic(X)
-                mml[k, j] = model.message_length(X)
-                pseudo_bic[k, j] = model.pseudo_bic(X, **pseudo_bic_kwds)
+                bic[k, j] = model.bic(X, log_likelihood=model.log_likelihood_)
+                mml[k, j] = model.message_length(X, log_likelihood=model.log_likelihood_)
+                #pseudo_bic[k, j] = model.pseudo_bic(X, **pseudo_bic_kwds)
                 converged[k, j] = True
 
 

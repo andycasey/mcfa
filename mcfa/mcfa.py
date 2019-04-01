@@ -301,7 +301,7 @@ class MCFA(object):
         return int((K - 1) + D + J*(D + K) + (K*J*(J+1))/2 - J**2)
 
 
-    def expectation(self, X, pi, A, xi, omega, psi):
+    def expectation(self, X, pi, A, xi, omega, psi, **kwargs):
         r"""
         Compute the conditional expectation of the complete-data log-likelihood
         given the observed data :math:`X` and the given model parameters.
@@ -341,7 +341,8 @@ class MCFA(object):
             component in the mixture.
         """
 
-        ll, tau = _expectation(X, pi, A, xi, omega, psi, verbose=self.verbose)
+        ll, tau = _expectation(X, pi, A, xi, omega, psi, 
+                               verbose=self.verbose, **kwargs)
         self.log_likelihoods_.append(ll)
 
         return (ll, tau)
@@ -446,8 +447,8 @@ class MCFA(object):
 
         X = self._check_data(X)
 
-        theta = self._initial_parameters(X, self.random_seed) \
-                if init_params is None else deepcopy(init_params) 
+        theta = prev_theta = self._initial_parameters(X, self.random_seed) \
+                             if init_params is None else deepcopy(init_params) 
 
         prev_ll, tau = self.expectation(X, *theta)
 
@@ -458,10 +459,18 @@ class MCFA(object):
         tqdm_kwds = dict(desc="E-M", total=self.max_iter)
         for n_iter in tqdm(range(1, 1 + self.max_iter), **tqdm_kwds):
 
-            theta = self.maximization(X, tau, *theta)            
-            ll, tau = self.expectation(X, *theta)
+            try:
+                theta = self.maximization(X, tau, *theta)
+                ll, tau = self.expectation(X, *theta)
+
+            except:
+                logger.exception(f"Exception occurred during E-M algorithm:")
+                logger.warning(f"Solution is unlikely to be converged.")
+                theta = prev_theta
+                break
 
             converged, prev_ll, ratio = self._check_convergence(prev_ll, ll)
+            prev_theta = theta
 
             if converged: break
 
@@ -503,7 +512,7 @@ class MCFA(object):
         return _factor_scores(X, self.tau_, *self.theta_)
 
 
-    def bic(self, X, theta=None):
+    def bic(self, X, theta=None, log_likelihood=None):
         r"""
         Estimate the Bayesian Information Criterion given the model and the
         data.
@@ -522,11 +531,14 @@ class MCFA(object):
             model from a class of models.
         """
 
-        if theta is None:
-            theta = self.theta_
-
         N, D = X.shape
-        log_likelihood, tau = self.expectation(X, *theta)
+    
+        if log_likelihood is None:
+            if theta is None:
+                theta = self.theta_
+
+            log_likelihood, tau = self.expectation(X, *theta)
+
         return np.log(N) * self.number_of_parameters(D) - 2 * log_likelihood
 
 
@@ -569,7 +581,7 @@ class MCFA(object):
         return 6 * (1 + gamma) * omega * np.log(N) * Q - 2 * log_likelihood
 
 
-    def message_length(self, X, theta=None):
+    def message_length(self, X, theta=None, log_likelihood=None):
         r"""
         Estimate the explanation length given the model and the data.
 
@@ -585,8 +597,10 @@ class MCFA(object):
         if theta is None:
             theta = self.theta_
 
+        if log_likelihood is None:
+            log_likelihood, tau = self.expectation(X, *theta)
+
         N, D = np.atleast_2d(X).shape
-        log_likelihood, tau = self.expectation(X, *theta)
 
         # For just MLF:
         pi, A, xi, omega, psi = theta
@@ -639,7 +653,10 @@ class MCFA(object):
         I_parts["nll"] = -np.sum(log_likelihood)
 
         # Constant terms:
-        I_parts["CD"] = 0
+        Q = self.number_of_parameters(D)
+        I_parts["lattice"] = -0.5 * Q * np.log(2*np.pi) \
+                           + 0.5 * np.log(Q * np.pi) \
+                           - np.euler_gamma
 
         return np.sum(np.array(list(I_parts.values())))
 
@@ -900,7 +917,7 @@ def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
 
     log_prob = np.zeros((N, K))
     log_prob_constants = -0.5 * (np.sum(np.log(psi)) + D * np.log(2*np.pi))
-    
+
     for i, (xi_, omega_) in enumerate(zip(xi.T, omega.T)):
 
         mu = A @ xi_
@@ -908,6 +925,7 @@ def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
         cov = A_omega_ @ A.T + I_psi
 
         precision = _compute_precision_cholesky_full(cov)
+
         dist = np.sum(
             np.square(np.dot(X, precision) - np.dot(mu, precision)), axis=1)
 
