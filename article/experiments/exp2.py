@@ -17,6 +17,7 @@ matplotlib.style.use(mpl_utils.mpl_style)
 here = os.path.dirname(os.path.realpath(__file__))  
 
 random_seed = 10
+adopted_metric = "mml"
 
 np.random.seed(random_seed)
 
@@ -100,7 +101,7 @@ label_names = list(np.array(label_names)[element_mask])
 """
 
 
-X = utils.whiten(X)
+#X = utils.whiten(X)
 #X = X_H
 
 
@@ -192,7 +193,7 @@ max_n_components = 3
 Js = 1 + np.arange(max_n_latent_factors)
 Ks = 1 + np.arange(max_n_components)
 
-Jg, Kg, converged, metrics = grid_search.grid_search(Js, Ks, X, 
+Jg, Kg, converged, metrics = grid_search.grid_search(Js, Ks, X, N_inits=5,
                                                      mcfa_kwds=mcfa_kwds)
 
 ll = metrics["ll"]
@@ -218,16 +219,10 @@ fig_ll = mpl_utils.plot_filled_contours(Jg, Kg, -ll,
 savefig(fig_ll, "gridsearch-ll")
 
 
-"""
-plot_filled_contours_kwds = dict(converged=converged,
-                                 marker_function=np.nanargmin,
-                                 cmap="Spectral_r")
 fig_ll = mpl_utils.plot_filled_contours(Jg, Kg, message_length,
                                         colorbar_label=r"$\textrm{MML}$",
                                         **plot_filled_contours_kwds)
 savefig(fig_ll, "gridsearch-mml")
-"""
-
 
 
 fig_bic = mpl_utils.plot_filled_contours(Jg, Kg, bic,
@@ -237,10 +232,21 @@ savefig(fig_bic, "gridsearch-bic")
 
 
 # Re-run model with best J, K.
+if adopted_metric.lower() == "bic":
+    J_best, K_best = (J_best_bic, K_best_bic)
 
-model = mcfa.MCFA(n_components=K_best_bic, n_latent_factors=J_best_bic,
-                  **mcfa_kwds)
+elif adopted_metric.lower() == "mml":
+    J_best, K_best = (J_best_mml, K_best_mml)
 
+elif adopted_metric.lower() == "ll":
+    J_best, K_best = (J_best_ll, K_best_ll)
+
+else:
+    raise ValueError(f"unknown adopted metric '{adopted_metric}'")
+
+
+
+model = mcfa.MCFA(n_components=K_best, n_latent_factors=J_best, **mcfa_kwds)
 model.fit(X)
 
 A_est = model.theta_[model.parameter_names.index("A")]
@@ -256,6 +262,7 @@ fig_factors_unrotated = mpl_utils.plot_factor_loads(A_est,
                                                     xticklabels=xticklabels)
 
 # Set some groups that we will try to rotate to.
+"""
 astrophysical_grouping = [
     ["c"],
     ["al", "ca", "mg", "ti"],
@@ -263,6 +270,27 @@ astrophysical_grouping = [
     ["sr", "y", "ba"],
     ["eu"],
 ]
+
+load_labels=[
+  r"$\textrm{Al}$",
+  r"$\textrm{Ca, Mg}$",
+  r"$\textrm{Ni, Co, fe, Mn, Cr, Ti, Sc}$",
+  r"$\textrm{Sr, Y, Ba}$",
+  r"$\textrm{Eu}$",
+]
+
+"""
+
+astrophysical_grouping = [
+    ["c", "al", "ca", "mg", "ti", "ni", "co", "fe", "mn", "cr", "ti", "sc"],
+    ["sr", "y", "ba", "eu"]
+]
+
+load_labels = [
+  r"$\textrm{Al, Ca, Mg, Ni, Co, fe, Mn, Cr, Ti, Sc}$",
+  r"$\textrm{Sr, Y, Ba, Eu}$",
+]
+
 
 
 A_astrophysical = np.zeros_like(A_est)
@@ -299,6 +327,7 @@ fig = mpl_utils.visualize_factor_loads(L, label_names, colors=colors)
 savefig(fig, "latent-factors-visualize")
 
 
+"""
 load_labels=[
   r"$\textrm{Al}$",
   r"$\textrm{Ca, Mg}$",
@@ -306,6 +335,9 @@ load_labels=[
   r"$\textrm{Sr, Y, Ba}$",
   r"$\textrm{Eu}$",
 ]
+"""
+
+
 
 #colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 cmap = mpl_utils.discrete_cmap(2 + model.n_latent_factors, base_cmap="Spectral_r")
