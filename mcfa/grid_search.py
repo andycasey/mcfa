@@ -55,12 +55,18 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
                 idx = np.nanargmax([model.log_likelihood_ for model in models])
                 model = models[idx]
 
-                j_bic_best, k_bic_best = best(Js, Ks, bic)
-                logger.info(f"Model with minimum BIC so far has J = {j_bic_best} and K = {k_bic_best}")
-                j_mml_best, k_mml_best = best(Js, Ks, mml)
-                logger.info(f"Model with minimum I so far has J = {j_mml_best} and K = {k_mml_best}")
-                j_ll_best, k_ll_best = best(Js, Ks, -ll)
-                logger.info(f"Model with maximum log-likelihood so far has J = {j_ll_best} and K = {k_ll_best}")
+                ll[j, k] = model.log_likelihood_
+                bic[j, k] = model.bic(X)
+                mml[j, k] = model.message_length(X)
+
+                if np.any(np.isfinite(ll)):
+
+                    j_bic_best, k_bic_best = best(Js, Ks, bic)
+                    logger.info(f"Model with minimum BIC so far has J = {j_bic_best} and K = {k_bic_best}")
+                    j_mml_best, k_mml_best = best(Js, Ks, mml)
+                    logger.info(f"Model with minimum I so far has J = {j_mml_best} and K = {k_mml_best}")
+                    j_ll_best, k_ll_best = best(Js, Ks, -ll)
+                    logger.info(f"Model with maximum log-likelihood so far has J = {j_ll_best} and K = {k_ll_best}")
 
 
     # Best of each?

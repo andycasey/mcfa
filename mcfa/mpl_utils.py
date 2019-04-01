@@ -176,7 +176,7 @@ def plot_specific_scatter(model, scales=1,
         ax.plot(x, y, "-", **kwds)
 
     if fill:
-        kwds = dict(facecolor="#000000", alpha=0.3, zorder=-1)
+        kwds = dict(facecolor="#000000", alpha=0.1, zorder=-1)
         kwds.update(fill_kwds or dict())
 
         if steps:
