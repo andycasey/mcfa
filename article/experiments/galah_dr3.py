@@ -103,8 +103,7 @@ def suggest_abundances_to_include(mask, elements, use_galah_flags=False,
 
     return OrderedDict(sorted(updated.items(), key=itemgetter(1), reverse=True))
 
-
-def get_abundances_wrt_h(elements, use_galah_flags=False):
+def get_abundances_wrt_h(elements, mask=None, cluster_names=None, use_galah_flags=False):
 
     # Prepare data array.
     asplund_2009 = {
@@ -128,13 +127,12 @@ def get_abundances_wrt_h(elements, use_galah_flags=False):
     indices = np.argsort([periodic_table.index(el) for el in elements])
     sorted_elements = [elements[idx] for idx in indices]
 
-    use = get_abundance_mask(sorted_elements,  use_galah_flags=use_galah_flags)
+    if mask is None:
+        mask = get_abundance_mask(sorted_elements, cluster_names, 
+                                 use_galah_flags=use_galah_flags)
 
-
-    X_H = np.array([data[_abundance_label(el)][use] + (data[_abundance_label("fe")][use] if el.lower() != "fe" else 0)  \
+    X_H = np.array([data[_abundance_label(el)][mask] - asplund_2009[el] \
                     for el in sorted_elements]).T
-
-    # Take relative to fe/h
 
     label_names_wrt_h = ["{0}_h".format(el).lower() for el in sorted_elements]
 

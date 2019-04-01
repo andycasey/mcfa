@@ -55,9 +55,9 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
                 idx = np.nanargmax([model.log_likelihood_ for model in models])
                 model = models[idx]
 
-                ll[j, k] = model.log_likelihood_
-                bic[j, k] = model.bic(X)
-                mml[j, k] = model.message_length(X)
+                ll[k, j] = model.log_likelihood_
+                bic[k, j] = model.bic(X)
+                mml[k, j] = model.message_length(X)
 
                 if np.any(np.isfinite(ll)):
 
