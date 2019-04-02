@@ -480,6 +480,12 @@ class MCFA(object):
                                f"{self.max_iter} iterations ({ratio} > {self.tol})."\
                                f" Consider increasing the maximum number of iterations.")
 
+        try:
+            ll
+
+        except NameError:
+            raise ValueError("bad initialisation")
+
         pi, A, xi, omega, psi = theta
 
         # Make A.T @ A = I

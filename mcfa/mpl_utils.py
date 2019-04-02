@@ -156,13 +156,14 @@ def fill_between_steps(ax, x, y1, y2=0, h_align='mid', **kwargs):
     return ax.fill_between(xx, y1, y2=y2, **kwargs)
 
 
-def plot_specific_scatter(model, scales=1, 
+def plot_specific_scatter(model, y=None, scales=1, 
                           xlabel=None, xticklabels=None, ylabel=None,
                           steps=False, fill=True, line_kwds=None, fill_kwds=None):
 
     fig, ax = plt.subplots()
 
-    y = scales * np.sqrt(model.theta_[model.parameter_names.index("psi")])
+    if y is None:
+        y = scales * np.sqrt(model.theta_[model.parameter_names.index("psi")])
     x = np.arange(y.size)
 
     kwds = dict(drawstyle="steps-mid", c="#000000", lw=2)

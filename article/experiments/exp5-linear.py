@@ -1,6 +1,6 @@
 
 """
-Experiment using all GALAH data.
+Experiment using all APOGEE DR12 data.
 """
 
 from __future__ import division # Just in case. Use Python 3.
@@ -8,177 +8,91 @@ from __future__ import division # Just in case. Use Python 3.
 import os
 import sys
 import numpy as np
+import pickle
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
 from collections import Counter
 from scipy import linalg
+from astropy.table import Table
 
 sys.path.insert(0, "../../")
 
 from mcfa import (mcfa, grid_search, mpl_utils, utils)
 
-import galah_dr3 as galah
-
+#import galah_dr3 as galah
 
 matplotlib.style.use(mpl_utils.mpl_style)
 
-here = os.path.dirname(os.path.realpath(__file__))
-
-prefix = os.path.basename(__file__)[:-3]
 
 def savefig(fig, suffix):
-    here = os.path.dirname(os.path.realpath(__file__))
-    filename = os.path.join(here, f"{prefix}-{suffix}")
-    fig.savefig(f"{filename}-test-mask.png", dpi=150)
-    fig.savefig(f"{filename}-test-mask.pdf", dpi=300)
+    prefix = os.path.basename(__file__)[:-3]
+    filename = f"{prefix}-{suffix}.png"
+    fig.savefig(filename, dpi=150)
 
 
-N_elements = 18
-use_galah_flags = True
+mcfa_kwds = dict(init_factors="svd", init_components="kmeans++", tol=1e-2,
+                 max_iter=10000, random_seed=42)
 
 
-mcfa_kwds = dict(init_factors="svd", init_components="kmeans++", tol=1e-8,
-                 max_iter=10000)
-
-
-abundance_counts = galah.get_abundances_breakdown(galah.available_elements,
-                                                  use_galah_flags=use_galah_flags)
-
-xlabels = abundance_counts.keys()
-latex_labels = [r"{1}$\textrm{{{0}}}$".format(ea, "\n" if i % 2 else "") for i, ea in enumerate(xlabels)]
-x = np.arange(len(xlabels))
-y_independent = np.array(list(abundance_counts.values()))
-y_cumulative = np.zeros_like(y_independent)
-
-mask = np.ones(len(galah.data), dtype=bool)
-
-for i, xlabel in enumerate(xlabels):
-    mask *= galah._abundance_mask(xlabel, use_galah_flags)
-    y_cumulative[i] = np.sum(mask)
-
-
-def xystack(x, y, h_align="mid"):
-    xx = x.repeat(2)[1:]
-    # Now: the average x binwidth
-    xstep = np.repeat((x[1:] - x[:-1]), 2)
-    xstep = np.concatenate(([xstep[0]], xstep, [xstep[-1]]))
-    # Now: add one step at end of row.
-    xx = np.append(xx, xx.max() + xstep[-1])
-
-    # Make it possible to chenge step alignment.
-    if h_align == 'mid':
-        xx = xx - xstep / 2.
-    elif h_align == 'right':
-        xx = xx - xstep
-
-    # Also, duplicate each y coordinate in both arrays
-    y1 = y.repeat(2)#[:-1]
-
-    return (xx, y1)
-
-kwds = dict(lw=2)
-
-xs, y_i = xystack(x, y_independent)
-xs, y_c = xystack(x, y_cumulative)
-fig, ax = plt.subplots()
-ax.plot(xs, y_i, "-", c="tab:blue", label=r"$\textrm{Independent (single element reported)}$", **kwds)
-ax.plot(xs, y_c, "-", c="#000000", label=r"$\textrm{Cumulative (all elements leftward reported)}$", **kwds)
-
-ax.set_xticks(x)
-ax.xaxis.set_tick_params(width=0, which="major")
-ax.set_xticks(x - 0.5, minor=True)
-ax.xaxis.set_tick_params(direction="out", which="minor")
-
-ax.set_xticklabels(latex_labels)
-
-plt.legend(frameon=False, loc="lower left")
-
-ax.set_yscale("log")
-ax.set_xlim(xs[0], xs[-1])
-ylim = (1e3, 1e6)
-
-
-ax.set_ylabel(r"$\textrm{number of measurements in second GALAH data release}$")
-
-x_ = N_elements - 0.5
-ax.plot([x_, x_], ylim, "-", c="#666666", zorder=-1, linewidth=1, linestyle=":")
-
-
-ax.set_ylim(*ylim)
-fig.tight_layout()
-
-savefig(fig, "abundance-counts")
+use_galah_flags = False
+require_flag_cannon_ok = True
 
 
 
-
-elements = list(xlabels)[:N_elements]
-
-mask = galah.get_abundance_mask(elements, use_galah_flags=use_galah_flags)
-
-print(f"Number of stars: {sum(mask)}")
+elements = ["Na", "Mg", "Fe", "Sc", "Ti", "Zn", "Mn", "Y", "Ca", "Ni", "Cr", "O",
+            "Si", "K", "Ba", "V", "Cu", "Al", "La", "Eu"]
+#            # "Ni", "Mn", "Cr", "Ti", "Al", "Mg", "Na", "K", "Sc", "Ca", "O", "Zn", "Ba", "Y", "Ba", "Eu"]
 
 
-# MAGIC HACK WARNING DON'T DO THIS
-minimum_snr_requirement = 50 # TODO: restrict further to 100 and see
-mask *= (galah.data["snr_c1"] >= minimum_snr_requirement) \
-      * (galah.data["snr_c2"] >= minimum_snr_requirement) \
-      * (galah.data["snr_c3"] >= minimum_snr_requirement) \
-      * (galah.data["snr_c4"] >= minimum_snr_requirement)
+barklem_elements = ['mg_h', 'al_h', 'ca_h', 'sc_h', 'ti_h', 'cr_h', 'mn_h', 'fe_h', 'co_h', 'ni_h', 'sr_h', 'y_h', 'ba_h', 'eu_h']
+missing_elements = ["Sr"]
 
-
-print(f"Number of stars after requiring SNR > {minimum_snr_requirement} in all bands: {sum(mask)}")
-
-
-X_H, label_names = galah.get_abundances_wrt_h(elements, mask=mask)
+barklem_elements = [ea.split("_")[0].title() for ea in barklem_elements]
+barklem_elements = list(set(barklem_elements).difference(missing_elements))
 
 """
-for i, label_name in enumerate(label_names):
+In [2]: set(elements).difference(barklem_elements)
+Out[2]: {'Cu', 'K', 'La', 'Na', 'O', 'Si', 'V', 'Zn'}
 
-    element = label_name.split("_")[0]
-    denom = "fe" if element != "fe" else "h"
-    col = f"e_{element}_{denom}"
-
-    fig, ax = plt.subplots()
-    ax.hist(galah.data[col][mask])
-    ax.set_xlabel(col.replace("_", " "))
-    ax.set_yscale("log")
+In [3]: set(barklem_elements).difference(elements)
+Out[3]: {'Co', 'Sr'}
 """
 
+elements = ["AL", "CA", "C", "FE", "K", "MG", "MN", "NA", "NI", "N", "O", "SI", "S", "TI", "V"]
+
+elements = ["AL", "CA", "FE", "K", "MG", "MN", "NA", "NI", "SI", "S", "TI", "V"]
+label_names = [f"{el.lower()}_h" for el in elements]
+
+data = Table.read("../../catalogs/tc-apogee-dr12-regularized-release.fits")
+
+
+X_H = np.array([data[f"{el}_H"] for el in elements]).T
+
+print("WARNING WE ARE DOING SOMETHING BAD")
+mask = data["SNR"] >= 200
+X_H = X_H[mask]
 
 print(f"Data shape: {X_H.shape}")
 
-"""
-fe_index = label_names.index("fe_h")
-ok = np.ones(len(label_names), dtype=bool)
-ok[fe_index] = False
 
-X_Fe = X_H - X_H.T[fe_index].T.reshape((-1, 1))
-X_Fe = X_Fe[:, ok]
+X = 10**X_H
 
-label_names.remove("fe_h")
-"""
-
-
-
-#X = utils.whiten(X_Fe)
-X = X_H
-N, D = X.shape
+#X = X_H
 
 # Do a gridsearch.
-max_n_latent_factors = D - 1
-max_n_components = 20
+max_n_latent_factors = 10
+max_n_components = 25
 
 Js = 1 + np.arange(max_n_latent_factors)
+#Ks = 1 + np.arange(max_n_components)
 Ks = 1 + np.arange(max_n_components)
 
-Jg, Kg, converged, metrics = grid_search.grid_search(Js, Ks, X,
-                                                     N_inits=1, mcfa_kwds=mcfa_kwds)
+Jg, Kg, converged, metrics  = grid_search.grid_search(Js, Ks, X, N_inits=1,
+                                                                 mcfa_kwds=mcfa_kwds,
+                                                                 suppress_exceptions=True)
 
-with open(f"{prefix}-gridsearch-results.pkl", "wb") as fp:
+with open("exp5-linear-gridsearch-results.pkl", "wb") as fp:
     pickle.dump((Jg, Kg, converged, metrics, X, mcfa_kwds), fp)
-
 
 
 ll = metrics["ll"]
@@ -195,10 +109,9 @@ print(f"Best BIC value found at J = {J_best_bic} and K = {K_best_bic}")
 print(f"Best MML value found at J = {J_best_mml} and K = {K_best_mml}")
 
 
+
 # Plot some contours.
-plot_filled_contours_kwds = dict(converged=converged,
-                                 marker_function=np.nanargmin,
-                                 cmap="Spectral_r")
+plot_filled_contours_kwds = dict(converged=converged, marker_function=np.nanargmin)
 fig_ll = mpl_utils.plot_filled_contours(Jg, Kg, -ll,
                                         colorbar_label=r"$-\log\mathcal{L}$",
                                         **plot_filled_contours_kwds)
@@ -209,56 +122,33 @@ fig_bic = mpl_utils.plot_filled_contours(Jg, Kg, bic,
                                          **plot_filled_contours_kwds)
 savefig(fig_bic, "gridsearch-bic")
 
-fig_mml = mpl_utils.plot_filled_contours(Jg[:, :-1], Kg[:, :-1], mml[:, :-1],
+
+fig_mml = mpl_utils.plot_filled_contours(Jg, Kg, mml,
                                          colorbar_label=r"$\textrm{MML}$",
                                          **plot_filled_contours_kwds)
 savefig(fig_mml, "gridsearch-mml")
 
+J_best = J_best_mml
+K_best = K_best_mml
 
-raise a
 
-
-model = mcfa.MCFA(n_components=K_best_bic, n_latent_factors=J_best_bic,
+model = mcfa.MCFA(n_components=K_best, n_latent_factors=J_best,
                   **mcfa_kwds)
 
 model.fit(X)
 
+
 A_est = model.theta_[model.parameter_names.index("A")]
 
 
-latex_label_names = [r"$\textrm{{{0}}}$".format(ea.split("_")[0].title()) for ea in label_names]
+# Draw as-is.
+xlabel = r"$\textrm{element}$"
+xticklabels = [r"$\textrm{{{0}}}$".format(ln.split("_")[0].title()) \
+                        for ln in label_names]
 
-# Draw unrotated.
-J = model.n_latent_factors
-L = model.theta_[model.parameter_names.index("A")]
-cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
-colors = [cmap(1 + j) for j in range(J)]
-
-fig = mpl_utils.visualize_factor_loads(L, latex_label_names, colors=colors)
-savefig(fig, "latent-factors")
-
-# Plot clustering in data space.
-for k in range(K_best_bic):
-
-    ok = np.argmax(model.tau_, axis=1) == k
-
-    fig, ax = plt.subplots(2)
-    ax[0].scatter(galah.data["raj2000"][mask][ok],
-               galah.data["dej2000"][mask][ok])
-    ax[0].set_title(f"{k}: {sum(ok)}")
-
-    ax[1].scatter(galah.data["teff"][mask][ok],
-                  galah.data["logg"][mask][ok],
-                  c=galah.data["fe_h"][mask][ok],
-                  s=1)
-
-    ax[1].set_xlim(ax[1].get_xlim()[::-1])
-    ax[1].set_ylim(ax[1].get_ylim()[::-1])
-
-
-raise a
-
-
+fig_factors_unrotated = mpl_utils.plot_factor_loads(A_est,
+                                                    xlabel=xlabel,
+                                                    xticklabels=xticklabels)
 
 # Set some groups that we will try to rotate to.
 astrophysical_grouping = [
@@ -267,9 +157,16 @@ astrophysical_grouping = [
     ["ni", "co", "v", "fe", "mn", "cr", "ti", "sc"],
     ["ca", "mg", "o", "si"],
     ["al", "na", "k"],
+    
 ]
 
-
+load_labels = [
+r"$\textrm{odd-Z?}$",
+r"$\textrm{alpha-process?}$",
+r"$\textrm{CCSN?}$",
+r"$\textrm{s-process?}$",
+r"$\textrm{r-process?}$",
+]
 
 A_astrophysical = np.zeros_like(A_est)
 for i, tes in enumerate(astrophysical_grouping[:model.n_latent_factors]):
@@ -286,6 +183,33 @@ for i, tes in enumerate(astrophysical_grouping[:model.n_latent_factors]):
 #AL = linalg.cholesky(A_astrophysical.T @ A_astrophysical)
 #A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(model.n_latent_factors))
 
+
+#A_astrophysical /= np.sqrt(np.sum(A_astrophysical, axis=0))
+R, p_opt, cov, *_ = utils.find_rotation_matrix(A_astrophysical, A_est, 
+                                               full_output=True)
+
+R_opt = utils.exact_rotation_matrix(A_astrophysical, A_est, 
+                                    p0=np.random.uniform(-np.pi, np.pi, model.n_latent_factors**2))
+
+chi1 = np.sum(np.abs(A_est @ R - A_astrophysical))
+chi2 = np.sum(np.abs(A_est @ R_opt - A_astrophysical))
+
+R = R_opt if chi2 < chi1 else R
+
+# Now make it a valid rotation matrix.
+model.rotate(R, X=X, ensure_valid_rotation=True)
+J = model.n_latent_factors
+L = model.theta_[model.parameter_names.index("A")]
+cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
+colors = [cmap(1 + j) for j in range(J)]
+
+elements = [ea.split("_")[0] for ea in label_names]
+
+fig = mpl_utils.visualize_factor_loads(L, elements, colors=colors)
+savefig(fig, "latent-factors-visualize")
+
+
+raise a
 
 np.random.seed(42)
 

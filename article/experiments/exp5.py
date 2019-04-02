@@ -8,6 +8,7 @@ from __future__ import division # Just in case. Use Python 3.
 import os
 import sys
 import numpy as np
+import pickle
 import matplotlib
 import matplotlib.pyplot as plt
 from collections import Counter
@@ -67,6 +68,10 @@ data = Table.read("../../catalogs/tc-apogee-dr12-regularized-release.fits")
 
 X_H = np.array([data[f"{el}_H"] for el in elements]).T
 
+print("WARNING WE ARE DOING SOMETHING BAD")
+mask = data["SNR"] >= 200
+X_H = X_H[mask]
+
 print(f"Data shape: {X_H.shape}")
 
 
@@ -75,16 +80,20 @@ X = X_H
 #X = X_H
 
 # Do a gridsearch.
-max_n_latent_factors = 5
-#max_n_components = 100
+max_n_latent_factors = 10
+max_n_components = 50
 
 Js = 1 + np.arange(max_n_latent_factors)
 #Ks = 1 + np.arange(max_n_components)
-Ks = np.array([1, 2, 5, 10, 20, 50])
+Ks = 1 + np.arange(max_n_components)
 
 Jg, Kg, converged, metrics  = grid_search.grid_search(Js, Ks, X, N_inits=1,
                                                                  mcfa_kwds=mcfa_kwds,
                                                                  suppress_exceptions=False)
+
+with open("exp5-gridsearch-results.pkl", "wb") as fp:
+    pickle.dump((Jg, Kg, converged, metrics, X, mcfa_kwds), fp)
+
 
 ll = metrics["ll"]
 bic = metrics["bic"]
@@ -119,14 +128,15 @@ fig_mml = mpl_utils.plot_filled_contours(Jg, Kg, mml,
                                          **plot_filled_contours_kwds)
 savefig(fig_mml, "gridsearch-mml")
 
-# 
-raise a
+J_best = J_best_mml
+K_best = K_best_mml
 
 
-model = mcfa.MCFA(n_components=K_best_bic, n_latent_factors=J_best_bic,
+model = mcfa.MCFA(n_components=K_best, n_latent_factors=J_best,
                   **mcfa_kwds)
 
 model.fit(X)
+
 
 A_est = model.theta_[model.parameter_names.index("A")]
 
@@ -147,6 +157,7 @@ astrophysical_grouping = [
     ["ni", "co", "v", "fe", "mn", "cr", "ti", "sc"],
     ["ca", "mg", "o", "si"],
     ["al", "na", "k"],
+    
 ]
 
 load_labels = [
@@ -156,8 +167,6 @@ r"$\textrm{CCSN?}$",
 r"$\textrm{s-process?}$",
 r"$\textrm{r-process?}$",
 ]
-
-
 
 A_astrophysical = np.zeros_like(A_est)
 for i, tes in enumerate(astrophysical_grouping[:model.n_latent_factors]):
@@ -174,6 +183,33 @@ for i, tes in enumerate(astrophysical_grouping[:model.n_latent_factors]):
 #AL = linalg.cholesky(A_astrophysical.T @ A_astrophysical)
 #A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(model.n_latent_factors))
 
+
+#A_astrophysical /= np.sqrt(np.sum(A_astrophysical, axis=0))
+R, p_opt, cov, *_ = utils.find_rotation_matrix(A_astrophysical, A_est, 
+                                               full_output=True)
+
+R_opt = utils.exact_rotation_matrix(A_astrophysical, A_est, 
+                                    p0=np.random.uniform(-np.pi, np.pi, model.n_latent_factors**2))
+
+chi1 = np.sum(np.abs(A_est @ R - A_astrophysical))
+chi2 = np.sum(np.abs(A_est @ R_opt - A_astrophysical))
+
+R = R_opt if chi2 < chi1 else R
+
+# Now make it a valid rotation matrix.
+model.rotate(R, X=X, ensure_valid_rotation=True)
+J = model.n_latent_factors
+L = model.theta_[model.parameter_names.index("A")]
+cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
+colors = [cmap(1 + j) for j in range(J)]
+
+elements = [ea.split("_")[0] for ea in label_names]
+
+fig = mpl_utils.visualize_factor_loads(L, elements, colors=colors)
+savefig(fig, "latent-factors-visualize")
+
+
+raise a
 
 np.random.seed(42)
 

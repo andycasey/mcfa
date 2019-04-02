@@ -20,6 +20,7 @@ from mcfa import (mcfa, grid_search, mpl_utils, utils)
 
 import galah_dr3 as galah
 
+import pickle
 
 matplotlib.style.use(mpl_utils.mpl_style)
 
@@ -162,8 +163,10 @@ label_names.remove("fe_h")
 
 
 
+
+
 #X = utils.whiten(X_Fe)
-X = X_H
+X = 10**X_H
 N, D = X.shape
 
 # Do a gridsearch.
