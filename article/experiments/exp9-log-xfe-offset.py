@@ -400,7 +400,7 @@ fig_scatter = mpl_utils.plot_specific_scatter(model,
                                               xticklabels=latex_elements,
                                               ylabel=r"$\textrm{specific scatter / dex}$")
 fig_scatter.axes[0].set_yticks(np.arange(0, 0.20, 0.05))
-fig_scatter.savefig("specific-scatter")
+savefig(fig_scatter, "specific-scatter")
 
 
 # Draw [Fe/H] vs [Mg/Fe] coloured by component.
