@@ -18,6 +18,7 @@
 \newcommand{\gaia}{\project{gaia}}
 \newcommand{\Galah}{\project{Galah}}
 \newcommand{\GALAH}{\project{GALAH}}
+\newcommand{\APOGEE}{\project{APOGEE}}
 \newcommand{\todo}[1]{\textcolor{red}{#1}}
 
 
@@ -109,8 +110,17 @@
 \begin{abstract}
 Chemical tagging promises to distinguish unique star formation sites from 
 observed photospheric abundances.
-Clustering techniques applied in chemical tagging have to date assumed that
-all photospheric abundances are independent, a provably false assumption.
+Chemical tagging experiments to date have assumed that photospheric
+abundances are independent of each other, even though it is known that 
+nucleosynthetic processes 
+produce
+making
+
+
+Chemical tagging experiments to date have assumed that all photospheric
+abundances are independent, despite the effective dimensionality of abundance
+space being lower than the number of available elements.
+
 Nucleosynthetic processes make multiple elements in varying quantities, and the
 dimensionality of chemical abundance space is typically lower than the 
 number of reported abundances. 
@@ -522,12 +532,12 @@ parameters.
 For these reasons we also calculate the Minimum Message Length \citep[MML;][]{Wallace:2005}
 for every model as a criterion for model selection and evaluation. 
 The classically-described princple of MML is that the best explanation of the
-data is the one that leads to the shortest so-called two-part message~\cite{Wallace:2005}, 
+data is the one that leads to the shortest so-called two-part message~\citep{Wallace:2005}, 
 where a \textit{message} takes into account both the complexity of the model 
 and its explanatory power. The complexity of the model is described through
 the first part of the message, and the second part of the message describes
 its explanatory power. The \emph{length} of each message part is quantified
-(or measured) using information theory, allowing for a fair evaluation between
+(or estimated) using information theory, allowing for a fair evaluation between
 different models of varying complexity or explanatory power. MML has been 
 shown to perform well on a variety of empirical analyses (see, e.g., 
 \cite{viswanathan1999finding,fitzgibbon2004minimum}, with references to 
@@ -540,7 +550,7 @@ model parameters, providing a Bayesian optimisation approach which can be
 applied across entire classes of models.
 
 The \textit{message} must encode two parts: the model, and the data given the
-model. The encoding of the message is based on Shannon's information theory~\cite{Shannon:1948}. 
+model. The encoding of the message is based on Shannon's information theory~\citep{Shannon:1948}. 
 The information gained from an event $e$ occurring, where $p(e)$ is the
 probability of that event, is $I(e) = -\log_{2}{p(e)}$. The information content
 is largest for improbable outcomes, and smallest for outcomes that we are 
@@ -588,7 +598,7 @@ the priors on the number of latent factors $\NumLatentFactors$ and the
 number of components $\NumComponents$ to be
 $p(\NumLatentFactors) \propto 2^{-\NumLatentFactors}$ and
 $p(\NumComponents) \propto 2^{-\NumComponents}$ respectively,
-such that the optimal lossless message to encode them is \citep[p279, sec. 6.8.2][]{Knorr-Held:2000},
+such that the optimal lossless message to encode them is \citep[p279, sec. 6.8.2;][]{Knorr-Held:2000},
 \begin{eqnarray}
 	I(\NumLatentFactors) &= -\log{p(\NumLatentFactors)} &= \NumLatentFactors\log{2} + \textrm{constant} \label{eq:prior_J} \\
 	I(\NumComponents) &= -\log{p(\NumComponents)} &= \NumComponents\log{2} + \textrm{constant} \label{eq:prior_K} \quad .
@@ -613,7 +623,7 @@ individual weights,
 
 We assume uniform priors for the component means in latent space $\scoremeans$, 
 and a conjugate inverted Wishart prior for the component covariance matrices
-$\scorecovs$ \citep[Section 5.2.3][]{Knorr-Held:2000},
+$\scorecovs$ \citep[Section 5.2.3;][]{Knorr-Held:2000},
 \begin{equation}
 	p(\scoremeans_\numcomponents,\scorecovs_\numcomponents) \propto |\scorecovs_\numcomponents|^{\frac{1}{2}(\NumLatentFactors + 1)} \quad .
 \end{equation}
@@ -661,7 +671,8 @@ Thus the message length to encode $\factorloads$ is given by
 	I(\factorloads) &=& -\log\left(\frac{p(\factorloads)}{\sqrt{|\mathcal{F}(\factorloads)|}}\right) \nonumber \\
 	&=& -\log{p(\factorloads)} + \todo{\frac{1}{2}\log{|\mathcal{F}(\factorloads)|}} \nonumber \\
 I(\factorloads)	&=& \frac{1}{2}\textrm{Tr}(\textrm{Cov}(\factorloads\transpose)^{-1}\factorloads\transpose\factorloads) - \frac{1}{2}(\NumDimensions - \NumLatentFactors - 1)\log{|\factorloads\transpose\factorloads|} \nonumber \\
-	&& \cdots \,\, + \frac{1}{2}\NumDimensions\NumLatentFactors\log{2} + \frac{1}{2}\NumDimensions\log{|\textrm{Cov(\factorloads)}|} - \Gamma\left(\frac{\NumDimensions}{2}\right) \quad .\nonumber \label{eq:prior_L} \\
+	&& \cdots \,\, + \frac{1}{2}\NumDimensions\NumLatentFactors\log{2} + \frac{1}{2}\NumDimensions\log{|\textrm{Cov(\factorloads)}|} - \Gamma\left(\frac{\NumDimensions}{2}\right) \nonumber \\
+	&& \cdots \todo{+\frac{1}{2}\log{|\mathcal{F}(\factorloads)|}} \quad . \label{eq:prior_L}
 \end{eqnarray}
 
 Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{eq:prior_xi_omega}, and \ref{eq:prior_L} with equation \ref{eq:mml} leads to the full message length
@@ -671,7 +682,8 @@ Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{
 	&& +\frac{1}{2}\NumDimensions\log|\textrm{Cov}\left(\factorloads\transpose\right)| - \frac{1}{2}\left(D-J-1\right)\log|\factorloads\transpose\factorloads| \nonumber \\
 	&& +\textrm{Tr}\left(\textrm{Cov}\left(\factorloads\transpose\right)^{-1}\factorloads\transpose\factorloads\right) - \left(\NumLatentFactors + \frac{3}{2}\right)\sum_{\numcomponents=1}^\NumComponents\log|\scorecovs_\numcomponents| \nonumber \\
 	&& -\log\Gamma\left(\NumComponents\right) - \Gamma\left(\frac{\NumDimensions}{2}\right) + \frac{Q}{2}\log\kappa_q \nonumber \\
-	&& +\frac{1}{2}\left[\NumLatentFactors(\NumDimensions + 2) + \NumComponents(2-\NumData)\right]\log{2} \quad .
+	&& +\frac{1}{2}\left[\NumLatentFactors(\NumDimensions + 2) + \NumComponents(2-\NumData)\right]\log{2} \nonumber \\
+	&& \todo{+\frac{1}{2}\log{|\mathcal{F}(\factorloads)|}} .
 \end{eqnarray}
 
 
@@ -690,14 +702,14 @@ Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{
 
 
 
-\clearpage
+%\clearpage
 
 \section{Experiments} \label{sec:experiments}
 
 
 
 
-\subsection{Experiment 1: Toy model with generated data} \label{sec:experiment-toy-model}
+\subsection{Experiment 1: Toy model with generated data} \label{sec:exp-1}
 
 
 
@@ -727,9 +739,9 @@ generated by drawing $\factorscores_{\numdata} \sim \mathcal{N}(\scoremeans_\num
 
 
 \begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/exp1-gridsearch-ll-contours.png}
-	\includegraphics[width=0.45\textwidth]{experiments/exp1-gridsearch-bic-contours.png}
-	\includegraphics[width=0.45\textwidth]{experiments/exp1-gridsearch-mml-contours.png}
+	\includegraphics[width=0.45\textwidth]{experiments/exp1-gridsearch-ll-contours.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp1-gridsearch-bic-contours.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp1-gridsearch-mml-contours.pdf}
     \caption{Model performance metrics resulting from a gridsearch using the
     		 data generated as part of our toy model. The top 
 		 	 panel shows the negative log-likelihood 
@@ -760,7 +772,7 @@ cycles until the relative log-likelihood improved by less than $10^{-5}$.
 These metrics are shown in Figure~\ref{fig:experiment-1-gridsearch}.
 Unsurprisingly the log likelihood increases with increasing numbers of latent
 factors $\NumLatentFactors$ and increasing numbers of components $\NumComponents$.
-The lowest BIC value is found at $\NumLatentFactors = 5$
+The lowest BIC value and message length is found at $\NumLatentFactors = 5$
 and $\NumComponents = 20$, identical to the true values.
 
 \begin{figure*}
@@ -856,37 +868,39 @@ In this experiment we use detailed chemical abundances of metal-poor stars
 in interpreting the latent factors as nucleosynthetic processes. The data 
 can be described as 14 chemical abundance measurements from 61 stars ($\NumData = 61$, $\NumDimensions = 14$), and those 14 chemical elements trace multiple nucleosynthetic pathways. Specifically the chemical
 abundances measured include Al (light odd-Z), Mg and Ca ($\alpha$-process), Sc, Ti, Cr, Mn, Fe, Co, and Ni (Fe-peak elements), as well as Sr, Y, Ba, and Eu ($s$/$r$-process). 
+The data vector $\data$ includes [Fe/H] abundance ratios and all other elements
+relative to Fe (e.g., [Ti/Fe]) after subtracting the mean value to allow the
+latent factors to describe the abundance patterns away from the mean.
 
 We performed a grid search for the optimal number of latent factors 
 $\NumLatentFactors$ and components $\NumComponents$, starting from 
 $\NumLatentFactors = 1$ and $K = 1$, and trialling up until 
-$\NumLatentFactors = 7$ and $\NumComponents = 5$. 
-We found that models with higher numbers of latent factors were unable to
-converge without adding a regularization constant to the diagonals of the
-covariance matrices $\scorecovs$ in latent space. Although it is common
-to add a regularization term to the diagonals of covariance matrices
-when performing expectation-maximization, we found that our existing
-grid search boundaries were sufficient to find the preferred $\NumLatentFactors$
-and $\NumComponents$, and chose not to add any regularization term.
-
+$\NumLatentFactors = 7$ and $\NumComponents = 3$. 
+% Although it is common
+%to add a regularization term to the diagonals of covariance matrices
+%when performing expectation-maximization, we found that our existing
+%grid search boundaries were sufficient to find the preferred $\NumLatentFactors$
+%and $\NumComponents$, and chose not to add any regularization term.
 We initialised
 the model parameters randomly for each permutation of $J$ and $K$, and continued
 the expectation-maximization algorithm
 until a convergence threshold of $10^{-5}$ was reached in the log likelihood. 
-In Figure~\ref{fig:exp2-gridsearch-contours} we show the negative log likelihood 
-and BIC recorded for the optimised set of model parameters for each permutation 
-of $J$ and $K$. The lowest BIC value is found for $J = 5$ and $K = 1$, indicating
-five latent factors are preferred, with no clustering.
+In Figure~\ref{fig:exp2-gridsearch-contours} we show the negative log likelihood,
+the BIC, and the message length recorded for the optimised set of model parameters 
+for each permutation of $J$ and $K$. The negative log likelihood continues to
+increase with increasing numbers of clusters, or increasing numbers of latent
+factors.
+The lowest BIC value is found for $J = 5$ and $K = 1$, indicating
+six latent factors are preferred, with no clustering. The shortest message length
+is also found with no clustering,  but with four latent factors ($J = 4$, $K = 1$).
+We adopt the message length as our objective function and chose $J = 4$ and $K = 1$
+as the preferred model.
 
 
-
-
-
-
-Using our preferred model with $J = 5$ and $K = 1$, we sought to find a
-rotation matrix that would allow us to identify plausible astrophysical
-processes in the factor loads.
-Although having to perform this rotation is not comforting, there is utility in
+\begin{comment}
+With this model we sought to find a rotation matrix that would allow us to 
+identify plausible astrophysical processes in the factor loads.
+Although having to perform this rotation is comfortable, there is utility in
 trying to identify the latent factors because the factors can only be rotated by
 some valid rotation matrix. That is to say that we will not only exactly what
 we have put in: the rotated factors will simply be the closest set of factor
@@ -894,18 +908,25 @@ loads that are consistent with the data, allowing us to identify the factor
 loads that are astrophysically plausible. We constructed
 a $J \times D$ astrophysical factor load matrix $\factorloads_\textrm{A}$ where
 all entries were zero except for the following entries:
-\begin{itemize}
-	\item the entry corresponding to Al in the first latent factor to represent
-		  odd-Z element production,
-	\item the entries corresponding to Ca and Mg in the second latent factor to
-		  represent $\alpha$ particle production,
-	\item the entries corresponding to Ni, Co, Fe, Mn, Cr, Ti, and Sc in the third
-		  latent factor to represent the Fe-peak group,
-	\item the entries corresponding to Sr, Y, and Ba in the fourth latent factor
-		  to represent products of the slow neutron capture process, and
-	\item the entries corresponding to Eu in the fifth latent factor to represent
-		  products of the rapid nucleosynthesis process.
+%\begin{itemize}
+%	\item the entry corresponding to Al in the first latent factor to represent
+%		  odd-Z element production,
+%	\item the entries corresponding to Ca and Mg in the second latent factor to
+%		  represent $\alpha$ particle production,
+%	\item the entries corresponding to Ni, Co, Fe, Mn, Cr, Ti, and Sc in the third
+%		  latent factor to represent the Fe-peak group,
+%	\item the entries corresponding to Sr, Y, and Ba in the fourth latent factor
+%		  to represent products of the slow neutron capture process, and
+%	\item the entries corresponding to Eu in the fifth latent factor to represent
+%		  products of the rapid nucleosynthesis process.
+%\end{itemize}
+\todo{\begin{itemize}
+	\item the entries corresponding to C, Al, Ca, Mg, Ni, Co, Fe, Mn, Cr, Ti, and Sc in the first
+		  latent factor to represent the products of core-collapse supernovae,
+	\item the entries corresponding to Sr, Y, Ba, and Eu in the second latent factor
+		  to represent products of the neutron capture process.
 \end{itemize}
+}
 These entries were set to $1/\sqrt{E}$ where $E$ is the number of non-zero entries
 in that latent factor, in order to ensure that $\factorloads_\textrm{A}$ is
 mutually orthogonal. We then found the valid rotation matrix $\vec{R}$ that most
@@ -913,42 +934,76 @@ closely approximated the astrophysical loads $\factorloads_\textrm{A}$.
 In Figure~\ref{fig:exp2-factor-loads} we show the rotated factor loads found by our
 preferred model, and illustrate the relative contributions (positive or negative)
 to each element.
-
+\end{comment}
 
 \begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/exp2-gridsearch-ll.pdf}
-	\includegraphics[width=0.45\textwidth]{experiments/exp2-gridsearch-bic.pdf}
-    \caption{Model performance metrics resulting from a gridsearch using the
+	\includegraphics[width=0.45\textwidth]{experiments/exp2-log-xfe-offset-gridsearch-ll.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp2-log-xfe-offset-gridsearch-bic.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp2-log-xfe-offset-gridsearch-mml.pdf}
+    \caption{Model performance metrics resulting from a grid search using the
     		 \citet{Barklem:2005} data in Experiment~2.
     		 The top panel shows the negative log-likelihood 
 			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
 			 evaluated at each combination of latent factors $\NumLatentFactors$ and number 
-			 of clusters $\NumComponents$, and the lower panel shows the BIC (Eq.~\ref{eq:bic}).
+			 of clusters $\NumComponents$. The middle panel shows the BIC (Eq.~\ref{eq:bic})
+			 for those combinations, and the lower panel shows the message length. 
 			 %The cross at
 			 %$\NumLatentFactors=8$ and $\NumComponents=5$ indicates that the model could not converge without
 			 %adding a regularisation constant to the diagonals of $\scorecovs$.
-			 The marker indicates the lowest value in each panel, showing that
-			 $\NumLatentFactors = 5$ and $\NumComponents = 1$ is preferred by BIC.}
+			 A marker is shown at the lowest value in each panel, indicating
+			 the preferred number of latent factors and components 
+			 ($\NumLatentFactors = 2$ and $\NumComponents = 1$ is preferred by MML).}
     \label{fig:exp2-gridsearch-contours}
 \end{figure}
 
-
+\begin{comment}
 The rotated loads are not precisely the same as the target astrophysical loads
 in part because the target loads only seek to \emph{identify} and \emph{order}
 factors that can be interpreted within an astrophysical context. 
-\todo{For example,
-the first factor does show positive contributions to Al, like the target load,
-but it also shows a slight negative contribution with respect to alpha elements
-(Mg, Ca)}, and a gradual increase among Fe-peak elements up to Ni. Similarly while
-Ca and Mg are indeed positive in the second factor, as targeted, there is a
-weak negative contribution to Mn abundances, which was not part of the target
-loads. The fourth factor shows a positive contributions to Sr, Y, Ba, and to a
-lesser extent, Eu, which is representative of slow neutron capture production.
-Similarly, the last component shows a very strong positive contribution towards
-Eu, and could be interpreted as production from the rapid nucleosynthesis process.
+We discuss this in more detail in Section~\ref{sec:discussion}.
+\end{comment}
+
+%\todo{For example,
+%the first factor does show positive contributions to Al, like the target load,
+%but it also shows a slight negative contribution with respect to alpha elements
+%(Mg, Ca)}, and a gradual increase among Fe-peak elements up to Ni. Similarly while
+%Ca and Mg are indeed positive in the second factor, as targeted, there is a
+%weak negative contribution to Mn abundances, which was not part of the target
+%loads. 
+Despite the caveats in interpreting latent factors as nucleosynthetic processes
+(e.g. see Sections \ref{sec:exp-1} and \ref{sec:discussion}), here we will
+qualitatively describe the latent factors found in our selected model.
+The first latent factor $|\mathbf{L_0}|$ shows a non-zero contribution to most
+elements (Figure\ref{fig:exp2-factor-loads}). The elements Ca, Sc, Ti, Cr, and Co, mostly
+Fe-peak elements, have the largest contribution from this factor. We interpret this latent
+factor as contributions from core-collapse supernovae.
+The second latent factor $|\mathbf{L_1}|$ has negligible contribution at most elements,
+with strong contributions for C, and the neutron-capture elements Sr, Y, Ba, and Eu. We
+interpret this latent factor as being most closely representative of the slow neutron
+capture process. The third latent factor has almost no contribution to Ba, but has
+non-zero contributions to other neutron-capture elements Sr, Y, and Eu. Since Eu has
+the strongest contribution by $|\mathbf{L_2}|$, we interpret this factor as being most
+representative of the rapid neutron capture process. The last latent factor $|\mathbf{L_3}|$
+has a noticeable peak at Fe and the surrounding Fe-peak elements, with small non-zero contributions
+at most elements. 
+
+\begin{comment}
+The first factor shows a positive contributions to most elements except for
+neutron-capture products, where the contribution decreases with increasing
+atomic number. The second latent factor shows strong contributions to neutron
+capture process elements -- with this latent factor being responsible for almost
+all Eu -- and shows a predominant contribution to Sc. Scandium is one of the most
+discrepant elements between observations and models of galactic chemical evolution,
+as models under-predict [Sc/Fe] ratios by a factor of ten \citep[e.g.,][]{Kobayashi:2006,Casey:2015}.
+\end{comment}
+
+% Sr, Y, Ba, and to a
+%lesser extent, Eu, which is representative of slow neutron capture production.
+%Similarly, the last component shows a very strong positive contribution towards
+%Eu, and could be interpreted as production from the rapid nucleosynthesis process.
 
 \begin{figure*}
-	\includegraphics[width=\textwidth]{experiments/exp2-latent-factors-visualize.pdf}
+	\includegraphics[width=\textwidth]{experiments/exp2-log-xfe-offset-latent-factors-visualize-abs.pdf}
 	\caption{Rotated latent factors found in Experiment~2 using the \citet{Barklem:2005}
 			 data. The panels on the left show the entries for each factor load. On
 			 the right hand side we show the absolute fractional contributions to
@@ -959,17 +1014,18 @@ Eu, and could be interpreted as production from the rapid nucleosynthesis proces
 
 
 
-After accounting for the contributions by all
-$J = 5$ factors, the specific scatter remaining in each dimension is shown in
+After accounting for the contributions by the latent factors and scores,
+the specific scatter remaining in each dimension is shown in
 Figure~\ref{fig:exp2-specific-scatter}. The remaining scatter varies from as low 
-as 0.08~dex (Mn, Y) up to 0.40~dex (Al, Ba, Ni). Al is not found to have any 
-predominant factor in these data: it has non-zero contributions from all loads
-(Figure~\ref{fig:exp2-factor-loads}. A similar pattern is seen in Cr, Co, and Ni,
-although the specific scatter for Cr and Co is half that of what is found for
-Ni (0.2\,dex instead of 0.4\,dex).
-
-% TODO: anything else to say here?
-
+as 0.05~dex (Mg, Ca, Sc, Ti) up to 0.3~dex (C). It is perhaps not surprising that
+the largest specific scatter is found in C, since the present day carbon abundance
+is mostly affected by the evolutionary state of the star, rather than the natal
+abundance. After C, the elements with large specific scatter include Al, Fe, Ni, 
+and Ba. A large relative scatter in Al and Ba might suggest that there are other latent
+factors that contribute to those elements, but those latent factors were not included because
+the message length preferred a fewer number of factors. However, the scatter in 
+Fe and Ni is somewhat surprising. Those elements usually have strong and numerous atomic
+lines that can be easily measured in metal-poor stars. 
 
 
 %The relatively wide uncertainty regions on these factors is perhaps not
@@ -980,7 +1036,7 @@ Ni (0.2\,dex instead of 0.4\,dex).
 
 
 \begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/exp2-specific-scatter.png}
+	\includegraphics[width=0.45\textwidth]{experiments/exp2-log-xfe-offset-specific-scatter.pdf}
 	\caption{Specific scatter remaining in the \citet{Barklem:2005} data used in
 			 Experiment~2 after accounting for the contributions by all latent
 			 factors.}
@@ -989,7 +1045,7 @@ Ni (0.2\,dex instead of 0.4\,dex).
 
 
 
-\subsection{Experiment 4:\\Chemical abundances in the \Galah\ survey}
+\subsection{Experiment 3:\\Chemical abundances in the \Galah\ survey}
 \label{sec:exp4}
 
 In this experiment we perform blind chemical tagging using the 
@@ -1015,7 +1071,20 @@ lifetime.
 We first selected stars with \texttt{flag\_cannon = 0} to exclude
 stars where there is reason to suspect that the stellar parameters
 (e.g., $\teff$, $\logg$) are unreliable, and as a result the 
-detailed chemical abundances are untrustworthy. We ordered the
+detailed chemical abundances are untrustworthy. We then took all
+stars with no erroneous flags in the following elemental abundance
+measurements: Mg, Al, Ca, Sc, Ti, Cr, Mn, Fe, Co, Ni, Y, Ba, and Eu.
+These elements are produced from multiple nucleosynthetic
+pathways, and it is this subsample that we will use for 
+our initial chemical experiment with \Galah\ data.
+There were 1,444 stars that met these criteria. 
+
+%["Mg", "Al", "Ca", "Sc", "Ti", "Cr", "Mn", "Fe", "Co", "Ni", "Y", "Ba", "Eu"]
+
+
+
+\begin{comment}
+We ordered the
 list of chemical abundances by the number of reliable measurements,
 which is shown in Figure~\ref{fig:exp4-abundance-counts}. The number of
 independent abundance measurements (e.g., where there is no reason
@@ -1026,14 +1095,12 @@ which the full set of elemental abundances (up until and including
 the abundance on the x-axis) is reported. We chose to include the
 18 most commonly reported abundances (up to and including Al),
 leaving us with a sample of \todo{50,000} stars.
-These elements are produced from multiple nucleosynthetic
-pathways, and it is this subsample that we will use for 
-our initial chemical experiment with \Galah\ data.
+\end{comment}
 
 
-
+\begin{comment}
 \begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/exp4-abundance-counts.png}
+	\includegraphics[width=0.45\textwidth]{experiments/exp4-abundance-counts.pdf}
 	\caption{The number of abundance measurements in the second
 		     \Galah\ data release \citep{Buder:2018} where \texttt{flag\_cannon = 0}
 		     and \texttt{flag\_<element> = 0}. The black line indicates the number
@@ -1043,6 +1110,7 @@ our initial chemical experiment with \Galah\ data.
 		     elemental abundances, which we use for Experiment~4.}
     \label{fig:exp4-abundance-counts} 
 \end{figure}
+\end{comment}
 
 
 We executed a grid search for the number of latent factors $\NumLatentFactors$
@@ -1052,10 +1120,36 @@ permutation of $\NumLatentFactors$ and $\NumComponents$ up until $\NumLatentFact
 and $\NumComponents = 20$. For each permutation we initialised the model randomly,
 and continued expectation-maximization until a tolerance of $10^{-5}$ was achieved
 in the log-likelihood. The results of this grid search are shown in Figure~\ref{fig:exp4-gridsearch-contours},
-where we show the best log-likelihood found for each permutation, and the corresponding
+where we show the log-likelihood, BIC, and message length found for each permutation.
+
+
+\begin{figure}
+	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-subset-gridsearch-ll-contours.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-subset-gridsearch-bic-contours.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-subset-gridsearch-mml-contours.pdf}
+    \caption{Model performance metrics resulting from a gridsearch using the
+    		 data generated as part of Experiment 2. The top 
+		 	 panel shows the negative log-likelihood 
+			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
+			 evaluated at each combination of latent factors $J$ and number 
+			 of clusters $K$, and the bottom panel shows the BIC (Equation \ref{eq:bic}).
+			 The white marker indicates the 
+			 lowest value in each panel.
+				}
+    \label{fig:experiment-9-gridsearch}
+\end{figure}
+
+
+
+
+ log-likelihood found for each permutation
+
+and the corresponding
 BIC value. The lowest BIC value is found for $\todo{\NumLatentFactors = X}$ and
 $\todo{\NumComponents = X}$, which we adopted as the preferred number of latent
 factors and components.
+
+
 
 \todo{
 \begin{enumerate}
@@ -1068,6 +1162,11 @@ factors and components.
 }
 
 
+\subsection{Experiment 4:\\Chemical abundances in the \APOGEE\ survey}
+\label{sec:exp5}
+
+\todo{some text}
+
 
 \section{Discussion} \label{sec:discussion}
 
@@ -1079,7 +1178,7 @@ factors and components.
 
 Earlier studies investigating the limitations of chemical tagging have shown
 that the effective dimensionality of chemical abundance space is lower than
-the number of reported abundances \citep[e.g. about 8,][]{Ting:2008}. 
+the number of reported abundances \citep[e.g.,][]{Ting:2012,Price-Jones:2018}. 
 This is expected. Theoretical models of stellar evolution and nucleosynthesis 
 suggest that there are of order \todo{5} nucleosynthetic mechanisms that are
 predominately responsible for the production of the $\sim$20 or so observed 
