@@ -515,7 +515,7 @@ class MCFA(object):
             [n_samples, n_features].
         # TODO: What should we return, exactly?
         """
-        return _factor_scores(X, self.tau_, *self.theta_)
+        return _factor_scores(X, *self.theta_)
 
 
     def bic(self, X, theta=None, log_likelihood=None):
@@ -1073,20 +1073,13 @@ def _maximization(X, tau, pi, A, xi, omega, psi,
 
 
 
-def _factor_scores(X, tau, pi, A, xi, omega, psi):
+def _factor_scores(X, pi, A, xi, omega, psi, tau=None):
     r"""
     Estimate the factor scores for each data point, given the model.
 
     :param X:
         The data, which is expected to be an array with shape [n_samples, 
         n_features].
-
-    :param tau:
-        The responsibility matrix, which is expected to have shape
-        [n_samples, n_components]. The sum of each row is expected to equal
-        one, and the value in the i-th row (sample) of the j-th column
-        (component) indicates the partial responsibility (between zero and
-        one) that the j-th component has for the i-th sample.
 
     :param pi:
         The relative weights for the components in the mixture. This should
@@ -1107,6 +1100,15 @@ def _factor_scores(X, tau, pi, A, xi, omega, psi):
 
     :param psi:
         The variance in each dimension. This should have size [n_features].
+
+    :param tau: [optional]
+        The responsibility matrix, which is expected to have shape
+        [n_samples, n_components]. The sum of each row is expected to equal
+        one, and the value in the i-th row (sample) of the j-th column
+        (component) indicates the partial responsibility (between zero and
+        one) that the j-th component has for the i-th sample. If this is
+        given then the shape must match the given data points. If `None` is
+        given then this will be calculated.
 
     # TODO: returns
     """
@@ -1129,6 +1131,8 @@ def _factor_scores(X, tau, pi, A, xi, omega, psi):
         U[:, :, k] = np.repeat(xi[:, [k]], N).reshape((J, N)).T \
                    + (X - (A @ xi[:, [k]]).T) @ gamma[:, :, k]
 
+    ll, tau = _expectation(X, pi, A, xi, omega, psi)
+
     cluster = np.argmax(tau, axis=1)
 
     UC = np.zeros((N, J))
@@ -1138,7 +1142,7 @@ def _factor_scores(X, tau, pi, A, xi, omega, psi):
         UC[i] = U[i, :, cluster[i]]
         Umean[i] = tau[i] @ U[i].T
 
-    return (U, UC, Umean)
+    return (U, UC, Umean, tau)
 
 
 def _compute_precision_cholesky_full(cov):

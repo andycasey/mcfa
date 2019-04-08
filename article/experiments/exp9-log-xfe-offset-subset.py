@@ -182,7 +182,6 @@ for i, label_name in enumerate(label_names):
 
 
 
-
 print(f"Data shape: {X_H.shape}")
 
 """
@@ -229,7 +228,7 @@ Ks = 1 + np.arange(max_n_components)
 
 results_path = f"{prefix}-gridsearch-results.pkl"
 
-if os.path.exists(results_path):
+if False and os.path.exists(results_path):
 
     with open(results_path, "rb") as fp:
         Jg, Kg, converged, metrics, X, mcfa_kwds = pickle.load(fp)
@@ -356,10 +355,15 @@ R = R_opt if chi2 < chi1 else R
 model.rotate(R, X=X, ensure_valid_rotation=True)
 J = model.n_latent_factors
 L = model.theta_[model.parameter_names.index("A")]
+
+# Re-order.
+
+#3, 1, 0, 4
+#raise a
 cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
 colors = [cmap(1 + j) for j in range(J)]
 
-elements = [ea.split("_")[0] for ea in label_names]
+elements = [ea.split("_")[0].title() for ea in label_names]
 
 fig = mpl_utils.visualize_factor_loads(L, elements, colors=colors)
 savefig(fig, "latent-factors-visualize")

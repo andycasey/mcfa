@@ -212,9 +212,9 @@ def plot_specific_scatter(model, y=None, scales=1,
 
 def plot_latent_space(model, X, ellipse_kwds=None, **kwargs):
 
-    v, v_cluster, v_mean = model.factor_scores(X)
+    v, v_cluster, v_mean, tau = model.factor_scores(X)
 
-    hard_associations = np.argmax(model.tau_, axis=1)
+    hard_associations = np.argmax(tau, axis=1)
 
     fig = corner_scatter(v_mean, c=hard_associations, **kwargs)
 
@@ -401,6 +401,13 @@ def corner_scatter(X, label_names=None, show_ticks=False, fig=None, figsize=None
                 ax.set_xticks([])
                 ax.set_yticks([])
 
+            else:
+                if not ax.is_last_row():
+                    ax.set_xticklabels([])
+                if not ax.is_first_col():
+                    ax.set_yticklabels([])
+
+
             if ax.is_last_row() and label_names is not None:
                 ax.set_xlabel(label_names[i])
                 
@@ -520,9 +527,14 @@ def plot_filled_contours(J, K, Z, N=1000, colorbar_label=None,
 
 
 def visualize_factor_loads(L, label_names=None, colors=None, line_kwds=None,
+                           absolute_only=False,
                           **kwargs):
 
     L = np.atleast_2d(L)
+
+    if absolute_only:
+        L = np.abs(L.copy())
+
     D, J = L.shape
 
     #fig = plt.figure()
@@ -556,9 +568,15 @@ def visualize_factor_loads(L, label_names=None, colors=None, line_kwds=None,
         ax.axhline(0, linewidth=1, c="#666666", linestyle=":", zorder=-1)
         ax.set_xlim(0, D)
 
-        ax.set_ylabel(r"$\mathbf{{L}}_{{{0}}}$".format(j))
-        ax.set_ylim(-1.1, 1.1)
-        ax.set_yticks([-1, 0, 1])
+        if absolute_only:
+            ax.set_ylim(-0.1, 1.1)
+            ax.set_yticks([0, 1])
+            ax.set_ylabel(r"$|\mathbf{{L}}_{{{0}}}|$".format(j))
+
+        else:
+            ax.set_ylim(-1.1, 1.1)
+            ax.set_yticks([-1, 0, 1])
+            ax.set_ylabel(r"$\mathbf{{L}}_{{{0}}}$".format(j))
 
         if ax.is_last_row():
             if label_names is not None:
