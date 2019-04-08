@@ -228,7 +228,7 @@ Ks = 1 + np.arange(max_n_components)
 
 results_path = f"{prefix}-gridsearch-results.pkl"
 
-if False and os.path.exists(results_path):
+if os.path.exists(results_path):
 
     with open(results_path, "rb") as fp:
         Jg, Kg, converged, metrics, X, mcfa_kwds = pickle.load(fp)
@@ -360,7 +360,7 @@ L = model.theta_[model.parameter_names.index("A")]
 cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
 colors = [cmap(1 + j) for j in range(J)]
 
-elements = [ea.split("_")[0] for ea in label_names]
+elements = [ea.split("_")[0].title() for ea in label_names]
 
 fig = mpl_utils.visualize_factor_loads(L, elements, colors=colors)
 savefig(fig, "latent-factors-visualize")
@@ -369,6 +369,59 @@ fig = mpl_utils.visualize_factor_loads(L, elements, colors=colors, absolute_only
 savefig(fig, "latent-factors-visualize-abs")
 
 
+
+t = galah.data[mask]
+_, factor_scores, __, tau = model.factor_scores(X)
+for i in range(model.n_latent_factors):
+    t[f"S_{i}"] = factor_scores[:, i]
+
+
+t["component"] = np.argmax(tau, axis=1)
+
+
+for j in range(model.n_components):
+    t[f"C_{j}"] = (t["component"] == j)
+
+
+t.write(f"{prefix}-results.fits", overwrite=True)
+
+# Plot the latent space.
+
+fig = mpl_utils.plot_latent_space(model, X, cmap=cmap, show_ticks=True,
+                                  label_names=[r"$\textbf{{S}}_{{{0}}}$".format(i) for i in range(model.n_latent_factors)])
+savefig(fig, "latent-space")
+
+# Plot the specific variances.
+latex_elements = [r"$\textrm{{{0}}}$".format(le) for le in elements]
+
+fig_scatter = mpl_utils.plot_specific_scatter(model,
+                                              steps=True,
+                                              xlabel=r"$\textrm{element}$", 
+                                              xticklabels=latex_elements,
+                                              ylabel=r"$\textrm{specific scatter / dex}$")
+fig_scatter.axes[0].set_yticks(np.arange(0, 0.20, 0.05))
+fig_scatter.savefig("specific-scatter")
+
+
+# Draw [Fe/H] vs [Mg/Fe] coloured by component.
+from matplotlib.ticker import MaxNLocator
+
+fig, ax = plt.subplots(figsize=(5.9, 4.5))
+scat = ax.scatter(t["fe_h"], t["mg_fe"], c=tau.T[0], cmap="copper", s=10)
+ax.xaxis.set_major_locator(MaxNLocator(6))
+ax.yaxis.set_major_locator(MaxNLocator(6))
+
+
+ax.set_xlabel(r"$[\textrm{Fe}/\textrm{H}]$")
+ax.set_ylabel(r"$[\textrm{Mg}/\textrm{Fe}]$")
+ax.set_aspect(np.ptp(ax.get_xlim())/np.ptp(ax.get_ylim()))
+
+fig.tight_layout()
+
+cbar = plt.colorbar(scat)
+cbar.set_label(r"$\mathbf{\tau}_{{n,1}}$")
+
+savefig(fig, "cluster")
 
 
 
