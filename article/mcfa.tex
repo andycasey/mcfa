@@ -108,35 +108,32 @@
 
 
 \begin{abstract}
-Chemical tagging promises to distinguish unique star formation sites from 
-observed photospheric abundances.
-Chemical tagging experiments to date have assumed that photospheric
-abundances are independent of each other, even though it is known that 
-nucleosynthetic processes 
-produce
-making
-
-
-Chemical tagging experiments to date have assumed that all photospheric
-abundances are independent, despite the effective dimensionality of abundance
-space being lower than the number of available elements.
-
-Nucleosynthetic processes make multiple elements in varying quantities, and the
-dimensionality of chemical abundance space is typically lower than the 
-number of reported abundances. 
-Here we introduce a novel approach to chemical tagging where a set of 
-latent factors (e.g., nucleosynthetic yields) contribute to the
-data, and clustering is performed in the latent space (e.g., relative counts of
-nucleosynthetic events). In doing so we infer basis vectors that are analogous
-to nucleosynthetic yields, and the lower dimensional latent space allows for
-more efficient clustering. We perform experiments on literature chemical abundances
-of metal-poor stars, \todo{others}, and 
-those from the second \Galah\ data release. \todo{We find that 5 latent factors are
-preferred to explain the chemical abundances of metal-poor stars, and 8 are
-needed to account for \Galah\ data.}
-We describe exact methods and software that scale well with the data,
-allowing for chemical tagging experiments for $10^{7.5}$ abundance measurements
-to be performed in minutes.
+Chemical tagging seeks to identify unique star formation sites from
+present-day stellar abundances.
+Previous techniques have treated chemical abundances as being 
+statistically independent, despite the nucleosynthesis literature showing that
+most elements can be produced by more than one nucleosynthetic pathway.
+In this work we introduce a data-driven model for chemical abundances
+where a set of latent factors (e.g., nucleosynthetic yields) contribute
+to all stars with different scores, and the clustering (e.g., chemical tagging) 
+is represented by a mixture model in a lower-dimensional latent space.
+We use an exact method to simultaneously estimate the factor scores for
+each star, the relative weighting (e.g., partial assignment) of each star
+to each cluster, and to infer the latent factors that are common to all stars.
+We perform experiments on literature chemical abundances
+of metal-poor stars, and those from the second \Galah\ data release. 
+We find that five latent factors are preferred to explain the detailed 
+abundances of metal-poor stars, and eight are preferred given \todo{X} abundances
+in \Galah\ data. In both experiments we recover latent factors that 
+are representative of mean yields expected from the rapid- and slow-neutron
+capture process, as well as nucleosynthesis in Type II supernovae. 
+We find two clusters are preferred in the \Galah\ data of \todo{X} abundances
+and \todo{Y} stars, which are representative of the [$\alpha$/Fe]-poor and 
+[$\alpha$/Fe]-rich populations in the Milky Way disk. We expect more components
+would be preferred given complete abundances of more stars.
+We release software that scales \todo{as $\mathcal{O}(XX)$}, where $X$ is \todo{what},
+enabling model parameter estimation in minutes given $\sim$$10^7$
+chemical abundance measurements.
 \end{abstract}
 
 
@@ -144,11 +141,11 @@ to be performed in minutes.
 
 \section{Introduction} \label{sec:intro}
 
-Chemical tagging seeks to identify star formation events using the present
-day photospheric abundances of stars \citep{Freeman;Bland-Hawthorn:2002}.
+%Chemical tagging seeks to identify star formation events using the present
+%day photospheric abundances of stars \citep{Freeman;Bland-Hawthorn:2002}.
 The detailed chemical abundances observable in a star's photosphere provide a
-fossil record that carries with it information about where and when a star
-formed. While the photospheric abundances remain largely unchanged throughout
+fossil record that carries with it information about where and when that star
+formed \citep{Freeman;Bland-Hawthorn:2002}. While the photospheric abundances remain largely unchanged throughout
 a star's lifetime \citep[however see][]{Dotter:2017,Ness:2018b}, the dynamical 
 dissipation timescale of open clusters in the Milky Way disc is of order a few 
 gigayears \citep{Portegies-Zwart:1998}. That makes chemical tagging an attractive 
@@ -162,16 +159,16 @@ only considering star clusters that are still gravitationally bound, the chemica
 homogeneity of open clusters provides an empirical measure of how similar stars
 would need to be before they could be tagged as belonging to the same
 star formation site \citep{Mitschang:2014}. However, there are also analysis
-issues in understanding how well those chemical abundances can be measured
-\citep{Bovy:2016}, and how chemically similar multiple unrelated stars (or
-doppleg\"angers) can be \citep{Ness:2018}.
+issues in understanding how precisely those chemical abundances can be measured
+\citep{Bovy:2016}, and how chemically similar stars can be which did not form 
+together \citep[doppleg\"angers;][]{Ness:2018}.
 If open clusters were truely chemically homogeneous then our
-ability to chemically tag the Milky Way depends on the precision with which we
+ability to chemically tag the Milky Way would depend primarily on the precision with which we
 can measure those chemical abundances in stars. Data-driven techniques are
-driving a revolution in this field \citep{Ness:2015,Ness:2018a,Ness:2018b,
-Casey:2016,Casey:2017,Ho:2017b,Ho:2017a,Leung;Bovy:2018}, but there is more work
-to do: astronomers have not yet reached the Cram\'er-Rao bound for chemical 
-abundances of stars.
+improving upon this precision, \citep{Ness:2015,Ness:2018a,Ness:2018b,
+Casey:2016,Casey:2017,Ho:2017b,Ho:2017a,Leung;Bovy:2018}, but more work is
+needed: astronomers have not yet developed unbiased estimators of chemical
+abundances that saturate the Cram\'er-Rao bound.
 
 
 There are further chemical tagging obstacles to overcome once all the chemical 
@@ -195,7 +192,7 @@ favourable assumptions in chemical tagging -- that star clusters are truely
 chemically homogenous, and we can measure those abundances with infinite precision,
 and those abundances are differentiable between star clusters -- then chemical
 tagging becomes a clustering problem. All clustering techniques applied to 
-chemical tagging assume that the data dimensions are independent. That is to say
+chemical tagging thus far have assumed that the data dimensions are independent. That is to say
 that adding a dimension of [Ni/H] provides totally new, independent information.
 Theory and observations agree that this cannot be true.
 Nucleosynthetic processes produce multiple elements in varying
@@ -206,7 +203,8 @@ independent axis of information will therefore conclude with biased inferences
 about the star formation history of our Galaxy. 
 
 
-Alternative approaches are perhaps more challenging, as it is difficult to prescribe
+%Alternative approaches are perhaps more challenging, as i
+It is not trivial to estimate
 the nucleosynthetic yields that have contributed to the chemical abundances of each star
 with great confidence. There are
 qualitative statements that can be made for large numbers of stars, or particular
@@ -269,7 +267,7 @@ $\NumData \times \NumDimensions$ matrix where $\NumData$ is the number of
 stars and $\NumDimensions$ is the number of chemical abundances measured 
 for each star. We assume a generative model for the data 
 \begin{equation}
-	\vecdata = \factorloads\factorscores + \vec{e}
+	\vecdata = \vec\mu + \factorloads\factorscores + \vec{e}
 	\label{eq:generative-model}
 \end{equation}
 
@@ -280,6 +278,7 @@ for the $\numdata$th data point
 	\factorscores_\numdata \sim \mathcal{N}(\vec\xi_\numcomponents, \vec\Omega_\numcomponents)
 \end{equation}
 \noindent{}are drawn from the $\numcomponents$th multivariate normal distribution.
+The mean vector $\vec\mu$ describes the mean datum in each dimension.
 The factor scores for all data points $\factorscores$ is then a 
 $\NumData \times \NumLatentFactors$ matrix, where each data point has a partial
 association to the components in latent space. 
@@ -396,8 +395,9 @@ Finally, we initialise the specific variance $\specificvariance$ in each
 dimension as the variance in each data dimension. Other initialisation 
 methods are available in the code associated with this \emph{Article}. 
 Throughout this work we found that the optimised model parameters are 
-insensitive to the choice of initialisation, up until orthogonal 
-rotation of the latent space.
+insensitive to the choice of initialisation.
+%up until orthogonal 
+%rotation of the latent space.
 
 
 \subsection{Expectation-Maximization}
@@ -416,11 +416,11 @@ the data $\vecdata$ and the current estimate of the parameter vector $\vec\Psi$:
 At the maximization step we update our estimates of the parameters,
 conditioned on the data $\vecdata$ and the responsibility matrix $\vec\tau$.
 The updated parameters estimates are found by setting the second derivative
-of the log-likelihood (Eq.~\ref{eq:log-likelihood}) to zero and solving for
+of the log likelihood (Eq.~\ref{eq:log-likelihood}) to zero and solving for
 the parameter values. In doing so this guarantees that every updated
-estimate of the model parameters is guaranteed to increase the log-likelihood.
+estimate of the model parameters is guaranteed to increase the log likelihood.
 Although there are no guarantees against converging on local minima, in 
-general it is sufficient to run expectation-maximization from multiple
+practice it is sufficient to run expectation-maximization from multiple
 initialisations in order to ensure that the global minima is reached.
 At the maximization step we first update our estimate of the relative weights 
 $\vec\weight\nextstep$ given the responsibility matrix $\vec\tau$
@@ -475,20 +475,14 @@ by
 \end{equation}
 
 \noindent{}where $\odot$ denotes is the entry-wise (Hadamard) product. We repeat
-the expectation-maximization cycle for up to 10,000 steps or until the log-likelihood
+the expectation-maximization cycle for up to 10,000 steps or until the log likelihood
 improved by less than $10^{-5}$ between successive iterations. Although our implementation
 allows for a positive regularisation term to be added along the diagonal of the covariance
 matrices in latent space $\scorecovs$, we set this regularisation term to zero for all
-experiments performed here.
+experiments performed here. Similarly, we assume that the data are noiseless and we do
+not add any observed errors to the constructed covariance matrices.
 
 
-
-\begin{figure*}
-	\includegraphics[width=1.0\textwidth]{experiments/exp1-data-colour.pdf}
-    \caption{The generated data for Experiment~1, where points are coloured by their
-		     true associations to each component.}
-    \label{fig:exp1-data}
-\end{figure*}
 
 
 \subsection{Model Selection}
@@ -515,8 +509,9 @@ Bayesian Information Criterion \citep[BIC;][]{Schwarz:1978},
 \end{equation}
 \noindent{}We evaluate the BIC for all experiments performed in this work.
 However, while the BIC does include a penalisation term for the number of
-parameters (which scales with $\log{N}$), it does not account for the increased
-complexity that is afforded by additional parameters. Adding one parameter
+parameters (which scales with $\log{N}$), it does not describe for the
+increased flexibility that is afforded by the addition of those parameters.
+For example, adding one parameter
 to a model will increase the BIC by at most $\log{N}$, but there are different
 ways for a single parameter to be introduced. In a fictitious model $y=f(x)$
 a parameter $b$ could be added that is a scalar multiple of $x$, or it could be
@@ -558,6 +553,16 @@ almost certain about. In other words, an outcome that has a probability close
 to unity has zero information content because nothing new is learned from it,
 whereas rarer events convey a much higher information content. 
 
+
+
+\begin{figure*}
+	\includegraphics[width=1.0\textwidth]{experiments/exp1-data-colour.pdf}
+    \caption{The generated data for Experiment~1, where points are coloured by their
+		     true associations to each component.}
+    \label{fig:exp1-data}
+\end{figure*}
+
+
 In practice calculating the message length can be a non-trivial task, 
 especially for models that are reasonably complex. This makes the strict MML
 principle intractable (or uncomputable) in many cases and necessitating 
@@ -577,7 +582,7 @@ commonly referred to as the expected Fisher information matrix,
 \noindent{}and as before $Q$ is the number of model parameters.
 Continuous parameters can only be stated to finite precision, which leads
 to the $\frac{Q}{2}\log\kappa_q$ term that gives a measure of the volume of the region of
-uncertainty in which the parameters $\vec\psi$ are centred. The $\log\kappa_q$
+uncertainty in which the parameters $\vec\Psi$ are centred. The $\log\kappa_q$
 term is
 \begin{equation}
 	\log\kappa_q = -\log{2\pi} + \frac{1}{Q}\log{Q\pi} - \gamma - 1
@@ -588,7 +593,11 @@ Like the BIC, the message length is penalised by the number of model parameters
 through the $\log\kappa(Q)$ term. However, the model complexity is also 
 described through the priors and the Fisher information matrix, which
 describes the curvature of the log likelihood with respect to the model
-parameters. 
+parameters. For these reasons, MML provides a more accurate description of
+the model complexity (or flexibility) because it naturally includes the 
+curvature of the log likelihood with respect to the model parameters
+rather than only penalising models based on the \emph{number} of
+parameters.
 
 %\todo{Dowe said something about MML reducing to BIC under some conditions, but I have not yet found the right paper to cite.}
 
@@ -663,6 +672,9 @@ Wishart joint prior density gives highest support for mutually orthogonal vector
 \begin{equation}
 	p(\factorloads) = \frac{|\factorloads\transpose\factorloads|^{\frac{1}{2}(\NumDimensions - \NumLatentFactors - 1)}}{2^{\frac{\NumDimensions\NumLatentFactors}{2}}|\vec{S}|^{\frac{\NumDimensions}{2}}\Gamma(\frac{\NumDimensions}{2})}\exp\left[-\frac{1}{2}\textrm{Tr}(\vec{S}^{-1}\factorloads\transpose\factorloads)\right] \quad .
 \end{equation}
+
+
+
 The Fisher information for $\factorloads$ \todo{is hard to compute. I have 
 the first derivative from the log likelihood function, but the second
 derivative is (surprisingly) causing some trouble to compute.}
@@ -742,38 +754,22 @@ generated by drawing $\factorscores_{\numdata} \sim \mathcal{N}(\scoremeans_\num
 	\includegraphics[width=0.45\textwidth]{experiments/exp1-gridsearch-ll-contours.pdf}
 	\includegraphics[width=0.45\textwidth]{experiments/exp1-gridsearch-bic-contours.pdf}
 	\includegraphics[width=0.45\textwidth]{experiments/exp1-gridsearch-mml-contours.pdf}
-    \caption{Model performance metrics resulting from a gridsearch using the
-    		 data generated as part of our toy model. The top 
-		 	 panel shows the negative log-likelihood 
+    \caption{The top panel shows the negative log likelihood 
 			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
-			 evaluated at each combination of latent factors $J$ and number 
-			 of clusters $K$, and the bottom panel shows the BIC (Equation \ref{eq:bic}).
-			 The white marker indicates the 
-			 lowest value in each panel, which is joined by a black line from the true value
-			 in the top panel. The model with the lowest message length and lowest BIC has
-			 the same number of latent factors and components used to generate the data.
-		}
+			 evaluated at each combination of latent factors 
+			 $\NumLatentFactors$ and number of clusters 
+			 $\NumComponents$ using the generated data in
+			 Experiment~1.  The middle panel shows 
+			 the BIC (Eq.~\ref{eq:bic}) for those 
+			 combinations, and the lower panel shows the 
+			 message length. The white marker indicates the
+			 lowest value in each panel, showing the
+			 preferred number of latent factors and components.
+			 The black marker indicates the true value.}
     \label{fig:experiment-1-gridsearch}
 \end{figure}
 
 
-
-Here we treat the generated data set as if the true number of latent factors
-and the true number of components are not known. Starting with $\NumLatentFactors = 1$
-and $\NumComponents = 1$, we trialled each permutation of $\NumLatentFactors$ and $\NumComponents$
-until $\NumLatentFactors_{max} = 10$
-and   $\NumComponents_{max} = 40$ (e.g., twice $\NumLatentFactors_\textrm{true}$ and $\NumComponents_\textrm{true}$).
-For each $\NumLatentFactors$, $\NumComponents$ permutation we initialised the factor
-loads and component assignments randomly. We performed expectation-maximization 
-cycles until the relative log-likelihood improved by less than $10^{-5}$. 
-
-
-
-These metrics are shown in Figure~\ref{fig:experiment-1-gridsearch}.
-Unsurprisingly the log likelihood increases with increasing numbers of latent
-factors $\NumLatentFactors$ and increasing numbers of components $\NumComponents$.
-The lowest BIC value and message length is found at $\NumLatentFactors = 5$
-and $\NumComponents = 20$, identical to the true values.
 
 \begin{figure*}
 	\includegraphics[width=\textwidth]{experiments/exp1-latent.pdf}
@@ -786,19 +782,22 @@ and $\NumComponents = 20$, identical to the true values.
 \end{figure*}
 
 
-We show a corner plot of the generated data in Figure~\ref{fig:exp1-data},
-demonstrating the clustering (colour) and structure varying structure in data space.
-Despite this clustering in data space, it is clear from Figure~\ref{fig:experiment-1-gridsearch} that a combination of latent factors
-and allowing clustering in the latent space provides a better description of the data.
-Adding components to the model improves the log-likelihood, even with a single latent factor,
-but the addition of just one latent factor improvers the log-likelihood more than adding
-20 clusters. Not much can be said for this example because the true data generating process 
-is drawn from a higher number of latent factors, but this does illustrate how 
-clustering in high dimensional data can be better described by latent factors with 
-clustering in the lower dimensional latent space.
-The inferred clustering in latent space is shown in Figure~\ref{fig:exp1-latent},
-where each point is coloured by the inferred associated component. 
+Here we treat the generated data set as if the true number of latent factors
+and the true number of components are not known. Starting with $\NumLatentFactors = 1$
+and $\NumComponents = 1$, we trialled each permutation of $\NumLatentFactors$ and $\NumComponents$
+until $\NumLatentFactors_{max} = 10$
+and   $\NumComponents_{max} = 40$ (e.g., twice $\NumLatentFactors_\textrm{true}$ and $\NumComponents_\textrm{true}$).
+For each $\NumLatentFactors$, $\NumComponents$ permutation we initialised the factor
+loads and component assignments randomly. We performed expectation-maximization 
+cycles until the relative log likelihood improved by less than $10^{-5}$. 
 
+
+
+These metrics are shown in Figure~\ref{fig:experiment-1-gridsearch}.
+Unsurprisingly the log likelihood increases with increasing numbers of latent
+factors $\NumLatentFactors$ and increasing numbers of components $\NumComponents$.
+The lowest BIC value and message length is found at $\NumLatentFactors = 5$
+and $\NumComponents = 20$, identical to the true values.
 
 \begin{figure*}
 	\includegraphics[width=\textwidth]{experiments/exp1-compare-all.pdf}
@@ -808,6 +807,22 @@ where each point is coloured by the inferred associated component.
 		 	 for Experiment~1. The agreement is excellent.}
     \label{fig:exp1-compare}
 \end{figure*}
+
+
+We show a corner plot of the generated data in Figure~\ref{fig:exp1-data},
+demonstrating the clustering (colour) and structure varying structure in data space.
+Despite this clustering in data space, it is clear from Figure~\ref{fig:experiment-1-gridsearch} that a combination of latent factors
+and allowing clustering in the latent space provides a better description of the data.
+Adding components to the model improves the log likelihood, even with a single latent factor,
+but the addition of just one latent factor improvers the log likelihood more than adding
+20 clusters. Not much can be said for this example because the true data generating process 
+is drawn from a higher number of latent factors, but this does illustrate how 
+clustering in high dimensional data can be better described by latent factors with 
+clustering in the lower dimensional latent space.
+The inferred clustering in latent space is shown in Figure~\ref{fig:exp1-latent},
+where each point is coloured by the inferred associated component. 
+
+
 
 
 
@@ -826,6 +841,7 @@ there is no assurance (or requirement) that our factor loads match the true fact
 
 
 
+
 Another possibility is that the estimated factor loads could be flipped in sign 
 relative to the true factor loads, and the scores would similarly be flipped. 
 In both of these situations (reordering or flipped signs) the log likelihood 
@@ -833,7 +849,9 @@ given the data and the estimated factor loads $\factorloads_\textrm{est}$
 %\citep[or Kullback-Leibler divergence;][]{Kullback:1951}
 would be identical to the log likelihood given the data and the true factor loads 
 $\factorloads_\textrm{true}$
-despite the difference in ordering and sign. These examples serve to illustrate a more 
+despite the difference in ordering and sign. The same can be said for any other
+scalar metric \citep[e.g., Kullback-Leibler divergence;][]{Kullback:1951}.
+These examples serve to illustrate a more 
 general property that the factor loads and factor scores can be orthogonally 
 rotated by \emph{any valid rotation matrix}\footnote{A rotation matrix is valid if 
 $\vec{R}\vec{R}\transpose = \vec{I}$} $\vec{R}$. The estimated factor loads 
@@ -852,7 +870,7 @@ to construct a Givens rotation matrix, and then we take the product of those Giv
 matrices. This process reduces to Euler angle rotation in three or fewer dimensions.
 This process rotates the latent space
 ($\factorloads$, $\scoremeans$, $\scorecovs$), but has no effect on the model's 
-predictive power: the log-likelihood \citep[or the Kullback-Leibler divergence;][]{Kullback:1951} under the
+predictive power: the log likelihood \citep[or the Kullback-Leibler divergence;][]{Kullback:1951} under the
 rotated model is indistinguishable from the unrotated model.
 In Figure~\ref{fig:exp1-compare} we show the estimated factor loads $\factorloads$,
 factor scores $\factorscores$, and specific variances $\specificvariance$ compared
@@ -940,19 +958,17 @@ to each element.
 	\includegraphics[width=0.45\textwidth]{experiments/exp2-log-xfe-offset-gridsearch-ll.pdf}
 	\includegraphics[width=0.45\textwidth]{experiments/exp2-log-xfe-offset-gridsearch-bic.pdf}
 	\includegraphics[width=0.45\textwidth]{experiments/exp2-log-xfe-offset-gridsearch-mml.pdf}
-    \caption{Model performance metrics resulting from a grid search using the
-    		 \citet{Barklem:2005} data in Experiment~2.
-    		 The top panel shows the negative log-likelihood 
+    \caption{The top panel shows the negative log likelihood 
 			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
-			 evaluated at each combination of latent factors $\NumLatentFactors$ and number 
-			 of clusters $\NumComponents$. The middle panel shows the BIC (Eq.~\ref{eq:bic})
-			 for those combinations, and the lower panel shows the message length. 
-			 %The cross at
-			 %$\NumLatentFactors=8$ and $\NumComponents=5$ indicates that the model could not converge without
-			 %adding a regularisation constant to the diagonals of $\scorecovs$.
-			 A marker is shown at the lowest value in each panel, indicating
-			 the preferred number of latent factors and components 
-			 ($\NumLatentFactors = 2$ and $\NumComponents = 1$ is preferred by MML).}
+			 evaluated at each combination of latent factors 
+			 $\NumLatentFactors$ and number of clusters 
+			 $\NumComponents$ using the \citet{Barklem:2005}
+			 data in Experiment~2.  The middle panel shows 
+			 the BIC (Eq.~\ref{eq:bic}) for those 
+			 combinations, and the lower panel shows the 
+			 message length. The white marker indicates the
+			 lowest value in each panel, showing the
+			 preferred number of latent factors and components.}
     \label{fig:exp2-gridsearch-contours}
 \end{figure}
 
@@ -974,7 +990,7 @@ Despite the caveats in interpreting latent factors as nucleosynthetic processes
 (e.g. see Sections \ref{sec:exp-1} and \ref{sec:discussion}), here we will
 qualitatively describe the latent factors found in our selected model.
 The first latent factor $|\mathbf{L_0}|$ shows a non-zero contribution to most
-elements (Figure\ref{fig:exp2-factor-loads}). The elements Ca, Sc, Ti, Cr, and Co, mostly
+elements (Figure~\ref{fig:exp2-factor-loads}). The elements Ca, Sc, Ti, Cr, and Co, mostly
 Fe-peak elements, have the largest contribution from this factor. We interpret this latent
 factor as contributions from core-collapse supernovae.
 The second latent factor $|\mathbf{L_1}|$ has negligible contribution at most elements,
@@ -1004,11 +1020,10 @@ as models under-predict [Sc/Fe] ratios by a factor of ten \citep[e.g.,][]{Kobaya
 
 \begin{figure*}
 	\includegraphics[width=\textwidth]{experiments/exp2-log-xfe-offset-latent-factors-visualize-abs.pdf}
-	\caption{Rotated latent factors found in Experiment~2 using the \citet{Barklem:2005}
-			 data. The panels on the left show the entries for each factor load. On
-			 the right hand side we show the absolute fractional contributions to
-			 each element, which illustrates the loads that contribute most to each
-			 element (either by positive or negative factor loads).}
+	\caption{Latent factors found in Experiment~2 using the \citet{Barklem:2005}
+			 data. The panels on the left show the absolute entries for each factor load. 
+			 On the right we show the absolute fractional contributions to
+			 each element, illustrating the loads that contribute most to each element.}
     \label{fig:exp2-factor-loads}
 \end{figure*}
 
@@ -1062,22 +1077,52 @@ do not have a full complement of abundances. However, we also
 chose to exclude some elemental abundances from our chemical
 tagging experiments. For example, our experiments
 with \Galah\ data do not include lithium or carbon abundances because the
-photospheric varies throughout a star's lifetime. This is true
+photospheric varies throughout a star's lifetime (e.g., see Experiment 2). This is true
 to a small degree for many elements \citep[e.g.,][]{Dotter:2017},
 but for the purposes of this experiment we assume that all other
 photospheric abundances remain constant throughout  a star's
 lifetime.
+
+
+\begin{figure}
+	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-gridsearch-ll.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-gridsearch-bic.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-gridsearch-mml.pdf}
+    \caption{The top panel shows the negative log likelihood 
+			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
+			 evaluated at each combination of latent factors 
+			 $\NumLatentFactors$ and number of clusters 
+			 $\NumComponents$ using \Galah\ data in
+			 Experiment~3.  The middle panel shows 
+			 the BIC for those combinations, and the lower panel shows the 
+			 message length. The white marker indicates the
+			 lowest value in each panel, showing the
+			 preferred number of latent factors and components.}
+    \label{fig:experiment-9-gridsearch}
+\end{figure}
+
+\begin{figure*}
+	\includegraphics[width=\textwidth]{experiments/exp9-log-xfe-offset-latent-factors-visualize-abs.pdf}
+	\caption{Latent factors inferred in Experiment~3 using the \Galah\
+			 data. The panels on the left show the absolute entries for each
+			 factor load. On the right we show the absolute fractional contributions
+			 to each element, illustrating the loads that contribute most to each
+			 element.}
+    \label{fig:exp9-factor-loads}
+\end{figure*}
+
+
 
 We first selected stars with \texttt{flag\_cannon = 0} to exclude
 stars where there is reason to suspect that the stellar parameters
 (e.g., $\teff$, $\logg$) are unreliable, and as a result the 
 detailed chemical abundances are untrustworthy. We then took all
 stars with no erroneous flags in the following elemental abundance
-measurements: Mg, Al, Ca, Sc, Ti, Cr, Mn, Fe, Co, Ni, Y, Ba, and Eu.
+measurements: Na, Mg, Al, Si, K, Ca, Sc, Ti, Cr, Mn, Fe, Co, Ni, Y, Ba, and Eu.
 These elements are produced from multiple nucleosynthetic
 pathways, and it is this subsample that we will use for 
 our initial chemical experiment with \Galah\ data.
-There were 1,444 stars that met these criteria. 
+There were 1,153 stars that met these criteria. 
 
 %["Mg", "Al", "Ca", "Sc", "Ti", "Cr", "Mn", "Fe", "Co", "Ni", "Y", "Ba", "Eu"]
 
@@ -1116,60 +1161,81 @@ leaving us with a sample of \todo{50,000} stars.
 We executed a grid search for the number of latent factors $\NumLatentFactors$
 and the number of components $\NumComponents$ that were preferred by the data.
 Starting with $\NumLatentFactors = 1$ and $\NumComponents = 1$, we trialled each
-permutation of $\NumLatentFactors$ and $\NumComponents$ up until $\NumLatentFactors = \NumDimensions - 1 = 17$
-and $\NumComponents = 20$. For each permutation we initialised the model randomly,
+permutation of $\NumLatentFactors$ and $\NumComponents$ up until $\NumLatentFactors = 10$
+and $\NumComponents = 10$. For each permutation we initialised the model randomly,
 and continued expectation-maximization until a tolerance of $10^{-5}$ was achieved
-in the log-likelihood. The results of this grid search are shown in Figure~\ref{fig:exp4-gridsearch-contours},
-where we show the log-likelihood, BIC, and message length found for each permutation.
+in the log likelihood. The results of this grid search are shown in Figure~\ref{fig:experiment-9-gridsearch},
+where we show the negative log likelihood, the BIC, and message length found for each permutation.
+The model with $J = 5$ and $K = 2$ is found to have the shortest message length.
 
 
 \begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-subset-gridsearch-ll-contours.pdf}
-	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-subset-gridsearch-bic-contours.pdf}
-	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-subset-gridsearch-mml-contours.pdf}
-    \caption{Model performance metrics resulting from a gridsearch using the
-    		 data generated as part of Experiment 2. The top 
-		 	 panel shows the negative log-likelihood 
-			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
-			 evaluated at each combination of latent factors $J$ and number 
-			 of clusters $K$, and the bottom panel shows the BIC (Equation \ref{eq:bic}).
-			 The white marker indicates the 
-			 lowest value in each panel.
-				}
-    \label{fig:experiment-9-gridsearch}
+	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-specific-scatter.pdf}
+	\caption{Specific scatter remaining in the \Galah\ data \citep{Buder:2018}
+			 in Experiment~3 after accounting for the contributions by all
+			 latent factors.}
+    \label{fig:exp9-specific-scatter}
 \end{figure}
 
 
 
-
- log-likelihood found for each permutation
-
-and the corresponding
-BIC value. The lowest BIC value is found for $\todo{\NumLatentFactors = X}$ and
-$\todo{\NumComponents = X}$, which we adopted as the preferred number of latent
-factors and components.
-
-
-
-\todo{
-\begin{enumerate}
-	\item Plot data with most likely associations? Just as [Fe/H] vs [Si/Fe]?
-	\item Plot factor loads, after rotation.
-	\item Plot latent space.
-	\item Plot aspects of the clusters identified.
-	\item Plot specific scatter compared to the typical reported errors?
-\end{enumerate}
-}
+\begin{figure}
+	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-cluster.pdf}
+	\caption{Abundance ratios of [Fe/H] and [Mg/Fe] for all stars in Experiment~3,
+			 colored by their probability of being associated with the first (of two)
+			 components. This illustrates how the clustering in latent space is projected
+			 to real space, and indicates that the two components identified are largely
+			 consistent with being stars with low- and high-$\alpha$ element abundance
+			 ratios.}
+    \label{fig:exp9-cluster}
+\end{figure}
 
 
-\subsection{Experiment 4:\\Chemical abundances in the \APOGEE\ survey}
-\label{sec:exp5}
+The latent factors inferred from this model are shown in Figure~\ref{fig:exp9-factor-loads},
+where we observe some similarities to the factors identified using the \citet{Barklem:2005}
+data of metal-poor stars. The first factor, $|\mathbf{L}_0|$, has non-zero contributions
+to most elements, with a peak near the Fe-peak elements of Fe, Mn, Cr, Co, and Sc. 
+Ca, an $\alpha$-capture element, and Ti, which is observed to have similar trends to
+$\alpha$-capture elements, both have non-zero contributions from $|\mathbf{L}_0|$,
+although both of them have their primary contributions by $|\mathbf{L}_1|$. $|\mathbf{L}_1|$
+contributes most to Mg, another $\alpha$-capture element, and contributes to the light
+odd-Z elements Na, Al, K. 
+The element contributions by the third latent factor, $|\mathbf{L}_2|$, are more ambiguous.
+It contributes in reasonable amounts to many elements, including light elements (Al, Si, K),
+only some Fe-peak elements (notably Sc, Ti, Mn, an Co), and to a couple of neutron-capture
+elements (Ba, Eu). However, $|\mathbf{L}_2|$ is not the dominant factor for any single element:
+it contributes only partially to many elements.
 
-\todo{some text}
+The fourth factor $|\mathbf{L}_3|$ has strong contributions to Ba and Y, elements that are
+typically produced through the slow neutron capture process. However, this factor is also
+the dominant contributor to Ni, and has non-zero contributions to Mn, and a few other light
+elements. Similarly, $|\mathbf{L}_4|$ is the dominant contributor to Eu, an
+element almost entirely produced by the rapid neutron capture process, but it too has
+non-zero contributions to a handful of other elements, including Na and K.
 
+%The specific scatter after accounting for these latent factors is smallest
+%for Fe and largest for K and Y (Figure~\ref{fig:exp9-specific-scatter}).
+
+The relative weighting of the two components identified by this model using
+\Galah\ data is nearly equal. In Figure~\ref{fig:exp9-latent-space} we show 
+abundance ratios colored by their inferred component association.
+It is clear that the component association in latent space does not directly
+translate to a clear separation in data space: in this [Fe/H]-[Mg/Fe] plane
+there is overlap in points between the two associations. 
+\todo{When we look at latent space these components are more clearly separated.}
+However, in general
+the two components could be identified as high and low-$\alpha$ element ratio
+components.
+
+
+
+\subsection{Experiment~4:\\Including missing data from the \Galah\ survey} \label{sec:experiment-4}
+
+\todo{Do we bother?}
 
 \section{Discussion} \label{sec:discussion}
 
+\todo{data-driven model of nucleosynthesis}
 
 %We have presented a novel approach to chemical tagging that incorporates
 %latent factors common to all stars, and allows for clustering in the relative
@@ -1220,7 +1286,7 @@ must `assign' the latent factors we infer as being described by an astrophysical
 process (e.g., the zeroth-latent factor is r-process). A more general limitation
 of this is that the latent factors can be multiplied by some arbitrary rotation
 matrix, leading to latent factor loads that are very different from what was
-estimated by the model, but still lead to the exact same data (or log-likelihood,
+estimated by the model, but still lead to the exact same data (or log likelihood,
 or Kullback-Liebler divergence, etc). As a consequence, we can only `identify'
 latent factors up until this rotation. We have sought to address this by constructing
 rotation matrices where the entries each latent factor correspond to our expectations
@@ -1250,18 +1316,9 @@ the data.}
 
 \todo{discussion of experimental results}
 
-\todo{
-\begin{itemize}
-	\item at low metallicities how many factors do we prefer, and what can we
-		  vaguely interpret these at?
-	\item when we do that to large galah data sets, what is the number of factors
-	\item clustering in galah
-	\item clustering in apogee
-\end{itemize}
-}
-
-
 \section{Conclusions} \label{sec:conclusion}
+
+\todo{some}
 
 \acknowledgements
 A.~R.~C. is supported in part by Australian Research Council
