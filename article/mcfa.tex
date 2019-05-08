@@ -73,12 +73,12 @@
 
 \submitjournal{AAS Journals}
 
-\shorttitle{Chemical tagging in lower-dimensional latent space}
+\shorttitle{A data-driven model of nucleosynthesis with chemical tagging in latent space}
 \shortauthors{Casey et al.}
 
 \begin{document}
 
-\title{Chemical tagging in lower-dimensional latent space}
+\title{A data-driven model of nucleosynthesis with chemical tagging in latent space}
 
 \correspondingauthor{Andrew R. Casey}
 \email{andrew.casey@monash.edu}
@@ -115,29 +115,34 @@ present-day stellar abundances.
 Previous techniques have treated chemical abundances as being 
 statistically independent, despite the nucleosynthesis literature showing that
 most elements can be produced by more than one nucleosynthetic pathway.
-In this work we introduce a data-driven model for chemical abundances
+In this work we introduce a data-driven model of nucleosynthesis 
 where a set of latent factors (e.g., nucleosynthetic yields) contribute
-to all stars with different scores, and the clustering (e.g., chemical tagging) 
-is represented by a mixture model in a lower-dimensional latent space.
+to all stars with different scores, and clustering (e.g., chemical tagging) 
+is represented by a mixture model of multivariate normal distributions
+in a lower-dimensional latent space.
 We use an exact method to simultaneously estimate the factor scores for
 each star, the relative weighting (e.g., partial assignment) of each star
 to each cluster, and to infer the latent factors that are common to all stars.
 We use an information-theoretic Bayesian principle to estimate the number of
 latent factors and clusters.
-We perform experiments on literature chemical abundances
+We perform experiments on generated and real data, including literature chemical abundances
 of metal-poor stars, and those from the second \Galah\ data release. 
 We find that \todo{five} latent factors are preferred to explain the detailed 
 abundances of metal-poor stars, and \todo{eight} are preferred given \todo{X} abundances
 in \Galah\ data. In both experiments we recover latent factors that 
 are representative of mean yields expected from the rapid- and slow-neutron
 capture process, as well as nucleosynthesis in Type II supernovae. 
-We find \todo{two} clusters are preferred in the \Galah\ data of \todo{X} abundances
-and \todo{Y} stars, which are representative of the [$\alpha$/Fe]-poor and 
-[$\alpha$/Fe]-rich populations in the Milky Way disk. We expect more components
+We find \todo{two} clusters are preferred in the \Galah\ data of 16 abundances
+and 1,136 stars, which are representative of the [$\alpha$/Fe]-poor and 
+[$\alpha$/Fe]-rich populations in the Milky Way disk. 
+We expect more components
 would be preferred given complete abundance inventory of a larger sample of stars.
-We release software that scales \todo{as $\mathcal{O}(XX)$}, where $X$ is \todo{what},
-enabling model parameter estimation in minutes given $\sim$$10^7$
-chemical abundance measurements.
+We release accompanying software that scales well with the available data,
+allowing model parameters to be optimised in a few minutes even given $\sim$$10^{7.5}$ 
+abundance measurements.
+%We release software that scales \todo{as $\mathcal{O}(XX)$}, where $X$ is \todo{what},
+%enabling model parameter estimation in minutes given $\sim$$10^7$
+%chemical abundance measurements.
 \end{abstract}
 
 
@@ -246,7 +251,7 @@ In Section~\ref{sec:methods} we describe the model and the methods we use to
 estimate the model parameters. Section~\ref{sec:experiments} describe the 
 experiments performed using generated and real data sets. We discuss the results
 of these experiments in Section~\ref{sec:discussion}, including the caveats with
-the model as described. We conclude in Section~\ref{sec:conclusion}.
+the model as described. We conclude in Section~\ref{sec:conclusions}.
 
 
 
@@ -425,7 +430,8 @@ At the maximization step we update our estimates of the parameters,
 conditioned on the data $\vecdata$ and the responsibility matrix $\vec\tau$.
 The updated parameters estimates are found by setting the second derivative
 of the log likelihood (Eq.~\ref{eq:log-likelihood}) to zero and solving for
-the parameter values. In doing so this guarantees that every updated
+the parameter values\footnote{Strictly this introduces a statistical inconsistency in that we should update our parameter estimates by setting the second derivative of our chosen objective function (Eq.~\ref{eq:message-length}) to zero instead of the log likelihood, but this difference is inconsistency becomes serious at small $N$.}
+In doing so this guarantees that every updated
 estimate of the model parameters is guaranteed to increase the log likelihood.
 Although there are no guarantees against converging on local minima, in 
 practice it is sufficient to run expectation-maximization from multiple
@@ -568,12 +574,6 @@ whereas rarer events convey a much higher information content.
 
 
 
-\begin{figure*}
-	\includegraphics[width=1.0\textwidth]{experiments/exp1-data-colour.pdf}
-    \caption{The generated data for Experiment~1, where points are coloured by their
-		     true associations to each component.}
-    \label{fig:exp1-data}
-\end{figure*}
 
 
 In practice calculating the message length can be a non-trivial task, 
@@ -613,6 +613,14 @@ rather than only penalising models based on the \emph{number} of
 parameters.
 
 %\todo{Dowe said something about MML reducing to BIC under some conditions, but I have not yet found the right paper to cite.}
+
+\begin{figure*}
+	\includegraphics[width=1.0\textwidth]{experiments/exp1-data-colour.pdf}
+    \caption{The generated data for Experiment~1, where points are coloured by their
+		     true associations to each component.}
+    \label{fig:exp1-data}
+\end{figure*}
+
 
 
 We will describe the contributions to the message length in parts. We assume
@@ -700,24 +708,21 @@ derivative is (surprisingly) causing some trouble.}
 Thus the message length to encode $\factorloads$ is given by
 \begin{eqnarray}
 	I(\factorloads) &=& -\log\left(\frac{p(\factorloads)}{\sqrt{|\mathcal{F}(\factorloads)|}}\right) \nonumber \\
-	&=& -\log{p(\factorloads)} + \todo{\frac{1}{2}\log{|\mathcal{F}(\factorloads)|}} \nonumber \\
 I(\factorloads)	&=& \frac{1}{2}\textrm{Tr}(\textrm{Cov}(\factorloads\transpose)^{-1}\factorloads\transpose\factorloads) - \frac{1}{2}(\NumDimensions - \NumLatentFactors - 1)\log{|\factorloads\transpose\factorloads|} \nonumber \\
 	&& \cdots \,\, + \frac{1}{2}\NumDimensions\NumLatentFactors\log{2} + \frac{1}{2}\NumDimensions\log{|\textrm{Cov(\factorloads)}|} - \Gamma\left(\frac{\NumDimensions}{2}\right) \nonumber \\
 	&& \cdots \todo{+\frac{1}{2}\log{|\mathcal{F}(\factorloads)|}} \quad . \label{eq:prior_L}
 \end{eqnarray}
 
-Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{eq:prior_xi_omega}, and \ref{eq:prior_L} with equation \ref{eq:mml} leads to the full message length
+Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{eq:prior_xi_omega}, and \ref{eq:prior_L} with equation \ref{eq:mml} leads to the full message length:
+\begin{widetext}
 \begin{eqnarray}
-	I(\vec\Psi, \vec\data) &=& -\log\likelihood(\vec\data|\vec\Psi) \nonumber \\
-	&& +\frac{1}{4}\left(\NumLatentFactors + 4\right)\left(\NumLatentFactors - 1\right)\sum_{\numcomponents=1}^\NumComponents\log\weight_\numcomponents + \left(\NumComponents - \frac{1}{2}\right)\log{\NumData} \nonumber \\
-	&& +\frac{1}{2}\NumDimensions\log|\textrm{Cov}\left(\factorloads\transpose\right)| - \frac{1}{2}\left(D-J-1\right)\log|\factorloads\transpose\factorloads| \nonumber \\
-	&& +\textrm{Tr}\left(\textrm{Cov}\left(\factorloads\transpose\right)^{-1}\factorloads\transpose\factorloads\right) - \left(\NumLatentFactors + \frac{3}{2}\right)\sum_{\numcomponents=1}^\NumComponents\log|\scorecovs_\numcomponents| \nonumber \\
-	&& -\log\Gamma\left(\NumComponents\right) - \Gamma\left(\frac{\NumDimensions}{2}\right) + \frac{Q}{2}\log\kappa_q \nonumber \\
-	&& +\frac{1}{2}\left[\NumLatentFactors(\NumDimensions + 2) + \NumComponents(2-\NumData)\right]\log{2} \nonumber \\
-	&& \todo{+\frac{1}{2}\log{|\mathcal{F}(\factorloads)|}} .
-\end{eqnarray}
-
-
+	I(\vec\Psi, \vec\data) &=& -\log\likelihood(\vec\data|\vec\Psi)
+ +\frac{1}{4}\left(\NumLatentFactors + 4\right)\left(\NumLatentFactors - 1\right)\sum_{\numcomponents=1}^\NumComponents\log\weight_\numcomponents + \left(\NumComponents - \frac{1}{2}\right)\log{\NumData}
+ +\frac{1}{2}\NumDimensions\log|\textrm{Cov}\left(\factorloads\transpose\right)| \nonumber \\
+  && \cdots -\frac{1}{2}\left(D-J-1\right)\log|\factorloads\transpose\factorloads| + \textrm{Tr}\left(\textrm{Cov}\left(\factorloads\transpose\right)^{-1}\factorloads\transpose\factorloads\right) - \left(\NumLatentFactors + \frac{3}{2}\right)\sum_{\numcomponents=1}^\NumComponents\log|\scorecovs_\numcomponents|  -\log\Gamma\left(\NumComponents\right) - \Gamma\left(\frac{\NumDimensions}{2}\right) \nonumber \\
+&& \cdots +\frac{Q}{2}\log\kappa_q +\frac{1}{2}\left[\NumLatentFactors(\NumDimensions + 2) + \NumComponents(2-\NumData)\right]\log{2} + \todo{\frac{1}{2}\log{|\mathcal{F}(\factorloads)|}} \quad . \label{eq:message-length}
+ \end{eqnarray}
+\end{widetext}
 
 
 % -\log\likelihood(\vec\data|\vec\Psi) \
@@ -900,13 +905,12 @@ to the true values. The agreement is excellent in all model parameters.
 \subsection{Experiment~2:\\Inferring astrophysically realistic latent factors}
 
 In this experiment we use detailed chemical abundances of metal-poor stars 
-\citep{Barklem:2005} to demonstrate the utility and limitations
+from \citet{Barklem:2005} to illustrate the utility and limitations
 in interpreting the latent factors as nucleosynthetic processes. The data 
 can be described as 14 chemical abundance measurements from 61 stars ($\NumData = 61$, $\NumDimensions = 14$), and those 14 chemical elements trace multiple nucleosynthetic pathways. Specifically the chemical
 abundances measured include Al (light odd-Z), Mg and Ca ($\alpha$-process), Sc, Ti, Cr, Mn, Fe, Co, and Ni (Fe-peak elements), as well as Sr, Y, Ba, and Eu ($s$/$r$-process). 
-The data vector $\data$ includes [Fe/H] abundance ratios and all other elements
-relative to Fe (e.g., [Ti/Fe]) after subtracting the mean value to allow the
-latent factors to describe the abundance patterns away from the mean.
+The data vector includes [Fe/H] abundance ratios and all other elements
+relative to Fe (e.g., [Ti/Fe]) after subtracting the mean value in each dimension.
 
 We performed a grid search for the optimal number of latent factors 
 $\NumLatentFactors$ and components $\NumComponents$, starting from 
@@ -927,7 +931,7 @@ for each permutation of $J$ and $K$. The negative log likelihood continues to
 increase with increasing numbers of clusters, or increasing numbers of latent
 factors.
 The lowest BIC value is found for $J = 5$ and $K = 1$, indicating
-six latent factors are preferred, with no clustering. The shortest message length
+five latent factors are preferred with no clustering. The shortest message length
 is also found with no clustering,  but with four latent factors ($J = 4$, $K = 1$).
 We adopt the message length as our objective function and chose $J = 4$ and $K = 1$
 as the preferred model.
@@ -1005,21 +1009,20 @@ We discuss this in more detail in Section~\ref{sec:discussion}.
 %weak negative contribution to Mn abundances, which was not part of the target
 %loads. 
 Despite the caveats in interpreting latent factors as nucleosynthetic processes
-(e.g. see Sections \ref{sec:exp-1} and \ref{sec:discussion}), here we will
+(e.g., see Sections~\ref{sec:exp-1} and \ref{sec:discussion}), here we will
 qualitatively describe the latent factors found in our selected model.
 The first latent factor $|\mathbf{L_0}|$ shows a non-zero contribution to most
 elements (Figure~\ref{fig:exp2-factor-loads}). The elements Ca, Sc, Ti, Cr, and Co, mostly
 Fe-peak elements, have the largest contribution from this factor. We interpret this latent
-factor as contributions from core-collapse supernovae.
+factor as being most similar to expected contributions from core-collapse supernovae.
 The second latent factor $|\mathbf{L_1}|$ has negligible contribution at most elements,
 with strong contributions for C, and the neutron-capture elements Sr, Y, Ba, and Eu. We
 interpret this latent factor as being most closely representative of the slow neutron
-capture process. The third latent factor has almost no contribution to Ba, but has
+capture process, which primarily occurs in asymptotic giant branch stars. The third latent factor has almost no contribution to Ba, but has
 non-zero contributions to other neutron-capture elements Sr, Y, and Eu. Since Eu has
 the strongest contribution by $|\mathbf{L_2}|$, we interpret this factor as being most
 representative of the rapid neutron capture process. The last latent factor $|\mathbf{L_3}|$
-has a noticeable peak at Fe and the surrounding Fe-peak elements, with small non-zero contributions
-at most elements. 
+has a noticeable peak at Fe and the surrounding Fe-peak elements, with small non-zero contributions at most elements. \todo{What to say of $|\mathbf{L_3}|$?}
 
 \begin{comment}
 The first factor shows a positive contributions to most elements except for
@@ -1056,9 +1059,11 @@ is mostly affected by the evolutionary state of the star, rather than the natal
 abundance. After C, the elements with large specific scatter include Al, Fe, Ni, 
 and Ba. A large relative scatter in Al and Ba might suggest that there are other latent
 factors that contribute to those elements, but those latent factors were not included because
-the message length preferred a fewer number of factors. However, the scatter in 
-Fe and Ni is somewhat surprising. Those elements usually have strong and numerous atomic
-lines that can be easily measured in metal-poor stars. 
+the message length preferred a fewer number of factors, or it could be limitations in
+the assumptions of our model (e.g., we assume mutually orthogonal latent factors, an assumption that is likely provably false; see Section~\ref{sec:discussion}).
+%However, the scatter in 
+%Fe and Ni is somewhat surprising. Those elements usually have strong and numerous atomic
+%lines that can be easily measured in metal-poor stars. 
 
 
 %The relatively wide uncertainty regions on these factors is perhaps not
@@ -1070,7 +1075,7 @@ lines that can be easily measured in metal-poor stars.
 
 \begin{figure}
 	\includegraphics[width=0.45\textwidth]{experiments/exp2-log-xfe-offset-specific-scatter.pdf}
-	\caption{Specific scatter remaining in the \citet{Barklem:2005} data used in
+	\caption{Specific scatter $\sqrt{\specificvariance}$ remaining in the \citet{Barklem:2005} data used in
 			 Experiment~2 after accounting for the contributions by all latent
 			 factors.}
     \label{fig:exp2-specific-scatter}
@@ -1085,12 +1090,12 @@ In this experiment we perform blind chemical tagging using the
 photospheric abundances released as part of the second \Galah\ 
 data release \citep{Buder:2018}. This data set includes
 up to 23 chemical abundances reported for 342,682 stars.
-Some abundances are not reported, for a variety of 
+Some abundances are not reported for a variety of 
 reasons related to astrophysics or the adopted analyses
 (e.g., a star is too hot to estimate the abundance for a given
-transition, or the signal-to-noise of the spectrum is too low).
-Our method as described cannot handle missing data entries for
-a given star, and as such we are forced to exclude stars that
+electronic transition, or the signal-to-noise of the spectrum is too low).
+Our method as described cannot efficiently handle missing data 
+entries for a given star, and as such we are forced to exclude stars that
 do not have a full complement of abundances. However, we also
 chose to exclude some elemental abundances from our chemical
 tagging experiments. For example, our experiments
@@ -1098,7 +1103,7 @@ with \Galah\ data do not include lithium or carbon abundances because the
 photospheric varies throughout a star's lifetime (e.g., see Experiment 2). This is true
 to a small degree for many elements \citep[e.g.,][]{Dotter:2017},
 but for the purposes of this experiment we assume that all other
-photospheric abundances remain constant throughout  a star's
+photospheric abundances remain constant throughout a star's
 lifetime.
 
 
@@ -1134,7 +1139,7 @@ lifetime.
 We first selected stars with \texttt{flag\_cannon = 0} to exclude
 stars where there is reason to suspect that the stellar parameters
 (e.g., $\teff$, $\logg$) are unreliable, and as a result the 
-detailed chemical abundances are untrustworthy. We then took all
+detailed chemical abundances would be untrustworthy. We then took all
 stars with no erroneous flags in the following elemental abundance
 measurements: Na, Mg, Al, Si, K, Ca, Sc, Ti, Cr, Mn, Fe, Co, Ni, Y, Ba, and Eu.
 These elements are produced from multiple nucleosynthetic
@@ -1189,7 +1194,7 @@ The model with $J = 5$ and $K = 2$ is found to have the shortest message length.
 
 \begin{figure}
 	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-specific-scatter.pdf}
-	\caption{Specific scatter remaining in the \Galah\ data \citep{Buder:2018}
+	\caption{Specific scatter $\sqrt{\specificvariance}$ remaining in the \Galah\ data \citep{Buder:2018}
 			 in Experiment~3 after accounting for the contributions by all
 			 latent factors.}
     \label{fig:exp9-specific-scatter}
@@ -1234,66 +1239,91 @@ non-zero contributions to a handful of other elements, including Na and K.
 %The specific scatter after accounting for these latent factors is smallest
 %for Fe and largest for K and Y (Figure~\ref{fig:exp9-specific-scatter}).
 
-The relative weighting of the two components identified by this model using
-\Galah\ data is nearly equal. In Figure~\ref{fig:exp9-latent-space} we show 
-abundance ratios colored by their inferred component association.
+The two components identified by this model have nearly equal mixing proportions.
+In Figure~\ref{fig:exp9-latent-space} we show the latent space coloured by the
+inferred component association, and in Figure~\ref{fig:exp9-cluster} we project
+this to real space showing [Fe/H] abundance ratios relative to [Mg/Fe].
 It is clear that the component association in latent space does not directly
 translate to a clear separation in data space: in this [Fe/H]-[Mg/Fe] plane
 there is overlap in points between the two associations. 
-\todo{When we look at latent space these components are more clearly separated.}
-However, in general
-the two components could be identified as high and low-$\alpha$ element ratio
-components.
+However, when we consider the clustering in latent space these components 
+are more clearly separated. In general the two components identified by the
+model could be described as high- and low-$\alpha$ element ratio stars in
+the disk of the Milky Way.
 
+With a larger sample of stars that have a complete abundance inventory we would expect to 
+identify more components, and perhaps unique star formation events. However
+because our model requires no missing abundances in any element, we would
+need to reduce the number of elemental abundances we include in order to increase
+the sample of stars. And by doing so we restrict the number of latent factors
+that can be inferred from the data.
 
-
-\subsection{Experiment~4:\\Including missing data from the \Galah\ survey} \label{sec:experiment-4}
-
-\todo{Do we bother?}
 
 \section{Discussion} \label{sec:discussion}
 
-\todo{data-driven model of nucleosynthesis}
-
-%We have presented a novel approach to chemical tagging that incorporates
-%latent factors common to all stars, and allows for clustering in the relative
-%contributions of those factors. This is analogous to simultaneously
-%inferring nucleosynthetic yields as part of chemical tagging. 
-
-Earlier studies investigating the limitations of chemical tagging have shown
+Literature studies testing the limitations chemical tagging have shown
 that the effective dimensionality of chemical abundance space is lower than
 the number of reported abundances \citep[e.g.,][]{Price-Jones:2018}. 
-This is expected. Theoretical models of stellar evolution and nucleosynthesis 
-suggest that there are of order \todo{5} nucleosynthetic mechanisms that are
-predominately responsible for the production of the $\sim$20 or so observed 
-reported in those studies. As a consequence we can expect that the observed
-chemical abundances are correlated in some way (e.g., by a linear combination
-of a fewer number of nucleosynthetic pathways).  However, most approaches to
-chemical tagging to date have assumed that the observed chemical abundances
-are independent of each other \todo{\citep[e.g.,][]{who}}. Those inferences
-will be biased by that assumption in a non-trivial way. This problem cannot be
+This is expected. Theoretical models of stellar evolution and nucleosynthesis
+would suggest that there are of order at most ten important nucleosynthetic 
+contributors that are responsible for the production of the $\sim$20--30
+chemical abundances typically reported. As a consequence we can expect that 
+the observed chemical abundances are correlated in some way (e.g., by some
+linear combination of a fewer number of nucleosynthetic pathways).  However, 
+most approaches to chemical tagging to date have assumed that the observed 
+chemical abundances are independent of each other. This problem cannot be
 resolved by simply lowering the number of abundances used for chemical tagging (e.g.,
 down to something near the effective dimensionality), either, because those
 chemical abundances are still produced by multiple pathways.
 
 Here we have introduced a model to simultaneously account for the lower
 effective dimensionality of chemical abundance space, and perform clustering
-in that lower dimensional space. Although our model allows us to estimate
-those latent factors that contribute to all stars, and cluster those stars by
-their relative contributions from those factors, there are issues with the
-model we adopt. The model we describe is very likely \emph{not} the correct
-model to use to describe chemical abundances of stars. We require the latent
-factors in our model to be mutually orthogonal to each other. This suggests
-an astrophysical context where the mean nucleosynthetic yields (over all star
-formation histories and stellar masses) of various
-processes (e.g., $r$-process, $s$-process) are mutually orthogonal to each
-other. Clearly this assumption is likely to be incorrect: the nuclear physics
-of one environment where elements are produced  can be very different from
-other environments, and there is no astrophysical constraint that those
-latent factors should be mutually orthogonal.
-A more flexible data-driven model of nucleosynthetic yields (as a function of mass,
-stellar metallicity, and other factors) that does not require the latent
-factors to be mutually orthogonal would be a worthy extension to this work.
+in that lower dimensional space. This provides a data-driven model of
+nucleosynthesis yields and chemical tagging that allows us to simultaneously
+estimate the latent factors that contribute to all stars, and cluster those 
+stars by their relative contributions from each factors. The results are
+encouraging in that we find latent factors that are representative of the
+expected yields from dominant nucleosynthetic channels. However, the model that
+we describe is very likely \emph{not} the correct model to use to represent 
+chemical abundances of stars. Here we discuss the limitations of our model 
+in detail.
+
+
+We require latent factors to be mutually orthogonal to in order to resolve
+the indeterminacy in our model. This suggests an astrophysical context where 
+the mean nucleosynthetic yields (integrated over all stellar masses and star
+formation histories) of various nucleosynthetic processes (e.g., $r$-process, 
+$s$-process) are mutually orthogonal to each other. Clearly this assumption 
+is likely to be incorrect: the nuclear physics
+of one environment where elements are produced will be very different from
+others, and there is no astrophysical constraint that those
+yields (or latent factors) should be mutually orthogonal.
+One could represent them by a hierarchical data-driven model where the yields contribute as a function of stellar mass, 
+metallicity, and other factors), but in principle to resolve the indeterminacy
+the mean of these yields would require mutual orthogonality. Introducing a constraint on the factor scores that resolves this indeterminacy and allows for more flexible latent factors would be a worthy extension to this work.
+
+
+The constraint of mutual orthogonality limits the inferences we want to make
+about stellar nucleosynthetic yields. For example, after accounting for all
+known sources of potassium production in the Milky Way, galactic chemical evolution
+models under-predict the level of potassium in the Milky Way by more than an
+order of magnitude \citep{Kobayashi:2006}. From our inferences in Experiment~3
+using \Galah\ data, we find multiple latent factors have non-zero contributions
+to potassium: $\factorloads_1$, $\factorloads_2$, and $\factorloads_3$. Let us consider
+$\factorloads_3$, which is the dominant contributor of the principally $r$-process element europium. If our model confidently and
+reliably associated the production of potassium with the rapid neutron capture
+process, it could help explain the peculiar abundances of stars enhanced in
+potassium and depleted in magnesium \citep{Mucciarelli:2012,Cohen:2012} -- a chemical
+abundance pattern that currently lacks explanation \citep{Kemp:2018}.
+However, is the potassium contribution that we infer physically realistic,
+or is it a consequence of requiring that the latent factors are mutually
+orthogonal? Distinguishing these possibilities is non-trivial, which is in
+part why caution is warranted when trying to interpret latent factor models.
+In this situation it is worth commenting that potassium has the largest specific
+scatter (Figure~\ref{fig:exp9-specific-scatter}), suggesting that the contributions
+of potassium are not as well described by the latent factor model as other
+elements.
+
 
 There are other issues in our model that relate to our assumption of mutual
 orthogonality. Even if nucleosynthetic yields were truely mutually orthogonal,
@@ -1309,11 +1339,13 @@ or Kullback-Liebler divergence, etc). As a consequence, we can only `identify'
 latent factors up until this rotation. We have sought to address this by constructing
 rotation matrices where the entries each latent factor correspond to our expectations
 from astrophysical processes (whilst remaining orthogonal), but here we are limited
-by what astrophysical processes we are \emph{expected} to find.
+by what astrophysical processes we are \emph{expected} to find within the constraint
+of being mutually orthogonal.
 
-This constrains our ability to identify new nucleosynthetic processes. For example,
+
+This in part constrains our ability to identify new nucleosynthetic processes. For example,
 let us consider a hypothetical situation where we would only expect there to be four 
-nucleosynthetic processes that predominately contribute to the observed \GALAH\ abundances,
+nucleosynthetic processes that predominately contribute to the observed \Galah\ abundances,
 but in practice we found that the data are best explained (with high significance) with
 five latent factors. We construct a rotation matrix where the first four latent factors
 describe the mean nucleosynthetic processes we expect to find. What of the fifth latent
@@ -1329,22 +1361,51 @@ that a latent factor model that allows for clustering in latent space can adequa
 describe chemical abundance data. Our experiments with toy data (Experiment~1) reliably
 finds the true number of latent factors and cluster components when we adopt an information-theoretic approach to the objective function (e.g., BIC or MML), and correctly estimates the latent
 model parameters. When applied to chemical abundances measured from metal-poor stars 
-(Experiment~2) we find that \todo{seven latent factors and two clusters are preferred by
-the data.}
+(Experiment~2) we find that four latent factors are preferred by the data, and
+those latent factors qualitatively re-appear in Experiment~3 using \Galah\ data. 
+That did not have to be the case: the latent factors between different experiments (data sets)
+might be entirely different, and those factors did not have to qualitatively match our
+expectations of nucleosynthetic yields. Indeed, the inferred factors -- even after a
+valid rotation -- could have made no astrophysical sense whatsoever. For this reason it
+is encouraging that there is some interpretability in the latent factors, even though 
+caution is warranted.
 
-\todo{discussion of experimental results}
+The relatively small data set with complete abundances measured in \Galah\ both limits
+the number of components we can infer, and the efficacy of chemical tagging. Only two
+components were preferred from the data set of 1,136 stars, which we identified as
+being stars with low- and high-[$\alpha$/Fe] abundance ratios. A worthwhile extension
+of this work would be to incorporate missing and noisy data in order to allow for
+blind chemical tagging on an industrial scale, allowing for the latent factors to
+be efficiently estimated while chemical tagging occurs in the lower-dimensional
+latent space.
 
-\section{Conclusions} \label{sec:conclusion}
+\section{Conclusions} \label{sec:conclusions}
 
-\todo{some}
+We have introduced a data-driven model of nucleosynthesis by incorporating 
+latent factors that are common to all stars, and allowing for clustering in the
+lower-dimensional latent space. This approach simultaneously allows us to efficiently
+tag stars based on their chemical abundances, and to infer the contributions that are
+common to all stars (e.g., nucleosynthetic yields). Experiments with generated data
+demonstrate that MML is a useful principle for identifying the preferred number of
+latent factors and components. Experiments with real data reveal latent factors
+that are qualitatively similar to expected nucleosynthetic yields (e.g., products
+from the $s$-process, $r$-process, et cetera). Similar latent factors emerge 
+from chemical abundances of metal-poor stars and using data from the second \Galah\
+data release. We express caution in directly interpreting those latent
+factors, as our model explicitly requires mutually orthogonal latent factors.
+We highlight potential extensions of this work that would efficiently deal with
+missing and noisy data points.
+
+% This paper was built from reference XXX on github repo YYY
+
 
 \acknowledgements
-A.~R.~C. is supported in part by Australian Research Council
-Discovery Project DP160100637.
-The \GALAH\ survey is based on observations made at the Australian Astronomical Observatory, under programmes A/2013B/13,
+We acknowledge support from the Australian Research Council
+through Discovery Project DP160100637.
+The \Galah\ survey is based on observations made at the Australian Astronomical Observatory, under programmes A/2013B/13,
 A/2014A/25, A/2015A/19, A/2017A/18. We acknowledge the traditional owners of the land on which the AAT stands, the Gamilaraay
 people, and pay our respects to elders past and present.
-This work presents results from the European Space Agency (ESA) space mission Gaia. Gaia data is being processed by the Gaia Data Processing and Analysis Consortium (DPAC). Funding for the DPAC is provided by national institutions, in particular the institutions participating in the Gaia MultiLateral Agreement (MLA). The Gaia mission website is https://www.cosmos.esa.int/gaia . The Gaia archive website is https://archives.esac.esa.int/gaia .
+%This work presents results from the European Space Agency (ESA) space mission Gaia. Gaia data is being processed by the Gaia Data Processing and Analysis Consortium (DPAC). Funding for the DPAC is provided by national institutions, in particular the institutions participating in the Gaia MultiLateral Agreement (MLA). The Gaia mission website is https://www.cosmos.esa.int/gaia . The Gaia archive website is https://archives.esac.esa.int/gaia .
 This research has made use of NASA's Astrophysics Data System.
 
 
@@ -1356,7 +1417,7 @@ This research has made use of NASA's Astrophysics Data System.
     \package{scipy}\,\,\citep{scipy},\,\,
     \package{Stan}\,\,\citep{stan},\,\,
     \package{Jupyter Notebooks}\,\,\citep{jupyter-notebooks}\,\,
-}    
+}    % TOPCAT
 
 
 
