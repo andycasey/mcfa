@@ -9,6 +9,7 @@ from scipy.stats import binned_statistic_2d
 from matplotlib.colors import (BoundaryNorm, LinearSegmentedColormap, LogNorm)
 from matplotlib.ticker import MaxNLocator, FormatStrFormatter, FuncFormatter
 from matplotlib.patches import Ellipse
+from matplotlib import ticker
 
 from .utils import find_rotation_matrix, givens_rotation_matrix
 
@@ -160,7 +161,7 @@ def plot_specific_scatter(model, y=None, scales=1,
                           xlabel=None, xticklabels=None, ylabel=None,
                           steps=False, fill=True, line_kwds=None, fill_kwds=None):
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(3.57, 3.57))
 
     if y is None:
         y = scales * np.sqrt(model.theta_[model.parameter_names.index("psi")])
@@ -193,7 +194,23 @@ def plot_specific_scatter(model, y=None, scales=1,
     ax.set_xticks(x)
 
     if xticklabels is not None:
+        ax.xaxis.set_tick_params(width=0)
+
+        ax.xaxis.set_minor_locator(ticker.FixedLocator(np.arange(x.size) + 0.5))
+
+        """
+        ax.xaxis.set_major_formatter(ticker.NullFormatter())
+        ax.xaxis.set_tick_params(width=00)
+        ax.xaxis.set_minor_formatter(ticker.FixedFormatter(xticklabels))
+        """
+
         ax.set_xticklabels(xticklabels)
+
+        for i, tick in enumerate(ax.get_xaxis().get_major_ticks()):
+            if i % 2 == 0: continue
+
+            tick.set_pad(15.)
+            tick.label1 = tick._get_text1()
 
     if xlabel is not None:
         ax.set_xlabel(xlabel)
