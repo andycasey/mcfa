@@ -154,7 +154,7 @@ class MCFA(object):
         return klass
 
 
-    def _check_data(self, X, warn_about_whitening=False):
+    def _check_data(self, X, X_err=None, warn_about_whitening=False):
         r""" 
         Verify that the latent space has lower dimensionality than the data
         space.
@@ -190,10 +190,18 @@ class MCFA(object):
             logger.warn("Supplied data do not appear to be whitened. "\
                         "Use mcfa.utils.whiten(X) to whiten the data.")
 
+        if X_err is not None:
+            X_var = np.atleast_2d(X_err)**2
+            if X_var.shape != X.shape:
+                raise ValueError("X and X_err must have the same shape")
+
+        else:
+            X_var = 0
+
         # Pre-calculate X2, because we will use this at every EM step.
         self._check_precomputed_X2(X)
 
-        return X
+        return (X, X_var)
 
 
     def _check_precomputed_X2(self, X, **kwargs):
@@ -301,7 +309,7 @@ class MCFA(object):
         return int((K - 1) + D + J*(D + K) + (K*J*(J+1))/2 - J**2)
 
 
-    def expectation(self, X, pi, A, xi, omega, psi, **kwargs):
+    def expectation(self, X, pi, A, xi, omega, psi, X_var=0, **kwargs):
         r"""
         Compute the conditional expectation of the complete-data log-likelihood
         given the observed data :math:`X` and the given model parameters.
@@ -342,13 +350,14 @@ class MCFA(object):
         """
 
         ll, tau = _expectation(X, pi, A, xi, omega, psi, 
-                               verbose=self.verbose, **kwargs)
+                               verbose=self.verbose, X_var=X_var,
+                               **kwargs)
         self.log_likelihoods_.append(ll)
 
         return (ll, tau)
 
 
-    def maximization(self, X, tau, pi, A, xi, omega, psi):
+    def maximization(self, X, tau, pi, A, xi, omega, psi, X_var=0):
         r"""
         Compute the updated estimates of the model parameters given the data,
         the responsibility matrix :math:`\tau`, and the current estimates of the
@@ -394,7 +403,7 @@ class MCFA(object):
         """
 
         return _maximization(X, tau, pi, A, xi, omega, psi,
-                             X2=self._check_precomputed_X2(X),
+                             X_var=X_var, X2=self._check_precomputed_X2(X),
                              covariance_regularization=self.covariance_regularization)
 
 
@@ -428,7 +437,7 @@ class MCFA(object):
         return (converged, current, ratio)
 
 
-    def fit(self, X, init_params=None, **kwargs):
+    def fit(self, X, X_err=None, init_params=None, **kwargs):
         r"""
         Fit the model to the data, :math:`Y`.
 
@@ -445,12 +454,12 @@ class MCFA(object):
 
         np.random.seed(self.random_seed)
 
-        X = self._check_data(X)
+        X, X_var = self._check_data(X, X_err)
 
         theta = prev_theta = self._initial_parameters(X, self.random_seed) \
                              if init_params is None else deepcopy(init_params) 
 
-        prev_ll, tau = self.expectation(X, *theta)
+        prev_ll, tau = self.expectation(X, *theta, X_var)
 
         # TODO: start n_iter counter from previous value if we are starting from
         #       a previously optimised value.
@@ -460,8 +469,8 @@ class MCFA(object):
         for n_iter in tqdm(range(1, 1 + self.max_iter), **tqdm_kwds):
 
             try:
-                theta = self.maximization(X, tau, *theta)
-                ll, tau = self.expectation(X, *theta)
+                theta = self.maximization(X, tau, *theta, X_var)
+                ll, tau = self.expectation(X, *theta, X_var)
 
             except:
                 logger.exception(f"Exception occurred during E-M algorithm:")
@@ -518,7 +527,7 @@ class MCFA(object):
         return _factor_scores(X, *self.theta_)
 
 
-    def bic(self, X, theta=None, log_likelihood=None):
+    def bic(self, X, theta=None, X_err=None, log_likelihood=None):
         r"""
         Estimate the Bayesian Information Criterion given the model and the
         data.
@@ -543,7 +552,7 @@ class MCFA(object):
             if theta is None:
                 theta = self.theta_
 
-            log_likelihood, tau = self.expectation(X, *theta)
+            log_likelihood, tau = self.expectation(X, *theta, X_err)
 
         return np.log(N) * self.number_of_parameters(D) - 2 * log_likelihood
 
@@ -871,7 +880,7 @@ def _initial_components_by_kmeans_pp(X, A, n_components):
 
 
 
-def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
+def _expectation(X, pi, A, xi, omega, psi, X_var=0, verbose=1, full_output=False):
     r"""
     Compute the conditional expectation of the complete-data log-likelihood
     given the observed data :math:`X` and the given model parameters.
@@ -930,6 +939,11 @@ def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
         A_omega_ = A @ omega_
         cov = A_omega_ @ A.T + I_psi
 
+        if X_var != 0:
+            # Incorporate errors.
+            
+            raise a
+
         precision = _compute_precision_cholesky_full(cov)
 
         dist = np.sum(
@@ -963,7 +977,7 @@ def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
 
 
 def _maximization(X, tau, pi, A, xi, omega, psi,
-                  X2=None, covariance_regularization=0):
+                  X_err=None, X2=None, covariance_regularization=0):
     r"""
     Compute the updated estimates of the model parameters given the data,
     the responsibility matrix :math:`\tau`, and the current estimates of the
