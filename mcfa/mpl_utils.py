@@ -543,6 +543,100 @@ def plot_filled_contours(J, K, Z, N=1000, colorbar_label=None,
     return fig
 
 
+def plot_fractional_nonzero_factor_contributions(model, Y, label_names=None, colors=None, line_kwds=None):
+
+    L = model.theta_[model.parameter_names.index("A")]
+    S = model.factor_scores(Y)[1]
+    tau = model.tau_
+
+    D, J = L.shape
+    N, K = S.shape
+
+    #contributions = np.array([np.sum(np.abs(L[:, [j]] @ S.T[[j], :]) @ model.tau_, axis=1) for j in range(J)])
+    # numerator should have shape (J, D)
+    #contributions /= np.sum(contributions, axis=0)
+
+    f = np.sum(np.array([np.abs(L[:, [j]] @ S.T[[j], :]) for j in range(J)]), axis=-1)
+    f = (f / np.sum(f, axis=0)).T
+
+    if label_names is not None:
+        latex_label_names = [r"$\textrm{{{0}}}$".format(ea) for ea in label_names]
+
+    if colors is not None:
+        assert len(colors) >= J
+        
+
+    fig = plt.figure()
+
+    K = 4
+    shape = (J, K)
+    axes = [plt.subplot2grid(shape, (j, 0), colspan=K-1) for j in range(J)]
+    axes += [plt.subplot2grid(shape, (0, K - 1), rowspan=J, colspan=1)]
+
+    if colors is None:
+        cmap = discrete_cmap(J, base_cmap="Spectral_r")
+        colors = [cmap(j) for j in range(J)]
+
+
+    line_kwds_ = dict(lw=5)
+    line_kwds_.update(line_kwds or dict())
+
+    x = np.arange(D)
+    for j, (ax, color) in enumerate(zip(axes, colors[:J])):
+
+        ax.plot(x, f.T[j], "-", c=color, **line_kwds_)
+        ax.axhline(0, linewidth=1, c="#666666", linestyle=":", zorder=-1)
+        ax.set_xlim(0, D)
+
+        ax.set_ylim(-0.1, 1.1)
+        ax.set_yticks([0, 1])
+        ax.set_ylabel(r"$|\mathbf{{C}}_{{{0}}}|$".format(j))
+
+
+        if ax.is_last_row():
+            if label_names is not None:
+                ax.set_xticks(x.astype(int))
+                ax.set_xticklabels(latex_label_names)
+
+        else:
+            ax.set_xticks([])
+
+        ax.set_xlim(x[0] - 0.5, x[-1] + 0.5)
+
+    # On last figure, show visualisation.
+
+    F = np.abs(f)/np.atleast_2d(np.sum(np.abs(f), axis=1)).T
+    indices = np.argsort(1.0/F, axis=1)
+
+    ax = axes[-1]
+    for d, (f, idx) in enumerate(zip(F, indices)):
+
+        left = 0
+        for i in idx:
+            ax.barh(D - d, f[i], left=left, facecolor=colors[i])
+            left += f[i]
+
+        ax.barh(D - d, 1, left=0, edgecolor='#000000', zorder=-1, linewidth=2)
+
+
+    ax.set_yticks(np.arange(1, 1 + D))
+    if label_names is not None:
+        ax.set_yticklabels(latex_label_names[::-1])
+
+    ax.set_ylim(0.5, D + 0.5)
+    ax.set_xlim(-0.01, 1.01)
+    ax.set_xticks([])
+    ax.yaxis.set_tick_params(width=0)
+
+    ax.set_frame_on(False)
+
+    ax.set_xlabel(r"${|\mathbf{C}_\textrm{d}|} / {\sum_{j}|\mathbf{C}_\textrm{j,d}|}$")
+
+    fig.tight_layout()
+
+    return fig
+
+
 def visualize_factor_loads(L, label_names=None, colors=None, line_kwds=None,
                            absolute_only=False,
                           **kwargs):
@@ -579,7 +673,7 @@ def visualize_factor_loads(L, label_names=None, colors=None, line_kwds=None,
     line_kwds_.update(line_kwds or dict())
 
     x = np.arange(D)
-    for j, (ax, color) in enumerate(zip(axes, colors)):
+    for j, (ax, color) in enumerate(zip(axes, colors[:J])):
 
         ax.plot(x, L.T[j], "-", c=color, **line_kwds_)
         ax.axhline(0, linewidth=1, c="#666666", linestyle=":", zorder=-1)

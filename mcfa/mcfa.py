@@ -74,6 +74,7 @@ class MCFA(object):
         self.max_iter = int(max_iter)
         self.tol = float(tol)
         self.random_seed = random_seed
+        self.random_state = check_random_state(self.random_seed)
         self.init_components = init_components
         self.init_factors = init_factors
         self.verbose = int(verbose)
@@ -124,9 +125,11 @@ class MCFA(object):
         return json.dumps({
             "class": self.__class__.__name__,
             "args": (self.n_components, self.n_latent_factors),
-            "kwargs": dict(max_iter=self.max_iter,
-                           n_init=self.n_init,
+            "kwargs": dict(covariance_regularization=self.covariance_regularization,
+                           max_iter=self.max_iter,
                            tol=self.tol,
+                           init_components=self.init_components,
+                           init_factors=self.init_factors,
                            verbose=self.verbose,
                            random_seed=self.random_seed),
             "result": result
@@ -215,7 +218,7 @@ class MCFA(object):
 
         else:
             # Check a single entry.
-            i, j = (np.random.choice(X.shape[0]), np.random.choice(X.shape[1]))
+            i, j = (self.random_state.choice(X.shape[0]), self.random_state.choice(X.shape[1]))
 
             expected, actual = (np.square(X[i, j]), self._X2[i, j])
             if not np.allclose(expected, actual, **kwargs):
@@ -226,7 +229,7 @@ class MCFA(object):
         return self._X2
 
 
-    def _initial_parameters(self, X, random_state=None):
+    def _initial_parameters(self, X):
         r"""
         Estimate the initial parameters of the model.
 
@@ -256,7 +259,7 @@ class MCFA(object):
             "svd": _initial_factor_loads_by_svd
         }.get(self.init_factors, self.init_factors)
         
-        A = initial_factor_func(X, self.n_latent_factors, random_state)
+        A = initial_factor_func(X, self.n_latent_factors, self.random_state)
 
         initial_components_func = {
             "random": _initial_components_by_random,
@@ -264,7 +267,7 @@ class MCFA(object):
         }.get(self.init_components, self.init_components)
 
         # TODO: use random state.
-        pi, xi, omega = initial_components_func(X, A, self.n_components)
+        pi, xi, omega = initial_components_func(X, A, self.n_components, self.random_state)
 
         N, D = X.shape
         psi = np.ones(D)
@@ -421,7 +424,6 @@ class MCFA(object):
             logger.warn(f"Log-likelihood *decreased* by {previous-current:.2e}")
 
         #assert current > previous # depends on objective function
-
         ratio = abs((current - previous)/current)
         converged = self.tol >= ratio
 
@@ -443,11 +445,9 @@ class MCFA(object):
             The fitted model.
         """
 
-        np.random.seed(self.random_seed)
-
         X = self._check_data(X)
 
-        theta = prev_theta = self._initial_parameters(X, self.random_seed) \
+        theta = prev_theta = self._initial_parameters(X) \
                              if init_params is None else deepcopy(init_params) 
 
         prev_ll, tau = self.expectation(X, *theta)
@@ -684,7 +684,7 @@ class MCFA(object):
         pi, A, xi, omega, psi = theta
 
         # Draw which component it is from.
-        taus = np.random.choice(self.n_components, size=n_samples, p=pi)
+        taus = self.random_state.choice(self.n_components, size=n_samples, p=pi)
 
         # Draw from the latent space and project to real space.
         N, D = (n_samples, psi.size)
@@ -693,14 +693,14 @@ class MCFA(object):
         for k in range(self.n_components):
 
             match = (taus == k)
-            scores = np.random.multivariate_normal(xi.T[k], omega.T[k],
+            scores = self.random_state.multivariate_normal(xi.T[k], omega.T[k],
                                                    size=sum(taus == k))
 
             # Project to real space.
             X[match] = (A @ scores.T).T
 
         # Add noise.
-        X += np.random.multivariate_normal(np.zeros(D), np.diag(psi), N)
+        X += self.random_state.multivariate_normal(np.zeros(D), np.diag(psi), N)
 
         return X
 
@@ -743,6 +743,8 @@ class MCFA(object):
 
         if not np.allclose(R @ R.T, np.eye(J), atol=atol, rtol=rtol):
 
+            logger.warning("Rotation matrix not valid (R @ R.T != I). Fixing..")
+
             # Do our own rotation.
             L = linalg.cholesky(R.T @ R)
             R = R @ linalg.solve(L, np.eye(self.n_latent_factors))
@@ -779,7 +781,7 @@ class MCFA(object):
 
 
 
-def _initial_factor_loads_by_random(X, n_latent_factors, random_state=None):
+def _initial_factor_loads_by_random(X, n_latent_factors, random_state):
     N, D = X.shape
     A = stats.ortho_group.rvs(D, random_state=random_state)[:, :n_latent_factors]
     AL = linalg.cholesky(A.T @ A)
@@ -787,30 +789,28 @@ def _initial_factor_loads_by_random(X, n_latent_factors, random_state=None):
     return A
 
 
-def _initial_factor_loads_by_noise(X, n_latent_factors, random_state=None,
-                                   scale=1e-2):
+def _initial_factor_loads_by_noise(X, n_latent_factors, random_state, scale=1e-2):
 
     # TODO: use random state.
     N, D = X.shape
-    return np.random.normal(0, scale, size=(D, n_latent_factors))
+    return random_state.normal(0, scale, size=(D, n_latent_factors))
 
-def _initial_factor_loads_by_svd(X, n_latent_factors, random_state=None,
-                                 n_svd_max=1000):
+def _initial_factor_loads_by_svd(X, n_latent_factors, random_state, n_svd_max=1000):
 
     # TODO: use random state
     N, D = X.shape
     n_svd_max = N if n_svd_max < 0 or n_svd_max > N else int(n_svd_max)
-    idx = np.random.choice(N, n_svd_max, replace=False)
+    idx = random_state.choice(N, n_svd_max, replace=False)
     U, S, V = linalg.svd(X[idx].T/np.sqrt(N - 1))
     return U[:, :n_latent_factors]
 
 
-def _initial_assignments_by_random(X, A, n_components):
+def _initial_assignments_by_random(X, A, n_components, random_state):
     N, D = X.shape
-    return np.random.choice(n_components, N)
+    return random_state.choice(n_components, N)
 
 
-def _initial_assignments_by_kmeans_pp(X, A, n_components, random_state=None):
+def _initial_assignments_by_kmeans_pp(X, A, n_components, random_state):
     r"""
     Estimate the initial assignments of each sample to each component in the
     mixture.
@@ -828,14 +828,14 @@ def _initial_assignments_by_kmeans_pp(X, A, n_components, random_state=None):
         sample is to be initialised to.
     """
 
-    random_state = check_random_state(random_state)
 
     Y = X @ A # run k-means++ in the latent space
 
     squared_norms = row_norms(Y, squared=True)
 
+    # Make sure that we have a random state, otherwise k-means++ will own us.
     means = cluster.k_means_._k_init(Y, n_components,
-                                     random_state=random_state,
+                                     random_state=check_random_state(random_state),
                                      x_squared_norms=squared_norms)
     return np.argmin(spatial.distance.cdist(means, Y), axis=0)
 
@@ -861,12 +861,12 @@ def _initial_components(X, A, n_components, assignments):
     return (pi, xi, omega)
 
 
-def _initial_components_by_random(X, A, n_components):
-    assignments = _initial_assignments_by_random(X, A, n_components)
+def _initial_components_by_random(X, A, n_components, random_state):
+    assignments = _initial_assignments_by_random(X, A, n_components, random_state)
     return _initial_components(X, A, n_components, assignments)
 
-def _initial_components_by_kmeans_pp(X, A, n_components):
-    assignments = _initial_assignments_by_kmeans_pp(X, A, n_components)
+def _initial_components_by_kmeans_pp(X, A, n_components, random_state):
+    assignments = _initial_assignments_by_kmeans_pp(X, A, n_components, random_state)
     return _initial_components(X, A, n_components, assignments)
 
 
