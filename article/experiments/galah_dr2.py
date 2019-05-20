@@ -138,4 +138,23 @@ def get_abundances_wrt_h(elements, mask=None, cluster_names=None, use_galah_flag
 
     return (X_H, label_names_wrt_h)
 
+def get_abundances(elements, mask=None, cluster_names=None, use_galah_flags=False):
+
+
+    # Sort elements by atomic number.
+    indices = np.argsort([periodic_table.index(el) for el in elements])
+    sorted_elements = [elements[idx] for idx in indices]
+
+    if mask is None:
+        mask = get_abundance_mask(sorted_elements, cluster_names, 
+                                 use_galah_flags=use_galah_flags)
+
+    X_H = np.array([data[_abundance_label(el)][mask]  \
+                    for el in sorted_elements]).T
+
+    label_names_wrt_h = ["{0}_h".format(el).lower() for el in sorted_elements]
+
+    return (X_H, label_names_wrt_h)
+
+
 

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from time import time
 
-sys.path.insert(0, "../../")
+sys.path.insert(0, "../")
 
 from mcfa import (mcfa, grid_search, mpl_utils, utils)
 
@@ -15,10 +15,10 @@ matplotlib.style.use(mpl_utils.mpl_style)
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 
-n_features = 15
-n_components = 10
-n_latent_factors = 5
-n_samples = 100_000
+n_features = D = 15
+n_components = K = 10
+n_latent_factors = J = 5
+n_samples = N = 10_000
 
 omega_scale = 1
 noise_scale = 1
@@ -66,9 +66,6 @@ tock = time()
 model.message_length(Y)
 
 print(f"Model took {tock - tick:.1f} seconds")
-
-
-
 
 
 # Plot the true latent factors w.r.t. the estimated ones, after rotation.

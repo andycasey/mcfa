@@ -159,7 +159,7 @@ def fill_between_steps(ax, x, y1, y2=0, h_align='mid', **kwargs):
 
 def plot_specific_scatter(model, y=None, scales=1, 
                           xlabel=None, xticklabels=None, ylabel=None,
-                          steps=False, fill=True, line_kwds=None, fill_kwds=None):
+                          steps=False, fill=True, line_kwds=None, fill_kwds=None, **kwargs):
 
     fig, ax = plt.subplots(figsize=(3.57, 3.57))
 
@@ -209,7 +209,7 @@ def plot_specific_scatter(model, y=None, scales=1,
         for i, tick in enumerate(ax.get_xaxis().get_major_ticks()):
             if i % 2 == 0: continue
 
-            tick.set_pad(15.)
+            tick.set_pad(kwargs.get("ticker_pad", 15.))
             tick.label1 = tick._get_text1()
 
     if xlabel is not None:
@@ -248,7 +248,11 @@ def plot_latent_space(model, X, ellipse_kwds=None, **kwargs):
 
     hard_associations = np.argmax(tau, axis=1)
 
-    fig = corner_scatter(v_mean, c=hard_associations, **kwargs)
+    kwds = dict()
+    kwds["c"] = np.argmax(tau, axis=1)
+    kwds.update(kwargs)
+
+    fig = corner_scatter(v_mean, **kwargs)
 
     xi = model.theta_[model.parameter_names.index("xi")] # latent factors, number of components.
     omega = model.theta_[model.parameter_names.index("omega")]

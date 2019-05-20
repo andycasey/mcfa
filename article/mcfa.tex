@@ -3,7 +3,7 @@
 \usepackage{amsmath,amsfonts,amssymb}
 \usepackage{color}
 \usepackage{comment}
-%\usepackage{layouts}
+\usepackage{layouts}
 
 \newcommand\teff{T_{\rm eff}}
 \newcommand\logg{\log{g}}
@@ -52,6 +52,7 @@
 \newcommand{\NumComponents}{K}
 \newcommand{\numcomponents}{k}
 \newcommand{\likelihood}{\mathcal{L}}
+\newcommand{\ExperimentHash}{96ff8}
 
 
 
@@ -112,17 +113,17 @@
 \begin{abstract}
 Chemical tagging seeks to identify unique star formation sites from
 present-day stellar abundances.
-Previous techniques have treated chemical abundances as being 
+Previous techniques have treated the abundances of each element as being
 statistically independent, despite the nucleosynthesis literature showing that
-most elements can be produced by more than one nucleosynthetic pathway.
+most elements can be produced by more than one pathway.
 In this work we introduce a data-driven model of nucleosynthesis 
 where a set of latent factors (e.g., nucleosynthetic yields) contribute
 to all stars with different scores, and clustering (e.g., chemical tagging) 
-is represented by a mixture model of multivariate normal distributions
+is represented by a mixture model of multivariate gaussians
 in a lower-dimensional latent space.
 We use an exact method to simultaneously estimate the factor scores for
-each star, the relative weighting (e.g., partial assignment) of each star
-to each cluster, and to infer the latent factors that are common to all stars.
+each star, the partial assignment of each star
+to each cluster, and the latent factors common to all stars.
 We use an information-theoretic Bayesian principle to estimate the number of
 latent factors and clusters.
 We perform experiments on generated and real data, including literature chemical abundances
@@ -138,8 +139,8 @@ and 1,136 stars, which are representative of the [$\alpha$/Fe]-poor and
 We expect more components
 would be preferred given complete abundance inventory of a larger sample of stars.
 We release accompanying software that scales well with the available data,
-allowing model parameters to be optimised in a few minutes even given $\sim$$10^{7.5}$ 
-abundance measurements.
+allowing for model parameters to be optimised in seconds given a fixed number
+of latent factors, components, and $\sim$$10^{7.5}$ abundance measurements.
 %We release software that scales \todo{as $\mathcal{O}(XX)$}, where $X$ is \todo{what},
 %enabling model parameter estimation in minutes given $\sim$$10^7$
 %chemical abundance measurements.
@@ -700,11 +701,21 @@ Wishart joint prior density gives highest support for mutually orthogonal vector
 	p(\factorloads) = \frac{|\factorloads\transpose\factorloads|^{\frac{1}{2}(\NumDimensions - \NumLatentFactors - 1)}}{2^{\frac{\NumDimensions\NumLatentFactors}{2}}|\vec{W}|^{\frac{\NumDimensions}{2}}\Gamma(\frac{\NumDimensions}{2})}\exp\left[-\frac{1}{2}\textrm{Tr}(\vec{W}^{-1}\factorloads\transpose\factorloads)\right] \quad .
 \end{equation}
 
+\printinunitsof{in}\prntlen{\textheight}
+and 
+\printinunitsof{in}\prntlen{\textwidth}
 
+%\todo{Fisher:}
+%\begin{widetext}
+%\begin{eqnarray}
+%	\log\likelihood(\vecdata|\vec\Psi_k) = -\frac{1}{2}(\vecdata - \factorloads\vec\xi_k)\transpose(\factorloads\omega_k\factorloads\transpose + \diag{D})^{-1}) - \frac{1}{2}\log|(\factorloads\omega_k\factorloads\transpose + \diag{D})| -\frac{1}{2}\log{2\pi}
+%	\log\likelihood(\vecdata|\vec\Psi) &=& -\frac{1}{2}(\vecdata - \vec{M})\transpose\vec\Sigma^{-1}(\vecdata - \vec{M}) - \frac{1}{2}\log|\vec\Sigma| - \frac{1}{2}\log{2\pi} \quad \mathrm{where} \\
+%	\vec{M} &=& \factorloads\scoremeans \\
+%	\vec\Sigma &=& \factorloads\scorecovs\factorloads\transpose + \diag{\specificvariance}
+%\end{eqnarray}
+%\end{widetext}
 
-The Fisher information for $\factorloads$ \todo{is hard to compute. I have 
-the first derivative from the log likelihood function, but the second
-derivative is (surprisingly) causing some trouble.}
+The Fisher information for $\factorloads$ \todo{needs to be checked.}
 Thus the message length to encode $\factorloads$ is given by
 \begin{eqnarray}
 	I(\factorloads) &=& -\log\left(\frac{p(\factorloads)}{\sqrt{|\mathcal{F}(\factorloads)|}}\right) \nonumber \\
@@ -977,9 +988,9 @@ to each element.
 \end{comment}
 
 \begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/exp2-log-xfe-offset-gridsearch-ll.pdf}
-	\includegraphics[width=0.45\textwidth]{experiments/exp2-log-xfe-offset-gridsearch-bic.pdf}
-	\includegraphics[width=0.45\textwidth]{experiments/exp2-log-xfe-offset-gridsearch-mml.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp2-\ExperimentHash-gridsearch-ll.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp2-\ExperimentHash-gridsearch-bic.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp2-\ExperimentHash-gridsearch-mml.pdf}
     \caption{The top panel shows the negative log likelihood 
 			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
 			 evaluated at each combination of latent factors 
@@ -1040,9 +1051,9 @@ as models under-predict [Sc/Fe] ratios by a factor of ten \citep[e.g.,][]{Kobaya
 %Eu, and could be interpreted as production from the rapid nucleosynthesis process.
 
 \begin{figure*}
-	\includegraphics[width=\textwidth]{experiments/exp2-log-xfe-offset-latent-factors-visualize-abs.pdf}
+	\includegraphics[width=\textwidth]{experiments/exp2-\ExperimentHash-latent-factors-and-contributions.pdf}
 	\caption{Latent factors found in Experiment~2 using the \citet{Barklem:2005}
-			 data. The panels on the left show the absolute entries for each factor load. 
+			 data. \todo{The panels on the left show the absolute entries for each factor load.} 
 			 On the right we show the absolute fractional contributions to
 			 each element, illustrating the loads that contribute most to each element.}
     \label{fig:exp2-factor-loads}
@@ -1074,8 +1085,7 @@ the assumptions of our model (e.g., we assume mutually orthogonal latent factors
 Test \the\textwidth
 
 \begin{figure}
-	%\includegraphics[width=0.45\textwidth]{experiments/exp2-log-xfe-offset-specific-scatter.pdf}
-	\includegraphics[width=0.5\textwidth]{../experiments/exp2-specific-scatter.pdf}
+	\includegraphics[width=0.5\textwidth]{../experiments/exp2-\ExperimentHash-specific-scatter.pdf}
 	\caption{Specific scatter $\sqrt{\specificvariance}$ remaining in the \citet{Barklem:2005} data used in
 			 Experiment~2 after accounting for the contributions by all latent
 			 factors.}
@@ -1109,9 +1119,9 @@ lifetime.
 
 
 \begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-gridsearch-ll.pdf}
-	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-gridsearch-bic.pdf}
-	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-gridsearch-mml.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp3-\ExperimentHash-gridsearch-ll.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp3-\ExperimentHash-gridsearch-bic.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp3-\ExperimentHash-gridsearch-mml.pdf}
     \caption{The top panel shows the negative log likelihood 
 			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
 			 evaluated at each combination of latent factors 
@@ -1122,17 +1132,17 @@ lifetime.
 			 message length. The white marker indicates the
 			 lowest value in each panel, showing the
 			 preferred number of latent factors and components.}
-    \label{fig:experiment-9-gridsearch}
+    \label{fig:exp3-gridsearch}
 \end{figure}
 
 \begin{figure*}
-	\includegraphics[width=\textwidth]{experiments/exp9-log-xfe-offset-latent-factors-visualize-abs.pdf}
+	\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-latent-factors-and-contributions.pdf}
 	\caption{Latent factors inferred in Experiment~3 using the \Galah\
-			 data. The panels on the left show the absolute entries for each
-			 factor load. On the right we show the absolute fractional contributions
+			 data. \todo{The panels on the left show the absolute entries for each
+			 factor load.} On the right we show the absolute fractional contributions
 			 to each element, illustrating the loads that contribute most to each
 			 element.}
-    \label{fig:exp9-factor-loads}
+    \label{fig:exp3-factor-loads}
 \end{figure*}
 
 
@@ -1169,7 +1179,7 @@ leaving us with a sample of \todo{50,000} stars.
 
 \begin{comment}
 \begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/exp4-abundance-counts.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp3-abundance-counts.pdf}
 	\caption{The number of abundance measurements in the second
 		     \Galah\ data release \citep{Buder:2018} where \texttt{flag\_cannon = 0}
 		     and \texttt{flag\_<element> = 0}. The black line indicates the number
@@ -1177,7 +1187,7 @@ leaving us with a sample of \todo{50,000} stars.
 		     indicates the number of stars where all elements leftward (inclusive)
 		     are reported. The dashed vertical line indicates the top 18 reported
 		     elemental abundances, which we use for Experiment~4.}
-    \label{fig:exp4-abundance-counts} 
+    \label{fig:exp3-abundance-counts} 
 \end{figure}
 \end{comment}
 
@@ -1194,25 +1204,30 @@ The model with $J = 5$ and $K = 2$ is found to have the shortest message length.
 
 
 \begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-specific-scatter.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/exp3-\ExperimentHash-specific-scatter.pdf}
 	\caption{Specific scatter $\sqrt{\specificvariance}$ remaining in the \Galah\ data \citep{Buder:2018}
 			 in Experiment~3 after accounting for the contributions by all
 			 latent factors.}
-    \label{fig:exp9-specific-scatter}
+    \label{fig:exp3-specific-scatter}
 \end{figure}
 
 
 
-\begin{figure}
-	\includegraphics[width=0.45\textwidth]{experiments/exp9-log-xfe-offset-cluster.pdf}
-	\caption{Abundance ratios of [Fe/H] and [Mg/Fe] for all stars in Experiment~3,
-			 colored by their probability of being associated with the first (of two)
-			 components. This illustrates how the clustering in latent space is projected
-			 to real space, and indicates that the two components identified are largely
-			 consistent with being stars with low- and high-$\alpha$ element abundance
-			 ratios.}
-    \label{fig:exp9-cluster}
-\end{figure}
+
+\begin{figure*}
+	\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-latent-space.pdf}
+	\caption{\todo{Caption}}
+    \label{fig:exp3-latent-space}
+\end{figure*}
+
+
+
+
+\begin{figure*}
+	\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-data-space.pdf}
+	\caption{\todo{Caption}}
+    \label{fig:exp3-data-space}
+\end{figure*}
 
 
 The latent factors inferred from this model are shown in Figure~\ref{fig:exp9-factor-loads},
