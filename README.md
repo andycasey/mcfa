@@ -1,10 +1,8 @@
 <h1 align="center">
-  A data-driven model of nucleosynthesis with chemical tagging in latent space 
+  Data-driven nucleosynthesis with chemical tagging in latent space 
 </h1>
 <p align="center">
-  Chemical tagging becomes a clustering problem if idealistic assumptions are made.
-  However, there is information common to all stars: their chemical abundances are produced by the same nucleosynthetic processes, but in different relative quantities. 
-  Here we use a mixture of factor analyzers to simultaneously estimate latent factors common to all stars (e.g., nucleosynthetic processes) and perform clustering (i.e., chemical tagging) in the latent space.
+  We use a mixture of factor analyzers to simultaneously estimate latent factors common to all stars (e.g., nucleosynthetic processes) and perform clustering (i.e., chemical tagging) in a lower-dimensional latent space.
 </p>
 <p align="center">
   <a href="https://travis-ci.org/andycasey/mcfa/">
