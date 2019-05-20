@@ -1,5 +1,5 @@
 <h1 align="center">
-  Data-driven nucleosynthesis with chemical tagging in latent space 
+  Data-driven nucleosynthesis and chemical tagging 
 </h1>
 <p align="center">
   We use a mixture of factor analyzers to simultaneously estimate latent factors common to all stars (e.g., nucleosynthetic processes) and perform clustering (i.e., chemical tagging) in a lower-dimensional latent space.
