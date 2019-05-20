@@ -117,10 +117,15 @@ class MCFA(object):
         Serialize the object so that it can be saved to disk.
         """
         result = dict()
-        for result_attr in ("tau_", "theta_", "log_likelihood_", "n_iter_"):
+        for result_attr in ("tau_", "theta_", "log_likelihood_", "log_likelihoods_", "n_iter_"):
             value = getattr(self, result_attr, None)
-            if value is not None:
-                result[result_attr] = value
+
+            if result_attr in ("tau_", ) and value is not None:
+                value = value.tolist()
+            elif result_attr in ("theta_", ) and value is not None:
+                value = [v.tolist() for v in value]
+
+            result[result_attr] = value
 
         return json.dumps({
             "class": self.__class__.__name__,
@@ -152,12 +157,17 @@ class MCFA(object):
 
         klass = cls(*params["args"], **params["kwargs"])
         for k, v in params["result"].items():
+            if k == "tau_" and v is not None:
+                v = np.atleast_2d(v)
+            elif k == "theta_" and v is not None:
+                v = [np.array(_) for _ in v]
+
             setattr(klass, k, v)
 
         return klass
 
 
-    def _check_data(self, X, warn_about_whitening=False):
+    def _check_data(self, X, X_err, warn_about_whitening=False):
         r""" 
         Verify that the latent space has lower dimensionality than the data
         space.
@@ -178,6 +188,19 @@ class MCFA(object):
         if not np.all(np.isfinite(X)):
             raise ValueError("data has non-finite entries")
 
+        if X_err is not None:
+            X_err = np.atleast_2d(X_err)
+            if X_err.shape != X.shape:
+                raise ValueError("shape mismatch (X.shape != X_err.shape)")
+
+            if not np.all(np.isfinite(X_err)):
+                raise ValueError("error array has non-finite entries")
+
+            X_var = X_err**2
+        else:
+            # TODO: just do zero instead?
+            X_var = None
+
         N, D = X.shape
         if D > N:
             logger.warning(f"There are more dimensions than data ({D} > {N})!")
@@ -196,7 +219,7 @@ class MCFA(object):
         # Pre-calculate X2, because we will use this at every EM step.
         self._check_precomputed_X2(X)
 
-        return X
+        return (X, X_var)
 
 
     def _check_precomputed_X2(self, X, **kwargs):
@@ -351,7 +374,7 @@ class MCFA(object):
         return (ll, tau)
 
 
-    def maximization(self, X, tau, pi, A, xi, omega, psi):
+    def maximization(self, X, tau, pi, A, xi, omega, psi, **kwargs):
         r"""
         Compute the updated estimates of the model parameters given the data,
         the responsibility matrix :math:`\tau`, and the current estimates of the
@@ -398,7 +421,8 @@ class MCFA(object):
 
         return _maximization(X, tau, pi, A, xi, omega, psi,
                              X2=self._check_precomputed_X2(X),
-                             covariance_regularization=self.covariance_regularization)
+                             covariance_regularization=self.covariance_regularization,
+                             **kwargs)
 
 
     def _check_convergence(self, previous, current):
@@ -430,7 +454,7 @@ class MCFA(object):
         return (converged, current, ratio)
 
 
-    def fit(self, X, init_params=None, **kwargs):
+    def fit(self, X, X_err=None, init_params=None, **kwargs):
         r"""
         Fit the model to the data, :math:`Y`.
 
@@ -445,12 +469,13 @@ class MCFA(object):
             The fitted model.
         """
 
-        X = self._check_data(X)
+        X, X_var = self._check_data(X, X_err)
+        em_kwds = dict(X_var=X_var)
 
         theta = prev_theta = self._initial_parameters(X) \
                              if init_params is None else deepcopy(init_params) 
 
-        prev_ll, tau = self.expectation(X, *theta)
+        prev_ll, tau = self.expectation(X, *theta, **em_kwds)
 
         # TODO: start n_iter counter from previous value if we are starting from
         #       a previously optimised value.
@@ -460,8 +485,8 @@ class MCFA(object):
         for n_iter in tqdm(range(1, 1 + self.max_iter), **tqdm_kwds):
 
             try:
-                theta = self.maximization(X, tau, *theta)
-                ll, tau = self.expectation(X, *theta)
+                theta = self.maximization(X, tau, *theta, **em_kwds)
+                ll, tau = self.expectation(X, *theta, **em_kwds)
 
             except:
                 logger.exception(f"Exception occurred during E-M algorithm:")
@@ -871,7 +896,7 @@ def _initial_components_by_kmeans_pp(X, A, n_components, random_state):
 
 
 
-def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
+def _expectation(X, pi, A, xi, omega, psi, X_var=None, verbose=1, full_output=False):
     r"""
     Compute the conditional expectation of the complete-data log-likelihood
     given the observed data :math:`X` and the given model parameters.
@@ -900,6 +925,9 @@ def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
     :param psi:
         The variance in each dimension. This should have size [n_features].
 
+    :param X_var: [optional]
+        An array of variances on the X data values.
+
     :param verbose: [optional]
         The verbosity.
 
@@ -922,13 +950,16 @@ def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
     U = (np.diag(1.0/psi) @ A).T
 
     log_prob = np.zeros((N, K))
-    log_prob_constants = -0.5 * (np.sum(np.log(psi)) + D * np.log(2*np.pi))
+    log_prob_constants = -0.5 * np.sum(np.log(psi)) - 0.5 * D * np.log(2*np.pi)
 
     for i, (xi_, omega_) in enumerate(zip(xi.T, omega.T)):
 
         mu = A @ xi_
         A_omega_ = A @ omega_
         cov = A_omega_ @ A.T + I_psi
+
+        if X_var is not None:
+            raise NotImplementedError("this needs some linear algebra to be fast")
 
         precision = _compute_precision_cholesky_full(cov)
 
@@ -937,7 +968,9 @@ def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
 
         # Use matrix determinant lemma:
         # det(A + U @V.T) = det(I + V.T @ A^-1 @ U) * det(A)
-        # here A = omega^{-1}; U = (\psi^-1 @ A).T; V = A.T
+        # here A = omega^{-1}; 
+        #      U = (\psi^-1 @ A).T; 
+        #      V = A.T
         
         # and making use of det(A) = 1.0/det(A^-1)
 
@@ -951,19 +984,19 @@ def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
         log_prob[:, i] = -0.5 * dist - 0.5 * logdetD + log_prob_constants
 
     weighted_log_prob = log_prob + np.log(pi)
-    log_prob = logsumexp(weighted_log_prob, axis=1)
+    log_prob_ = logsumexp(weighted_log_prob, axis=1)
     with np.errstate(under="ignore"):
-        log_tau = weighted_log_prob - log_prob[:, np.newaxis]
+        log_tau = weighted_log_prob - log_prob_[:, np.newaxis]
 
     if not full_output:
-        return (np.sum(log_prob), np.exp(log_tau))
+        return (np.sum(log_prob_), np.exp(log_tau))
 
     else:
-        return (np.sum(log_prob), np.exp(log_tau))
+        return (np.sum(log_prob_), np.exp(log_tau), log_prob)
 
 
-def _maximization(X, tau, pi, A, xi, omega, psi,
-                  X2=None, covariance_regularization=0):
+def _maximization(X, tau, pi, A, xi, omega, psi, X_var=None, X2=None, 
+                  covariance_regularization=0):
     r"""
     Compute the updated estimates of the model parameters given the data,
     the responsibility matrix :math:`\tau`, and the current estimates of the
@@ -1000,6 +1033,9 @@ def _maximization(X, tau, pi, A, xi, omega, psi,
     :param psi:
         The variance in each dimension. This should have size [n_features].
 
+    :param X_var: [optional]
+        The variance on the observed data points :math:`X`.
+
     :param X2: [optional]
         The square of X, :math:`X^2`. If `None` is given then this will be
         computed at each maximization step.
@@ -1023,7 +1059,6 @@ def _maximization(X, tau, pi, A, xi, omega, psi,
     D, J = A.shape
 
     inv_D = np.diag(1.0/psi)
-
 
     A1 = np.zeros((D, J))
     A2 = np.zeros((J, J))
