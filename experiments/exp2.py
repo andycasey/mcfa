@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import pickle
 import yaml
 from scipy import linalg
+from hashlib import md5
+
 
 from matplotlib.ticker import MaxNLocator
 
@@ -25,21 +27,37 @@ with open("config.yml") as fp:
 
 np.random.seed(config.get("random_seed", 0))
 
+unique_hash = md5((f"{config}").encode("utf-8")).hexdigest()[:5]
+
+unique_config_path = f"{unique_hash}.yml"
+if os.path.exists(unique_config_path):
+    print(f"Warning: this configuration file already exists {unique_config_path}")
+
+with open(unique_config_path, "w") as fp:
+    yaml.dump(config, fp)
+
+with open(__file__, "r") as fp:
+    code = fp.read()
+
+with open(f"{unique_hash}-{__file__}", "w") as fp:
+    fp.write(code)
+
+prefix = os.path.basename(__file__)[:-3]
 
 def savefig(fig, suffix):
-    prefix = os.path.basename(__file__)[:-3]
-    filename = os.path.join(here, f"{prefix}-{suffix}")
-    fig.savefig(f"{filename}.pdf", dpi=300)
+    here = os.path.dirname(os.path.realpath(__file__))
+    filename = os.path.join(here, f"{prefix}-{unique_hash}-{suffix}")
     fig.savefig(f"{filename}.png", dpi=150)
+    fig.savefig(f"{filename}.pdf", dpi=300)
     print(f"Created figures {filename}.png and {filename}.pdf")
+
+
     
 
 from astropy.table import Table
 
-mcfa_kwds = dict(init_factors="random", init_components="random", tol=1e-5,
-                 max_iter=10000)
-
-
+mcfa_kwds = dict()
+mcfa_kwds.update(config.get("mcfa_kwds", dict()))
 
 periodic_table = """H                                                  He
                     Li Be                               B  C  N  O  F  Ne
@@ -79,8 +97,11 @@ for i in element_indices:
     print(elements[i], N_ok[i])
 
 # Take top 13
-use_element_indices = element_indices[:15]
-use_elements = elements[use_element_indices]
+#use_element_indices = element_indices[:15]
+#use_elements = elements[use_element_indices]
+use_elements = config["exp2"]["elements"]
+_elements = [el.strip() for el in list(elements)]
+use_element_indices = np.array([_elements.index(el) for el in use_elements])
 
 use_star_indices = np.all(np.isfinite(X[:, use_element_indices]), axis=1)
 
@@ -110,24 +131,30 @@ def convert_xh_to_xy(X_H, label_names, y_label):
 
 if config["wrt_x_fe"]:
     X = convert_xh_to_xy(X, label_names, "Fe")
+
+if not config["log_abundance"]:
+    X = 10**X
+
 if config["subtract_mean"]:
     X = (X - np.mean(X, axis=0))
 
 
 # Run a grid search.
-max_n_latent_factors = 7
-max_n_components = 3
+gs_options = config["exp2"]["gridsearch"]
+max_n_latent_factors = gs_options["max_n_latent_factors"]
+max_n_components = gs_options["max_n_components"]
+N_inits = gs_options["n_inits"]
 
 Js = 1 + np.arange(max_n_latent_factors)
 Ks = 1 + np.arange(max_n_components)
 
-Jg, Kg, converged, metrics = grid_search.grid_search(Js, Ks, X, N_inits=5,
+Jg, Kg, converged, meta = grid_search.grid_search(Js, Ks, X, N_inits=N_inits,
                                                      mcfa_kwds=mcfa_kwds)
 
-ll = metrics["ll"]
-bic = metrics["bic"]
-pseudo_bic = metrics["pseudo_bic"]
-message_length = metrics["message_length"]
+ll = meta["ll"]
+bic = meta["bic"]
+pseudo_bic = meta["pseudo_bic"]
+message_length = meta["message_length"]
 
 J_best_ll, K_best_ll = grid_search.best(Js, Ks, -ll)
 J_best_bic, K_best_bic = grid_search.best(Js, Ks, bic)
@@ -174,16 +201,28 @@ else:
 
 
 
-model = mcfa.MCFA(n_components=K_best, n_latent_factors=J_best, **mcfa_kwds)
-model.fit(X)
+#model = mcfa.MCFA(n_components=K_best, n_latent_factors=J_best, **mcfa_kwds)
+#model.fit(X)
+model = meta["best_models"][config["adopted_metric"]]
+
+#original_model = mcfa.MCFA.deserialize(model.serialize())
+
+J_max = config["max_n_latent_factors_for_colormap"]
+cmap = mpl_utils.discrete_cmap(J_max, base_cmap="Spectral_r")
+colors = [cmap(j) for j in range(J_max)][::-1]
+
 
 A_est = model.theta_[model.parameter_names.index("A")]
 
 
+
+
 grouped_elements = config["grouped_elements"]
 
+
+
 A_astrophysical = np.zeros_like(A_est)
-for i, tes in enumerate(grouped_elements):
+for i, tes in enumerate(grouped_elements[:model.n_latent_factors]):
     for j, te in enumerate(tes):
         #idx = label_names.index("{0}_h".format(te.lower()))
         if te.title() not in label_names:
@@ -191,9 +230,16 @@ for i, tes in enumerate(grouped_elements):
             continue
 
         idx = label_names.index(te.title())
-        A_astrophysical[idx, i] = 1.0
+        count = sum([(te in foo) for foo in grouped_elements[:model.n_latent_factors]])
+        A_astrophysical[idx, i] = 1.0/count
 
 A_astrophysical /= np.sqrt(np.sum(A_astrophysical, axis=0))
+
+
+#if config.get("correct_A_astrophysical", True):
+#    AL = linalg.cholesky(A_astrophysical.T @ A_astrophysical)
+#    A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(model.n_latent_factors))
+
 
 R, p_opt, cov, *_ = utils.find_rotation_matrix(A_astrophysical, A_est, 
                                                full_output=True)
@@ -201,22 +247,27 @@ R, p_opt, cov, *_ = utils.find_rotation_matrix(A_astrophysical, A_est,
 R_opt = utils.exact_rotation_matrix(A_astrophysical, A_est, 
                                     p0=np.random.uniform(-np.pi, np.pi, model.n_latent_factors**2))
 
-chi1 = np.sum(np.abs(A_est @ R - A_astrophysical))
-chi2 = np.sum(np.abs(A_est @ R_opt - A_astrophysical))
 
-R = R_opt if chi2 < chi1 else R
+# WTF check R_opt.
+AL = linalg.cholesky(R_opt.T @ R_opt)
+R_opt2 = R_opt @ linalg.solve(AL, np.eye(model.n_latent_factors))
+
+chi1 = np.sum(np.abs(A_est @ R - A_astrophysical))
+chi2 = np.sum(np.abs(A_est @ R_opt2 - A_astrophysical))
+
+R = R_opt2 if chi2 < chi1 else R
+
 
 # Now make it a valid rotation matrix.
 model.rotate(R, X=X, ensure_valid_rotation=True)
-J = model.n_latent_factors
-L = model.theta_[model.parameter_names.index("A")]
-cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
-colors = [cmap(1 + j) for j in range(J)]
 
-fig = mpl_utils.visualize_factor_loads(L, label_names, colors=colors)
-savefig(fig, "latent-factors-visualize")
-fig = mpl_utils.visualize_factor_loads(L, label_names, colors=colors, absolute_only=True)
-savefig(fig, "latent-factors-visualize-abs")
+fig_fac = mpl_utils.plot_factor_loads_and_contributions(model, X, 
+                                                        label_names=label_names, colors=colors)
+savefig(fig_fac, "latent-factors-and-contributions")
+fig_fac = mpl_utils.plot_factor_loads_and_contributions(model, X, 
+                                                        label_names=label_names, colors=colors,
+                                                        target_loads=A_astrophysical)
+savefig(fig_fac, "latent-factors-and-contributions-with-targets")
 
 
 
@@ -231,6 +282,8 @@ fig_scatter = mpl_utils.plot_specific_scatter(model,
 savefig(fig_scatter, "specific-scatter")
 
 
+raise a
+
 
 # Plot a visualisation of latent factors.
 #A_est
@@ -238,10 +291,6 @@ savefig(fig_scatter, "specific-scatter")
 f_A = np.abs(A_est)/np.atleast_2d(np.sum(np.abs(A_est), axis=1)).T
 indices = np.argsort(1.0/f_A, axis=1)
 
-#colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
-#cmap = matplotlib.cm.Set2
-colors = [cmap(1 + j) for j in range(J)]
 
 
 fig, ax = plt.subplots(figsize=(3.19, 6))
@@ -281,6 +330,5 @@ ax.set_xlabel(r"${|\mathbf{L}_\textrm{d}|} / {\sum_{j}|\mathbf{L}_\textrm{j,d}|}
 
 fig.tight_layout()
 
-savefig(fig, "latent-contributions")
 
 

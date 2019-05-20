@@ -15,6 +15,7 @@ import yaml
 from matplotlib.ticker import MaxNLocator
 from collections import Counter
 from scipy import linalg
+from hashlib import md5
 
 sys.path.insert(0, "../")
 
@@ -30,32 +31,59 @@ here = os.path.dirname(os.path.realpath(__file__))
 with open("config.yml") as fp:
     config = yaml.load(fp)
 
-np.random.seed(config.get("random_seed", 0))
+print(f"Config: {config}")
+
+np.random.seed(config["random_seed"])
 
 prefix = os.path.basename(__file__)[:-3]
 
+unique_hash = md5((f"{config}").encode("utf-8")).hexdigest()[:5]
+
+unique_config_path = f"{unique_hash}.yml"
+if os.path.exists(unique_config_path):
+    print(f"Warning: this configuration already exists: {unique_config_path}")
+
+with open(unique_config_path, "w") as fp:
+    yaml.dump(config, fp)
+
+with open(__file__, "r") as fp:
+    code = fp.read()
+
+with open(f"{unique_hash}-{__file__}", "w") as fp:
+    fp.write(code)
+
 def savefig(fig, suffix):
     here = os.path.dirname(os.path.realpath(__file__))
-    filename = os.path.join(here, f"{prefix}-{suffix}")
+    filename = os.path.join(here, f"TEST-{prefix}-{unique_hash}-{suffix}")
     fig.savefig(f"{filename}.png", dpi=150)
     fig.savefig(f"{filename}.pdf", dpi=300)
 
 
+import os
+os.system("rm -f *.pkl")
+
 N_elements = 20
 use_galah_flags = config["use_galah_flags"]
 
+mcfa_kwds = dict()
+mcfa_kwds.update(config["mcfa_kwds"])
 
-mcfa_kwds = dict(init_factors="svd", init_components="random", tol=1e-5,
-                 max_iter=10000)
-
-
-elements = ["Mg", "Al", "Ca", "Sc", "Ti", "Cr", "Mn", "Fe", "Co", "Ni", "Y", "Ba", "Eu"] + ["K", "Na", "Si"]
-
+elements = config[prefix]["elements"]
+elements = [el for el in elements if el not in config[prefix]["ignore_elements"]]
 
 print(elements)
 
 
 mask = galah.get_abundance_mask(elements, use_galah_flags=use_galah_flags)
+
+
+galah_cuts = config["exp3"]["galah_cuts"]
+if galah_cuts is not None:
+    print(f"Applying cuts: {galah_cuts}")
+    for k, (lower, upper) in galah_cuts.items():
+        mask *= (upper >= galah.data[k]) * (galah.data[k] >= lower)
+
+
 
 print(f"Number of stars: {sum(mask)}")
 
@@ -85,39 +113,48 @@ def convert_xh_to_xy(X_H, label_names, y_label):
 
 if config["wrt_x_fe"]:
     X = convert_xh_to_xy(X_H, label_names, "fe_h")
+else:
+    X = X_H
+
+if not config["log_abundance"]:
+    X = 10**X
+
 if config["subtract_mean"]:
     X = X - np.mean(X, axis=0)
 
+
 N, D = X.shape
 
+
 # Do a gridsearch.
-max_n_latent_factors = 10
-max_n_components = 10
+gs_options = config["exp3"]["gridsearch"]
+max_n_latent_factors = gs_options["max_n_latent_factors"]
+max_n_components = gs_options["max_n_components"]
 
 Js = 1 + np.arange(max_n_latent_factors)
 Ks = 1 + np.arange(max_n_components)
+N_inits = gs_options["n_inits"]
 
 results_path = f"{prefix}-gridsearch-results.pkl"
 
 if os.path.exists(results_path):
 
     with open(results_path, "rb") as fp:
-        Jg, Kg, converged, metrics, X, mcfa_kwds = pickle.load(fp)
-
+        Jg, Kg, converged, meta, X, mcfa_kwds = pickle.load(fp)
 
 else:
 
-    Jg, Kg, converged, metrics = grid_search.grid_search(Js, Ks, X,
-                                                         N_inits=2, mcfa_kwds=mcfa_kwds)
+    Jg, Kg, converged, meta = grid_search.grid_search(Js, Ks, X,
+                                                         N_inits=N_inits, mcfa_kwds=mcfa_kwds)
 
     with open(results_path, "wb") as fp:
-        pickle.dump((Jg, Kg, converged, metrics, X, mcfa_kwds), fp)
+        pickle.dump((Jg, Kg, converged, meta, X, mcfa_kwds), fp)
 
 
 
-ll = metrics["ll"]
-bic = metrics["bic"]
-mml = metrics["message_length"]
+ll = meta["ll"]
+bic = meta["bic"]
+mml = meta["message_length"]
 
 J_best_ll, K_best_ll = grid_search.best(Js, Ks, -ll)
 J_best_bic, K_best_bic = grid_search.best(Js, Ks, bic)
@@ -149,28 +186,19 @@ fig_mml = mpl_utils.plot_filled_contours(Jg, Kg, mml,
 savefig(fig_mml, "gridsearch-mml")
 
 
+model = meta["best_models"][config["adopted_metric"]]
 
-model = mcfa.MCFA(n_components=K_best_mml, n_latent_factors=J_best_mml,
-                  **mcfa_kwds)
-
-model.fit(X)
-
-A_est = model.theta_[model.parameter_names.index("A")]
 
 
 latex_label_names = [r"$\textrm{{{0}}}$".format(ea.split("_")[0].title()) for ea in label_names]
 
 # Draw unrotated.
-J = model.n_latent_factors
-L = model.theta_[model.parameter_names.index("A")]
-cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
-colors = [cmap(1 + j) for j in range(J)]
-
-fig = mpl_utils.visualize_factor_loads(L, latex_label_names, colors=colors)
-savefig(fig, "latent-factors")
+J_max = config["max_n_latent_factors_for_colormap"]
+cmap = mpl_utils.discrete_cmap(J_max, base_cmap="Spectral_r")
+colors = [cmap(j) for j in range(J_max)][::-1]
 
 
-
+A_est = model.theta_[model.parameter_names.index("A")]
 
 A_astrophysical = np.zeros_like(A_est)#np.random.normal(0, 0.1, size=A_est.shape)
 for i, tes in enumerate(config["grouped_elements"][:model.n_latent_factors]):
@@ -182,19 +210,19 @@ for i, tes in enumerate(config["grouped_elements"][:model.n_latent_factors]):
             print(f"Skipping {te}")
 
         else:
-            A_astrophysical[idx, i] = 1.0
+            count = sum([(te in foo) for foo in config["grouped_elements"][:model.n_latent_factors]])
+            A_astrophysical[idx, i] = 1.0/count
 
 A_astrophysical /= np.clip(np.sqrt(np.sum(A_astrophysical, axis=0)), 1, np.inf)
 
-
 # Un-assigned columns
 for column_index in np.where(np.all(A_astrophysical == 0, axis=0))[0]:
+    print(f"Warning: unassigned column index: {column_index}")
     A_astrophysical[:, column_index] = np.random.normal(0, 1e-2, size=D)
 
-AL = linalg.cholesky(A_astrophysical.T @ A_astrophysical)
-A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(model.n_latent_factors))
-
-
+if config["correct_A_astrophysical"]:
+    AL = linalg.cholesky(A_astrophysical.T @ A_astrophysical)
+    A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(model.n_latent_factors))
 
 
 R, p_opt, cov, *_ = utils.find_rotation_matrix(A_astrophysical, A_est, 
@@ -203,25 +231,85 @@ R, p_opt, cov, *_ = utils.find_rotation_matrix(A_astrophysical, A_est,
 R_opt = utils.exact_rotation_matrix(A_astrophysical, A_est, 
                                     p0=np.random.uniform(-np.pi, np.pi, model.n_latent_factors**2))
 
-chi1 = np.sum(np.abs(A_est @ R - A_astrophysical))
-chi2 = np.sum(np.abs(A_est @ R_opt - A_astrophysical))
+# WTF check R_opt.
+AL = linalg.cholesky(R_opt.T @ R_opt)
+R_opt2 = R_opt @ linalg.solve(AL, np.eye(model.n_latent_factors))
 
-R = R_opt if chi2 < chi1 else R
+chi1 = np.sum(np.abs(A_est @ R - A_astrophysical))
+chi2 = np.sum(np.abs(A_est @ R_opt2 - A_astrophysical))
+
+R = R_opt2 if chi2 < chi1 else R
 
 # Now make it a valid rotation matrix.
 model.rotate(R, X=X, ensure_valid_rotation=True)
+
+"""
 J = model.n_latent_factors
 L = model.theta_[model.parameter_names.index("A")]
-cmap = mpl_utils.discrete_cmap(2 + J, base_cmap="Spectral_r")
-colors = [cmap(1 + j) for j in range(J)]
 
 elements = [ea.split("_")[0].title() for ea in label_names]
 
-fig = mpl_utils.visualize_factor_loads(L, elements, colors=colors)
-savefig(fig, "latent-factors-visualize")
 
-fig = mpl_utils.visualize_factor_loads(L, elements, colors=colors, absolute_only=True)
-savefig(fig, "latent-factors-visualize-abs")
+
+A_est = model.theta_[model.parameter_names.index("A")]
+
+A_astrophysical = np.zeros_like(A_est)#np.random.normal(0, 0.1, size=A_est.shape)
+for i, tes in enumerate(config["grouped_elements"][:model.n_latent_factors]):
+    for j, te in enumerate(tes):
+        try:
+            idx = label_names.index("{0}_h".format(te.lower()))
+
+        except ValueError:
+            print(f"Skipping {te}")
+
+        else:
+            count = sum([(te in foo) for foo in config["grouped_elements"][:model.n_latent_factors]])
+            A_astrophysical[idx, i] = 1.0/count
+
+A_astrophysical /= np.clip(np.sqrt(np.sum(A_astrophysical, axis=0)), 1, np.inf)
+
+
+# Un-assigned columns
+for column_index in np.where(np.all(A_astrophysical == 0, axis=0))[0]:
+    print(f"Warning: unassigned column index: {column_index}")
+    A_astrophysical[:, column_index] = np.random.normal(0, 1e-2, size=D)
+
+AL = linalg.cholesky(A_astrophysical.T @ A_astrophysical)
+A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(model.n_latent_factors))
+
+
+R, p_opt, cov, *_ = utils.find_rotation_matrix(A_astrophysical, A_est, 
+                                               full_output=True)
+
+R_opt = utils.exact_rotation_matrix(A_astrophysical, A_est, 
+                                    p0=np.random.uniform(-np.pi, np.pi, model.n_latent_factors**2))
+
+# WTF check R_opt.
+AL = linalg.cholesky(R_opt.T @ R_opt)
+R_opt2 = R_opt @ linalg.solve(AL, np.eye(model.n_latent_factors))
+
+chi1 = np.sum(np.abs(A_est @ R - A_astrophysical))
+chi2 = np.sum(np.abs(A_est @ R_opt2 - A_astrophysical))
+
+R = R_opt2 if chi2 < chi1 else R
+
+# Now make it a valid rotation matrix.
+model.rotate(R, X=X, ensure_valid_rotation=True)
+"""
+
+fig_fac = mpl_utils.plot_factor_loads_and_contributions(model, X, 
+                                                        label_names=latex_label_names, colors=colors)
+savefig(fig_fac, "latent-factors-and-contributions")
+
+fig_fac = mpl_utils.plot_factor_loads_and_contributions(model, X, 
+                                                        label_names=latex_label_names, colors=colors,
+                                                        target_loads=A_astrophysical)
+savefig(fig_fac, "latent-factors-and-contributions-with-targets")
+
+
+
+
+raise b
 
 
 
