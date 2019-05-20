@@ -139,7 +139,7 @@ two of which are representative of the [$\alpha$/Fe]-poor and
 [$\alpha$/Fe]-rich populations in the Milky Way disk. 
 We release accompanying software that scales well with the available data,
 allowing for model parameters to be optimised in seconds given a fixed number
-of latent factors, components, and  $\sim3 \times 10^7$ abundance measurements.
+of latent factors, components, and $\sim10^6$ abundance measurements.
 \end{abstract}
 
 \keywords{methods: statistical}
@@ -1060,7 +1060,7 @@ do not have a full complement of abundances. However, we also
 chose to exclude some elemental abundances from our chemical
 tagging experiments. For example, our experiments
 with \Galah\ data do not include lithium or carbon abundances because the
-photospheric varies throughout a star's lifetime (e.g., see Experiment 2). This is true
+photospheric values will vary throughout a star's lifetime \citep[e.g.,][]{Casey:2016b,Casey:2019}. This is true
 to a small degree for many elements \citep[e.g.,][]{Dotter:2017},
 but for the purposes of this experiment we assume that all other
 photospheric abundances remain constant throughout a star's
@@ -1100,7 +1100,7 @@ We first selected stars with \texttt{flag\_cannon = 0} to exclude
 stars where there is reason to suspect that the stellar parameters
 (e.g., $\teff$, $\logg$) are unreliable, and as a result the 
 detailed chemical abundances would be untrustworthy. We then took all
-stars with a signal-to-noise ratio exceeding 40 in the blue arm (\texttt{snr\_c1} $>$ 40), and
+stars with a signal-to-noise ratio exceeding 40 in the blue arm (\texttt{snr\_c1 > 40}), and
 stars with no erroneous flags in all of the following abundances: Na, Al, Si, K, Ca, Sc, Ti, V, Mn, Fe, Ni, Cu, Zn, Y, Ba, La, and Eu.
 %These elements are produced from multiple nucleosynthetic
 %pathways, and 
@@ -1371,8 +1371,14 @@ our model does provide the first data-driven approach to nucleosynthesis and che
 With a larger sample of stars that have a complete abundance inventory we would expect to 
 identify more latent factors and/or components. Alternatively, a useful extension of this work would be to allow for missing and/or noisy data, such that realistic data sets of chemical abundances can be used to perform chemical tagging experiments on a larger scale.
 
-% This paper was built from reference XXX on github repo YYY
-
+% TODO:
+%\vspace{2em}
+%This \emph{Article} was compiled from the \texttt{git} commit \todo{\texttt{HASH}}.
+%The analysis, results, and figures presented in this \emph{Article} can be reproduced in full 
+%using the following commands in a modern terminal:\vspace{1em}\\
+%\texttt{git clone https://github.com/andycasey/mcfa}\\
+%\texttt{cd mcfa/}\\
+%\todo{\texttt{sh article/build.sh}}
 
 
 \acknowledgements
@@ -1384,15 +1390,16 @@ people, and pay our respects to elders past and present.
 %This work presents results from the European Space Agency (ESA) space mission Gaia. Gaia data is being processed by the Gaia Data Processing and Analysis Consortium (DPAC). Funding for the DPAC is provided by national institutions, in particular the institutions participating in the Gaia MultiLateral Agreement (MLA). The Gaia mission website is https://www.cosmos.esa.int/gaia . The Gaia archive website is https://archives.esac.esa.int/gaia .
 This research has made use of NASA's Astrophysics Data System.
 
+\clearpage
 
 \software{
-	\package{Astropy}\,\,\citep{astropy:v1,astropy:v2},\,\,
-    \package{IPython}\,\,\citep{ipython},\,\,
-    \package{matplotlib}\,\,\citep{mpl},\,\,
-    \package{numpy}\,\,\citep{numpy},\,\,
-    \package{scipy}\,\,\citep{scipy},\,\,
+	\package{Astropy} \citep{astropy:v1,astropy:v2},\,\,
+    \package{IPython} \citep{ipython},\,\,
+    \package{matplotlib} \citep{mpl},\,\,
+    \package{numpy} \citep{numpy},\,\,
+    \package{scipy} \citep{scipy},\,\,
 %    \package{Stan}\,\,\citep{stan},\,\,
-    \package{Jupyter Notebooks}\,\,\citep{jupyter-notebooks}\,\,
+    \package{Jupyter Notebooks} \citep{jupyter-notebooks}
 }    % TOPCAT
 
 
