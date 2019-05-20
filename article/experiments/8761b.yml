@@ -1,54 +1,57 @@
 adopted_metric: mml
-exp3:
-  elements:
-    - Na
-    - Fe
-    - Sc
-    - Ti
-    - Zn
-    - Mn
-    - Y
-    - Ca
-    - Ni
-    - Cr
-    - O
-    - Si
-    - K
-    - Ba
-    - V
-    - Cu
-    - Al
-    - La
-    - Eu
-  ignore_elements:
-    - O
-    - Cr
-  gridsearch:
-    max_n_components: 5
-    max_n_latent_factors: 7
-    n_inits: 25
-  galah_cuts:
-    snr_c1: [40, 10000]
+correct_A_astrophysical: true
 exp2:
+  elements:
+  - Fe
+  - Ca
+  - Ti
+  - Cr
+  - Sc
+  - Ni
+  - Mg
+  - Sr
+  - Al
+  - Mn
+  - Co
+  - Ba
+  - Y
+  - Eu
   gridsearch:
     max_n_components: 3
     max_n_latent_factors: 7
     n_inits: 25
+exp3:
   elements:
-    - Fe
-    - Ca
-    - Ti
-    - Cr
-    - Sc
-    - Ni
-    - Mg
-    - Sr
-    - Al
-    - Mn
-    - Co
-    - Ba
-    - Y 
-    - Eu
+  - Na
+  - Fe
+  - Sc
+  - Ti
+  - Zn
+  - Mn
+  - Y
+  - Ca
+  - Ni
+  - Cr
+  - O
+  - Si
+  - K
+  - Ba
+  - V
+  - Cu
+  - Al
+  - La
+  - Eu
+  galah_cuts:
+    snr_c1:
+    - 40
+    - 10000
+  gridsearch:
+    max_n_components: 5
+    max_n_latent_factors: 7
+    n_inits: 25
+  ignore_elements:
+  - O
+  - Cr
 grouped_elements:
 - - Eu
   - La
@@ -83,4 +86,3 @@ random_seed: 10
 subtract_mean: true
 use_galah_flags: true
 wrt_x_fe: false
-correct_A_astrophysical: true

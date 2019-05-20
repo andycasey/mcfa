@@ -12,7 +12,7 @@ from hashlib import md5
 
 from matplotlib.ticker import MaxNLocator
 
-sys.path.insert(0, "../")
+sys.path.insert(0, "../../")
 
 from mcfa import (mcfa, grid_search, mpl_utils, utils)
 
@@ -74,7 +74,7 @@ periodic_table = periodic_table.replace(" Ba ", " Ba " + lanthanoids + " ") \
                                .replace(" Ra ", " Ra " + actinoids + " ") \
                                .split()
 
-t = Table.read(os.path.join(here, "../catalogs/barklem_t3.fits"))
+t = Table.read(os.path.join(here, "../../catalogs/barklem_t3.fits"))
 
 elements = np.unique(t["El"])
 stars = np.unique(t["Name"])

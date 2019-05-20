@@ -656,7 +656,7 @@ def plot_fractional_positive_factor_contributions(model, Y, label_names=None, co
 
 
 def plot_factor_loads_and_contributions(model, Y, label_names=None, colors=None, line_kwds=None,
-                                        absolute_only=True, target_loads=None):
+                                        absolute_only=True, target_loads=None, **kwargs):
 
     L = model.theta_[model.parameter_names.index("A")]
     S = model.factor_scores(Y)[1]
@@ -720,12 +720,21 @@ def plot_factor_loads_and_contributions(model, Y, label_names=None, colors=None,
                 ax.set_xticks(x.astype(int))
                 ax.set_xticklabels(latex_label_names)
 
+
+
         else:
             ax.set_xticks([])
 
         ax.set_xlim(x[0] - 0.5, x[-1] + 0.5)
 
     # On last figure, show visualisation.
+
+    for i, tick in enumerate(ax.get_xaxis().get_major_ticks()):
+        if i % 2 == 0: continue
+
+        tick.set_pad(kwargs.get("ticker_pad", 20.))
+        tick.label1 = tick._get_text1()
+
 
     F = np.abs(f)/np.atleast_2d(np.sum(np.abs(f), axis=1)).T
     indices = np.argsort(1.0/F, axis=1)
@@ -752,7 +761,7 @@ def plot_factor_loads_and_contributions(model, Y, label_names=None, colors=None,
 
     ax.set_frame_on(False)
 
-    ax.set_xlabel(r"${|\mathbf{C}_\textrm{d}|} / {\sum_{j}|\mathbf{C}_\textrm{j,d}|}$")
+    #ax.set_xlabel(r"${|\mathbf{C}_\textrm{d}|} / {\sum_{j}|\mathbf{C}_\textrm{j,d}|}$")
 
     fig.tight_layout()
 

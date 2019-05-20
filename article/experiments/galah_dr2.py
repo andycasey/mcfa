@@ -9,7 +9,7 @@ import os
 
 here = os.path.dirname(os.path.realpath(__file__))
 
-data = Table.read(os.path.join(here, "../catalogs/GALAH_DR2.1_catalog.fits"))
+data = Table.read(os.path.join(here, "../../catalogs/GALAH_DR2.1_catalog.fits"))
 
 periodic_table = """H                                                  He
                     Li Be                               B  C  N  O  F  Ne
@@ -103,6 +103,7 @@ def suggest_abundances_to_include(mask, elements, use_galah_flags=False,
 
     return OrderedDict(sorted(updated.items(), key=itemgetter(1), reverse=True))
 
+
 def get_abundances_wrt_h(elements, mask=None, cluster_names=None, use_galah_flags=False):
 
     # Prepare data array.
@@ -131,12 +132,21 @@ def get_abundances_wrt_h(elements, mask=None, cluster_names=None, use_galah_flag
         mask = get_abundance_mask(sorted_elements, cluster_names, 
                                  use_galah_flags=use_galah_flags)
 
-    X_H = np.array([data[_abundance_label(el)][mask] - asplund_2009[el] \
-                    for el in sorted_elements]).T
+    #X_H = np.array([data[_abundance_label(el)][mask] - asplund_2009[el] \
+    #                for el in sorted_elements]).T
+    X_H = np.zeros((sum(mask), len(sorted_elements)), dtype=float)
+    for i, element in enumerate(sorted_elements):
+
+        if element.lower() == "fe":
+            X_H[:, i] = data[_abundance_label(element)][mask]
+        else:
+            X_H[:, i] = data[_abundance_label(element)][mask] + data[_abundance_label("Fe")][mask]
 
     label_names_wrt_h = ["{0}_h".format(el).lower() for el in sorted_elements]
 
     return (X_H, label_names_wrt_h)
+
+
 
 def get_abundances(elements, mask=None, cluster_names=None, use_galah_flags=False):
 
