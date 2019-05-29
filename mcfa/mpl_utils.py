@@ -9,6 +9,7 @@ from scipy.stats import binned_statistic_2d
 from matplotlib.colors import (BoundaryNorm, LinearSegmentedColormap, LogNorm)
 from matplotlib.ticker import MaxNLocator, FormatStrFormatter, FuncFormatter
 from matplotlib.patches import Ellipse
+from matplotlib import ticker
 
 from .utils import find_rotation_matrix, givens_rotation_matrix
 
@@ -158,9 +159,9 @@ def fill_between_steps(ax, x, y1, y2=0, h_align='mid', **kwargs):
 
 def plot_specific_scatter(model, y=None, scales=1, 
                           xlabel=None, xticklabels=None, ylabel=None,
-                          steps=False, fill=True, line_kwds=None, fill_kwds=None):
+                          steps=False, fill=True, line_kwds=None, fill_kwds=None, **kwargs):
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(3.57, 3.57))
 
     if y is None:
         y = scales * np.sqrt(model.theta_[model.parameter_names.index("psi")])
@@ -193,7 +194,23 @@ def plot_specific_scatter(model, y=None, scales=1,
     ax.set_xticks(x)
 
     if xticklabels is not None:
+        ax.xaxis.set_tick_params(width=0)
+
+        ax.xaxis.set_minor_locator(ticker.FixedLocator(np.arange(x.size) + 0.5))
+
+        """
+        ax.xaxis.set_major_formatter(ticker.NullFormatter())
+        ax.xaxis.set_tick_params(width=00)
+        ax.xaxis.set_minor_formatter(ticker.FixedFormatter(xticklabels))
+        """
+
         ax.set_xticklabels(xticklabels)
+
+        for i, tick in enumerate(ax.get_xaxis().get_major_ticks()):
+            if i % 2 == 0: continue
+
+            tick.set_pad(kwargs.get("ticker_pad", 15.))
+            tick.label1 = tick._get_text1()
 
     if xlabel is not None:
         ax.set_xlabel(xlabel)
@@ -208,6 +225,21 @@ def plot_specific_scatter(model, y=None, scales=1,
     return fig
 
 
+def plot_data_space(model, X, **kwargs):
+
+    kwds = dict(cmap="Spectral", alpha=0.5, s=1, show_ticks=True,
+                label_names=[r"$\mathbf{{Y}}_{{{0}}}$".format(i) for i in range(model.n_components)])
+    kwds.update(kwargs)
+
+    fig = corner_scatter(X, c=np.argmax(model.tau_, axis=1), **kwargs)
+    size = np.max(np.array([fig.get_figwidth(), fig.get_figheight()]))
+    fig.set_figwidth(size)
+    fig.set_figheight(size)
+    fig.tight_layout()
+    return fig
+
+
+
 
 
 def plot_latent_space(model, X, ellipse_kwds=None, **kwargs):
@@ -216,7 +248,11 @@ def plot_latent_space(model, X, ellipse_kwds=None, **kwargs):
 
     hard_associations = np.argmax(tau, axis=1)
 
-    fig = corner_scatter(v_mean, c=hard_associations, **kwargs)
+    kwds = dict()
+    kwds["c"] = np.argmax(tau, axis=1)
+    kwds.update(kwargs)
+
+    fig = corner_scatter(v_mean, **kwargs)
 
     xi = model.theta_[model.parameter_names.index("xi")] # latent factors, number of components.
     omega = model.theta_[model.parameter_names.index("omega")]
@@ -526,6 +562,307 @@ def plot_filled_contours(J, K, Z, N=1000, colorbar_label=None,
     return fig
 
 
+def plot_fractional_positive_factor_contributions(model, Y, label_names=None, colors=None, line_kwds=None):
+    L = model.theta_[model.parameter_names.index("A")]
+    S = model.factor_scores(Y)[1]
+    tau = model.tau_
+
+    D, J = L.shape
+    N, K = S.shape
+
+    f = np.sum(np.array([np.clip(L[:, [j]] @ S.T[[j], :], 0, np.inf) for j in range(J)]), axis=-1)
+    f = (f / np.sum(f, axis=0)).T
+
+    if label_names is not None:
+        latex_label_names = [r"$\textrm{{{0}}}$".format(ea) for ea in label_names]
+
+    if colors is not None:
+        assert len(colors) >= J
+        
+
+    fig = plt.figure()
+
+    K = 4
+    shape = (J, K)
+    axes = [plt.subplot2grid(shape, (j, 0), colspan=K-1) for j in range(J)]
+    axes += [plt.subplot2grid(shape, (0, K - 1), rowspan=J, colspan=1)]
+
+    if colors is None:
+        cmap = discrete_cmap(J, base_cmap="Spectral_r")
+        colors = [cmap(j) for j in range(J)]
+
+
+    line_kwds_ = dict(lw=5)
+    line_kwds_.update(line_kwds or dict())
+
+    x = np.arange(D)
+    for j, (ax, color) in enumerate(zip(axes, colors[:J])):
+
+        ax.plot(x, f.T[j], "-", c=color, **line_kwds_)
+        ax.axhline(0, linewidth=1, c="#666666", linestyle=":", zorder=-1)
+        ax.set_xlim(0, D)
+
+        ax.set_ylim(-0.1, 1.1)
+        ax.set_yticks([0, 1])
+        ax.set_ylabel(r"$|\mathbf{{C}}_{{{0}}}|$".format(j))
+
+
+        if ax.is_last_row():
+            if label_names is not None:
+                ax.set_xticks(x.astype(int))
+                ax.set_xticklabels(latex_label_names)
+
+        else:
+            ax.set_xticks([])
+
+        ax.set_xlim(x[0] - 0.5, x[-1] + 0.5)
+
+    # On last figure, show visualisation.
+
+    F = np.abs(f)/np.atleast_2d(np.sum(np.abs(f), axis=1)).T
+    indices = np.argsort(1.0/F, axis=1)
+
+    ax = axes[-1]
+    for d, (f, idx) in enumerate(zip(F, indices)):
+
+        left = 0
+        for i in idx:
+            ax.barh(D - d, f[i], left=left, facecolor=colors[i])
+            left += f[i]
+
+        ax.barh(D - d, 1, left=0, edgecolor='#000000', zorder=-1, linewidth=2)
+
+
+    ax.set_yticks(np.arange(1, 1 + D))
+    if label_names is not None:
+        ax.set_yticklabels(latex_label_names[::-1])
+
+    ax.set_ylim(0.5, D + 0.5)
+    ax.set_xlim(-0.01, 1.01)
+    ax.set_xticks([])
+    ax.yaxis.set_tick_params(width=0)
+
+    ax.set_frame_on(False)
+
+    ax.set_xlabel(r"${|\mathbf{C}_\textrm{d}|} / {\sum_{j}|\mathbf{C}_\textrm{j,d}|}$")
+
+    fig.tight_layout()
+
+    return fig
+
+#fig_contributions = mpl_utils.plot_fractional_nonzero_factor_contributions(model, X,
+#  label_names, colors=colors)
+#savefig(fig_contributions, "latent-factor-contributions-before")
+
+
+def plot_factor_loads_and_contributions(model, Y, label_names=None, colors=None, line_kwds=None,
+                                        absolute_only=True, target_loads=None, **kwargs):
+
+    L = model.theta_[model.parameter_names.index("A")]
+    S = model.factor_scores(Y)[1]
+    tau = model.tau_
+
+    D, J = L.shape
+    N, K = S.shape
+
+    f = np.sum(np.array([np.abs(L[:, [j]] @ S.T[[j], :]) for j in range(J)]), axis=-1)
+    f = (f / np.sum(f, axis=0)).T
+
+    if label_names is not None:
+        latex_label_names = [r"$\textrm{{{0}}}$".format(ea) for ea in label_names]
+
+    if colors is not None:
+        assert len(colors) >= J
+
+    fig = plt.figure()
+
+    K = 4
+    shape = (J, K)
+    axes = [plt.subplot2grid(shape, (j, 0), colspan=K-1) for j in range(J)]
+    axes += [plt.subplot2grid(shape, (0, K - 1), rowspan=J, colspan=1)]
+
+    if colors is None:
+        cmap = discrete_cmap(J, base_cmap="Spectral_r")
+        colors = [cmap(j) for j in range(J)]
+
+
+    line_kwds_ = dict(lw=5)
+    line_kwds_.update(line_kwds or dict())
+
+    x = np.arange(D)
+    for j, (ax, color) in enumerate(zip(axes, colors[:J])):
+
+        #ax.plot(x, f.T[j], "-", c=color, **line_kwds_)
+        v = L.T[j]
+        v = np.abs(v) if absolute_only else v
+
+        ax.plot(x, v, "-", c=color, **line_kwds_)
+        if target_loads is not None:
+            v = target_loads.T[j]
+            v = np.abs(v) if absolute_only else v
+            ax.plot(x, v, "-", c=color, linewidth=2)
+
+        ax.axhline(0, linewidth=1, c="#666666", linestyle=":", zorder=-1)
+        ax.set_xlim(0, D)
+
+        if absolute_only:
+            ax.set_ylabel(r"$|\mathbf{{L}}_{{{0}}}|$".format(j))
+            ax.set_ylim(-0.1, 1.1)
+            ax.set_yticks([0, 1])
+
+        else:
+            ax.set_ylabel(r"$\mathbf{{L}}_{{{0}}}$".format(j))
+            ax.set_ylim(-1.1, 1.1)
+            ax.set_yticks([-1, 0, 1])
+
+        if ax.is_last_row():
+            if label_names is not None:
+                ax.set_xticks(x.astype(int))
+                ax.set_xticklabels(latex_label_names)
+
+
+
+        else:
+            ax.set_xticks([])
+
+        ax.set_xlim(x[0] - 0.5, x[-1] + 0.5)
+
+    # On last figure, show visualisation.
+
+    for i, tick in enumerate(ax.get_xaxis().get_major_ticks()):
+        if i % 2 == 0: continue
+
+        tick.set_pad(kwargs.get("ticker_pad", 20.))
+        tick.label1 = tick._get_text1()
+
+
+    F = np.abs(f)/np.atleast_2d(np.sum(np.abs(f), axis=1)).T
+    indices = np.argsort(1.0/F, axis=1)
+
+    ax = axes[-1]
+    for d, (f, idx) in enumerate(zip(F, indices)):
+
+        left = 0
+        for i in idx:
+            ax.barh(D - d, f[i], left=left, facecolor=colors[i])
+            left += f[i]
+
+        ax.barh(D - d, 1, left=0, edgecolor='#000000', zorder=-1, linewidth=2)
+
+
+    ax.set_yticks(np.arange(1, 1 + D))
+    if label_names is not None:
+        ax.set_yticklabels(latex_label_names[::-1])
+
+    ax.set_ylim(0.5, D + 0.5)
+    ax.set_xlim(-0.01, 1.01)
+    ax.set_xticks([])
+    ax.yaxis.set_tick_params(width=0)
+
+    ax.set_frame_on(False)
+
+    #ax.set_xlabel(r"${|\mathbf{C}_\textrm{d}|} / {\sum_{j}|\mathbf{C}_\textrm{j,d}|}$")
+
+    fig.tight_layout()
+
+    return fig
+
+
+
+def plot_fractional_nonzero_factor_contributions(model, Y, label_names=None, colors=None, line_kwds=None):
+
+    L = model.theta_[model.parameter_names.index("A")]
+    S = model.factor_scores(Y)[1]
+    tau = model.tau_
+
+    D, J = L.shape
+    N, K = S.shape
+
+    #contributions = np.array([np.sum(np.abs(L[:, [j]] @ S.T[[j], :]) @ model.tau_, axis=1) for j in range(J)])
+    # numerator should have shape (J, D)
+    #contributions /= np.sum(contributions, axis=0)
+
+    f = np.sum(np.array([np.abs(L[:, [j]] @ S.T[[j], :]) for j in range(J)]), axis=-1)
+    f = (f / np.sum(f, axis=0)).T
+
+    if label_names is not None:
+        latex_label_names = [r"$\textrm{{{0}}}$".format(ea) for ea in label_names]
+
+    if colors is not None:
+        assert len(colors) >= J
+        
+
+    fig = plt.figure()
+
+    K = 4
+    shape = (J, K)
+    axes = [plt.subplot2grid(shape, (j, 0), colspan=K-1) for j in range(J)]
+    axes += [plt.subplot2grid(shape, (0, K - 1), rowspan=J, colspan=1)]
+
+    if colors is None:
+        cmap = discrete_cmap(J, base_cmap="Spectral_r")
+        colors = [cmap(j) for j in range(J)]
+
+
+    line_kwds_ = dict(lw=5)
+    line_kwds_.update(line_kwds or dict())
+
+    x = np.arange(D)
+    for j, (ax, color) in enumerate(zip(axes, colors[:J])):
+
+        ax.plot(x, f.T[j], "-", c=color, **line_kwds_)
+        ax.axhline(0, linewidth=1, c="#666666", linestyle=":", zorder=-1)
+        ax.set_xlim(0, D)
+
+        ax.set_ylim(-0.1, 1.1)
+        ax.set_yticks([0, 1])
+        ax.set_ylabel(r"$|\mathbf{{C}}_{{{0}}}|$".format(j))
+
+
+        if ax.is_last_row():
+            if label_names is not None:
+                ax.set_xticks(x.astype(int))
+                ax.set_xticklabels(latex_label_names)
+
+        else:
+            ax.set_xticks([])
+
+        ax.set_xlim(x[0] - 0.5, x[-1] + 0.5)
+
+    # On last figure, show visualisation.
+
+    F = np.abs(f)/np.atleast_2d(np.sum(np.abs(f), axis=1)).T
+    indices = np.argsort(1.0/F, axis=1)
+
+    ax = axes[-1]
+    for d, (f, idx) in enumerate(zip(F, indices)):
+
+        left = 0
+        for i in idx:
+            ax.barh(D - d, f[i], left=left, facecolor=colors[i])
+            left += f[i]
+
+        ax.barh(D - d, 1, left=0, edgecolor='#000000', zorder=-1, linewidth=2)
+
+
+    ax.set_yticks(np.arange(1, 1 + D))
+    if label_names is not None:
+        ax.set_yticklabels(latex_label_names[::-1])
+
+    ax.set_ylim(0.5, D + 0.5)
+    ax.set_xlim(-0.01, 1.01)
+    ax.set_xticks([])
+    ax.yaxis.set_tick_params(width=0)
+
+    ax.set_frame_on(False)
+
+    ax.set_xlabel(r"${|\mathbf{C}_\textrm{d}|} / {\sum_{j}|\mathbf{C}_\textrm{j,d}|}$")
+
+    fig.tight_layout()
+
+    return fig
+
+
 def visualize_factor_loads(L, label_names=None, colors=None, line_kwds=None,
                            absolute_only=False,
                           **kwargs):
@@ -562,7 +899,7 @@ def visualize_factor_loads(L, label_names=None, colors=None, line_kwds=None,
     line_kwds_.update(line_kwds or dict())
 
     x = np.arange(D)
-    for j, (ax, color) in enumerate(zip(axes, colors)):
+    for j, (ax, color) in enumerate(zip(axes, colors[:J])):
 
         ax.plot(x, L.T[j], "-", c=color, **line_kwds_)
         ax.axhline(0, linewidth=1, c="#666666", linestyle=":", zorder=-1)

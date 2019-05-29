@@ -28,6 +28,8 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
     mml = np.nan * np.ones(shape)
     pseudo_bic = np.nan * np.ones(shape)
 
+    best_models = dict(mml=None, bic=None, ll=None)
+
     for j, J in enumerate(Js):
         for k, K in enumerate(Ks):
 
@@ -52,13 +54,17 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
                     models.append(model)
 
             if len(models) > 0:
-                idx = np.nanargmax([model.log_likelihood_ for model in models])
+                lls_ = [model.log_likelihood_ for model in models]
+                idx = np.nanargmax(lls_)
                 model = models[idx]
 
                 converged[k, j] = True
                 ll[k, j] = model.log_likelihood_
                 bic[k, j] = model.bic(X, log_likelihood=model.log_likelihood_)
                 mml[k, j] = model.message_length(X, log_likelihood=model.log_likelihood_)
+
+                logger.info(f"std. dev. (ll): {np.std(lls_):.2e}")
+                logger.info(f"ptp. (ll): {np.ptp(lls_):.2e}")
 
                 if np.any(np.isfinite(ll)):
 
@@ -69,10 +75,25 @@ def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
                     j_ll_best, k_ll_best = best(Js, Ks, -ll)
                     logger.info(f"Model with maximum log-likelihood so far has J = {j_ll_best} and K = {k_ll_best}")
 
+                    if best_models["mml"] is None \
+                    or (best_models["mml"].n_latent_factors != j_mml_best \
+                        or best_models["mml"].n_components != k_mml_best):
+                        best_models["mml"] = model
 
-    # Best of each?
-    metrics = dict(ll=ll, bic=bic, pseudo_bic=pseudo_bic, message_length=mml)
-    return (J_grid, K_grid, converged, metrics)#ll, bic, pseudo_bic)
+                    if best_models["bic"] is None \
+                    or (best_models["bic"].n_latent_factors != j_bic_best \
+                        or best_models["bic"].n_components != k_bic_best):
+                        best_models["bic"] = model
+
+                    if best_models["ll"] is None \
+                    or (best_models["ll"].n_latent_factors != j_ll_best \
+                        or best_models["ll"].n_components != k_ll_best):
+                        best_models["ll"] = model                    
+
+
+    meta = dict(ll=ll, bic=bic, pseudo_bic=pseudo_bic, message_length=mml,
+                best_models=best_models)
+    return (J_grid, K_grid, converged, meta)#ll, bic, pseudo_bic)
 
 
 def best(trial_n_latent_factors, trial_n_components, metric, 
