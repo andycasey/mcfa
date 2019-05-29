@@ -171,11 +171,12 @@ class MCFA(object):
             The data array, ensuring it is a 2D array.
         """
 
-        X = np.atleast_2d(X)
-        if not np.all(np.isfinite(X)):
-            raise ValueError("data has non-finite entries")
+        Y = np.atleast_2d(X).copy()
 
-        N, D = X.shape
+        if not np.all(np.isfinite(Y)):
+            logger.warn("Non-finite data points will be treated as missing data at random.")
+    
+        N, D = Y.shape
         if D > N:
             logger.warning(f"There are more dimensions than data ({D} > {N})!")
 
@@ -184,19 +185,26 @@ class MCFA(object):
                              f"({self.n_latent_factors} >= {D})")
 
         # Check to see if the data are whitened.
-        mu, sigma = (np.mean(X, axis=0), np.std(X, axis=0))
+        mu, sigma = (np.nanmean(Y, axis=0), np.nanstd(Y, axis=0))
         if warn_about_whitening and \
         not (np.allclose(mu, np.zeros(D)) or np.allclose(sigma, np.ones(D))):
             logger.warn("Supplied data do not appear to be whitened. "\
                         "Use mcfa.utils.whiten(X) to whiten the data.")
 
+        if not np.all(np.isfinite(Y)):
+            missing = ~np.isfinite(Y)
+            Y[missing] = 0
+
+        else:
+            missing = None
+
         # Pre-calculate X2, because we will use this at every EM step.
-        self._check_precomputed_X2(X)
+        self._check_precomputed_X2(Y, missing)
+        
+        return (Y, missing)
 
-        return X
 
-
-    def _check_precomputed_X2(self, X, **kwargs):
+    def _check_precomputed_X2(self, X, missing=None, **kwargs):
         r"""
         Compute and store X^2 if it is not already calculated. 
         If it is pre-computed, check a random entry of the matrix, and raise a
@@ -215,9 +223,20 @@ class MCFA(object):
 
         else:
             # Check a single entry.
-            i, j = (np.random.choice(X.shape[0]), np.random.choice(X.shape[1]))
+            if missing is None:
+                i, j = (np.random.choice(X.shape[0]), np.random.choice(X.shape[1]))
+                expected, actual = (np.square(X[i, j]), self._X2[i, j])
 
-            expected, actual = (np.square(X[i, j]), self._X2[i, j])
+            else:
+                ii, jj = np.where(~missing)
+                idx = np.random.choice(ii.size)
+                i, j = ii[idx], jj[idx]
+
+                expected, actual = (np.square(X[i, j]), self._X2[i, j])
+
+                # Update actual values for missing entries assuming that non-missing entries are OK
+                self._X2[missing] = np.square(X[missing])
+
             if not np.allclose(expected, actual, **kwargs):
                 raise ValueError(
                     f"pre-computed X^2 does not match actual X^2 at {i}, {j} "\
@@ -348,7 +367,7 @@ class MCFA(object):
         return (ll, tau)
 
 
-    def maximization(self, X, tau, pi, A, xi, omega, psi):
+    def maximization(self, X, tau, pi, A, xi, omega, psi, **kwargs):
         r"""
         Compute the updated estimates of the model parameters given the data,
         the responsibility matrix :math:`\tau`, and the current estimates of the
@@ -394,7 +413,7 @@ class MCFA(object):
         """
 
         return _maximization(X, tau, pi, A, xi, omega, psi,
-                             X2=self._check_precomputed_X2(X),
+                             X2=self._check_precomputed_X2(X, **kwargs),
                              covariance_regularization=self.covariance_regularization)
 
 
@@ -423,7 +442,7 @@ class MCFA(object):
         #assert current > previous # depends on objective function
 
         ratio = abs((current - previous)/current)
-        converged = self.tol >= ratio
+        converged = (self.tol >= ratio) and previous < current
 
         return (converged, current, ratio)
 
@@ -445,12 +464,12 @@ class MCFA(object):
 
         np.random.seed(self.random_seed)
 
-        X = self._check_data(X)
+        Y, missing = self._check_data(X)
 
-        theta = prev_theta = self._initial_parameters(X, self.random_seed) \
+        theta = prev_theta = self._initial_parameters(Y, self.random_seed) \
                              if init_params is None else deepcopy(init_params) 
 
-        prev_ll, tau = self.expectation(X, *theta)
+        prev_ll, tau = self.expectation(Y, *theta)
 
         # TODO: start n_iter counter from previous value if we are starting from
         #       a previously optimised value.
@@ -460,8 +479,8 @@ class MCFA(object):
         for n_iter in tqdm(range(1, 1 + self.max_iter), **tqdm_kwds):
 
             try:
-                theta = self.maximization(X, tau, *theta)
-                ll, tau = self.expectation(X, *theta)
+                theta = self.maximization(Y, tau, *theta, missing=missing)
+                ll, tau = self.expectation(Y, *theta)
 
             except:
                 logger.exception(f"Exception occurred during E-M algorithm:")
@@ -472,7 +491,19 @@ class MCFA(object):
             converged, prev_ll, ratio = self._check_convergence(prev_ll, ll)
             prev_theta = theta
 
-            if converged: break
+            if converged: 
+                break
+
+            if missing is not None:
+                # Update missing data values.
+                U, UC, Umean, tau = _factor_scores(Y, *theta, tau=tau)
+
+                L = theta[1]
+                Y_approx = (L @ Umean.T).T
+
+                # Now update the Y values with our expectations given the model, and re-calculate
+                # the log-likelihood as a sanity check.
+                Y[missing] = Y_approx[missing]
 
         else:
             if self.verbose >= 0:
@@ -497,6 +528,11 @@ class MCFA(object):
 
         for i in range(self.n_components):
             omega[:, :, i] = AL @ omega[:, :, i] @ AL.T
+
+        # Boost psi by the fraction of missing data points by Rubin's rule.
+        if missing is not None:
+            logger.info("Inflating specific variance by the fraction of missing data points.")
+            psi /= (1 - np.sum(missing)/Y.size)
 
         self.tau_ = tau
         self.theta_ = [pi, A, xi, omega, psi]

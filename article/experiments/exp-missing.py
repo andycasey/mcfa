@@ -1,0 +1,176 @@
+
+import sys
+import numpy as np
+import os
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
+from matplotlib import gridspec
+
+from time import time
+
+sys.path.insert(0, "../../")
+
+from mcfa import (mcfa, grid_search, mpl_utils, utils)
+
+matplotlib.style.use(mpl_utils.mpl_style)
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+
+n_features = 30
+n_components = 10
+n_latent_factors = 5
+n_samples = 10000
+
+omega_scale = 1
+noise_scale = 1
+random_seed = 100
+
+data_kwds = dict(n_features=n_features,
+                 n_components=n_components,
+                 n_latent_factors=n_latent_factors,
+                 n_samples=n_samples,
+                 omega_scale=omega_scale,
+                 noise_scale=noise_scale,
+                 random_seed=random_seed)
+
+
+mcfa_kwds = dict(tol=1e-5, 
+                 max_iter=10000,
+                 init_factors="random",
+                 init_components="random",
+                 random_seed=random_seed,
+                 covariance_regularization=1e-6)
+
+
+
+
+Y, truth = utils.generate_data(**data_kwds)
+truth_packed = (truth["pi"], truth["A"], truth["xi"], truth["omega"], truth["psi"])
+
+for missing_data_fraction in (0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 0.9):
+
+    # Throw away some data.
+    missing_flat_indices = np.random.choice(Y.size, int(missing_data_fraction * Y.size), replace=False)
+    is_missing = np.zeros(Y.size, dtype=bool)
+    is_missing[missing_flat_indices] = True
+    is_missing = is_missing.reshape(Y.shape)
+
+    X = np.copy(Y)
+    X[is_missing] = np.nan
+
+
+    # Fit with true number of latent factors and components.
+    model = mcfa.MCFA(n_components=data_kwds["n_components"],
+                      n_latent_factors=data_kwds["n_latent_factors"],
+                      **mcfa_kwds)
+    tick = time()
+    model.fit(X)
+    tock = time()
+
+    model.message_length(X)
+
+    print(f"Model took {tock - tick:.1f} seconds")
+
+    A_true = truth["A"]
+    A_est = model.theta_[model.parameter_names.index("A")]
+
+    # Get exact transformation.
+    R = utils.exact_rotation_matrix(A_true, A_est)
+
+    # Now make it a valid rotation matrix.
+    L = linalg.cholesky(R.T @ R)
+    R = R @ linalg.solve(L, np.eye(n_latent_factors))
+
+    model.rotate(R)
+
+
+    scatter_kwds = dict(s=1, rasterized=True, c="#000000")
+
+    fig = plt.figure(figsize=(7.5, 3.09))
+
+
+    gs = gridspec.GridSpec(2, 3, height_ratios=[1, 4], width_ratios=[1, 1, 1])
+
+    A_est = model.theta_[model.parameter_names.index("A")]
+
+    xs = [
+        A_true.flatten(),
+        truth["scores"].flatten(),
+        truth["psi"].flatten()
+    ]
+
+    ys = [
+        A_est.flatten(),
+        model.factor_scores(Y)[1].flatten(),
+        model.theta_[-1]
+    ]
+
+    xlabels = [
+        r"$\mathbf{L}_\textrm{true}$",
+        r"$\mathbf{S}_\textrm{true}$",
+        r"$\mathbf{\Psi}_\textrm{true}$"
+    ]
+
+    ylabels = [
+        r"$\mathbf{L}_\textrm{est}$",
+        r"$\mathbf{S}_\textrm{est}$",
+        r"$\mathbf{\Psi}_\textrm{est}$"
+    ]
+
+    delta_labels = [
+        r"$\Delta\mathbf{L}$",
+        r"$\Delta\mathbf{S}$",
+        r"$\Delta\mathbf{\Psi}$"
+    ]
+
+    idx = 0
+    for i in range(3):
+        ax_residual = fig.add_subplot(gs[idx])
+        ax = fig.add_subplot(gs[idx +3])
+
+        x, y = (xs[i], ys[i])
+
+        ax.scatter(x, y, **scatter_kwds)
+        ax_residual.scatter(x, y - x, **scatter_kwds)
+
+        lims = np.max(np.abs(np.hstack([ax.get_xlim(), ax.get_ylim()])))
+        if i == 2:
+            lims = (0, +lims)
+        else:
+            lims = (-lims, +lims)
+
+        kwds = dict(c="#666666", linestyle=":", linewidth=0.5, zorder=-1)
+        ax.plot([lims[0], +lims[1]], [lims[0], +lims[1]], "-", **kwds)
+        ax_residual.plot([lims[0], +lims[1]], [0, 0], "-", **kwds)
+
+        ax.set_xlim(lims[0], +lims[1])
+        ax.set_ylim(lims[0], +lims[1])
+        ax_residual.set_xlim(lims[0], +lims[1])
+        ylim = np.max(np.abs(ax_residual.get_ylim()))
+        ax_residual.set_ylim(-ylim, +ylim)
+
+        ax_residual.yaxis.set_major_locator(MaxNLocator(3))
+        ax_residual.xaxis.set_major_locator(MaxNLocator(3))
+        ax.xaxis.set_major_locator(MaxNLocator(3))
+        ax.yaxis.set_major_locator(MaxNLocator(3))
+        ax_residual.set_xticks([])
+
+
+        ax.set_xlabel(xlabels[i])
+        ax.set_ylabel(ylabels[i])
+        ax_residual.set_ylabel(delta_labels[i])
+
+        #ax.set_aspect(1.0)
+        #ax_residual.set_aspect(1)
+        idx += 1
+
+    # Plot the inflated specific variances.
+    #scatter_kwds.update(c="tab:red")
+    #ax.scatter(x, y/(1 - missing_data_fraction), **scatter_kwds)
+    #ax_residual.scatter(x, y/(1 - missing_data_fraction) - x, **scatter_kwds)
+
+    fig.tight_layout()
+
+    fig.savefig(f"exp-missing-data-{100*missing_data_fraction:.0f}percent.png")
+
