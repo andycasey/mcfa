@@ -167,4 +167,26 @@ def get_abundances(elements, mask=None, cluster_names=None, use_galah_flags=Fals
     return (X_H, label_names_wrt_h)
 
 
+def get_unflagged_abundances_wrt_h(elements, mask):
 
+
+    # Sort elements by atomic number.
+    indices = np.argsort([periodic_table.index(el) for el in elements])
+    sorted_elements = [elements[idx] for idx in indices]
+
+    X_H = np.zeros((sum(mask), len(sorted_elements)), dtype=float)
+    for i, element in enumerate(sorted_elements):
+
+        if element.lower() == "fe":
+            X_H[:, i] = data[_abundance_label(element)][mask]
+        else:
+            X_H[:, i] = data[_abundance_label(element)][mask] + data[_abundance_label("Fe")][mask]
+
+        # Flag baddies.
+        X_H[data[_abundance_flag_label(element)][mask] != 0, i] = np.nan
+
+
+
+    label_names_wrt_h = ["{0}_h".format(el).lower() for el in sorted_elements]
+
+    return (X_H, label_names_wrt_h)
