@@ -18,8 +18,6 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 
-
-
 class MCFA(object):
 
     r""" A mixture of common factor analyzers model. """
@@ -107,6 +105,8 @@ class MCFA(object):
                              f"or be a callable function")
 
         self.log_likelihoods_ = []
+
+        self.__inflate_psi_at_each_step = kwargs.get("__inflate_psi_at_each_step", True)
 
         return None
 
@@ -245,7 +245,7 @@ class MCFA(object):
         return self._X2
 
 
-    def _initial_parameters(self, X, random_state=None):
+    def _initial_parameters(self, X, missing=None, random_state=None):
         r"""
         Estimate the initial parameters of the model.
 
@@ -283,9 +283,12 @@ class MCFA(object):
         }.get(self.init_components, self.init_components)
 
         # TODO: use random state.
-        pi, xi, omega = initial_components_func(X, A, self.n_components)
+        pi, xi, omega = initial_components_func(X, A, self.n_components, random_state)
 
         N, D = X.shape
+        # TODO: Use np.ones (and potentially grow?) or use np.var (and potentially shrink?)
+        #psi = _inflate_psi(np.var(X, axis=0), missing)
+        #psi = _inflate_psi(np.ones(D), missing)
         psi = np.ones(D)
 
         return (pi, A, xi, omega, psi)
@@ -412,9 +415,11 @@ class MCFA(object):
             and the variance in each dimension :math:`\psi`.
         """
 
-        return _maximization(X, tau, pi, A, xi, omega, psi,
+        return _maximization(X, tau, pi, A, xi, omega, psi, 
                              X2=self._check_precomputed_X2(X, **kwargs),
-                             covariance_regularization=self.covariance_regularization)
+                             covariance_regularization=self.covariance_regularization,
+                             __inflate_psi_at_each_step=self.__inflate_psi_at_each_step,
+                             **kwargs)
 
 
     def _check_convergence(self, previous, current):
@@ -444,6 +449,11 @@ class MCFA(object):
         ratio = abs((current - previous)/current)
         converged = (self.tol >= ratio) and previous < current
 
+        if converged:
+            logger.debug(f"Converged because ({self.tol:.1e} >= {ratio:.1e}) and ({previous} < {current}")
+
+        logger.debug(f"Ratio: {ratio:.1e}, delta: {current-previous:.1e}")
+
         return (converged, current, ratio)
 
 
@@ -466,7 +476,7 @@ class MCFA(object):
 
         Y, missing = self._check_data(X)
 
-        theta = prev_theta = self._initial_parameters(Y, self.random_seed) \
+        theta = prev_theta = self._initial_parameters(Y, missing, self.random_seed) \
                              if init_params is None else deepcopy(init_params) 
 
         prev_ll, tau = self.expectation(Y, *theta)
@@ -486,6 +496,8 @@ class MCFA(object):
                 logger.exception(f"Exception occurred during E-M algorithm:")
                 logger.warning(f"Solution is unlikely to be converged.")
                 theta = prev_theta
+                if kwargs.get("debug", False):
+                    raise
                 break
 
             converged, prev_ll, ratio = self._check_convergence(prev_ll, ll)
@@ -498,8 +510,7 @@ class MCFA(object):
                 # Update missing data values.
                 U, UC, Umean, tau = _factor_scores(Y, *theta, tau=tau)
 
-                L = theta[1]
-                Y_approx = (L @ Umean.T).T
+                Y_approx = (theta[1] @ Umean.T).T
 
                 # Now update the Y values with our expectations given the model, and re-calculate
                 # the log-likelihood as a sanity check.
@@ -520,19 +531,25 @@ class MCFA(object):
         pi, A, xi, omega, psi = theta
 
         # Make A.T @ A = I
-        AL = linalg.cholesky(A.T @ A)
-        A = A @ linalg.solve(AL, np.eye(self.n_latent_factors))
+        try:
+            AL = linalg.cholesky(A.T @ A)
+
+        except:
+            logger.exception("Exception trying to ensure valid rotation matrix. "
+                             "Result may not be consistent!")
+
+        else:
+            A = A @ linalg.solve(AL, np.eye(self.n_latent_factors))
+
+            xi = AL @ xi
+
+            for i in range(self.n_components):
+                omega[:, :, i] = AL @ omega[:, :, i] @ AL.T
 
         A = _post_check_factor_loads(A)
-        xi = AL @ xi
-
-        for i in range(self.n_components):
-            omega[:, :, i] = AL @ omega[:, :, i] @ AL.T
-
-        # Boost psi by the fraction of missing data points by Rubin's rule.
-        if missing is not None:
-            logger.info("Inflating specific variance by the fraction of missing data points.")
-            psi /= (1 - np.sum(missing)/Y.size)
+        
+        if not self.__inflate_psi_at_each_step:
+            psi = _inflate_psi(psi, missing)
 
         self.tau_ = tau
         self.theta_ = [pi, A, xi, omega, psi]
@@ -841,7 +858,7 @@ def _initial_factor_loads_by_svd(X, n_latent_factors, random_state=None,
     return U[:, :n_latent_factors]
 
 
-def _initial_assignments_by_random(X, A, n_components):
+def _initial_assignments_by_random(X, A, n_components, random_state=None):
     N, D = X.shape
     return np.random.choice(n_components, N)
 
@@ -897,12 +914,12 @@ def _initial_components(X, A, n_components, assignments):
     return (pi, xi, omega)
 
 
-def _initial_components_by_random(X, A, n_components):
-    assignments = _initial_assignments_by_random(X, A, n_components)
+def _initial_components_by_random(X, A, n_components, random_state):
+    assignments = _initial_assignments_by_random(X, A, n_components, random_state)
     return _initial_components(X, A, n_components, assignments)
 
-def _initial_components_by_kmeans_pp(X, A, n_components):
-    assignments = _initial_assignments_by_kmeans_pp(X, A, n_components)
+def _initial_components_by_kmeans_pp(X, A, n_components, random_state):
+    assignments = _initial_assignments_by_kmeans_pp(X, A, n_components, random_state)
     return _initial_components(X, A, n_components, assignments)
 
 
@@ -999,7 +1016,8 @@ def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
 
 
 def _maximization(X, tau, pi, A, xi, omega, psi,
-                  X2=None, covariance_regularization=0):
+                  X2=None, covariance_regularization=0, missing=None,
+                  **kwargs):
     r"""
     Compute the updated estimates of the model parameters given the data,
     the responsibility matrix :math:`\tau`, and the current estimates of the
@@ -1102,6 +1120,11 @@ def _maximization(X, tau, pi, A, xi, omega, psi,
     Di = np.sum(X2.T @ tau, axis=1)
 
     psi = (Di - np.sum((A @ A2) * A, axis=1)) / N
+
+    # Inflate psi according to Rubin's rule, given the missing data mask.
+    if kwargs.get("__inflate_psi_at_each_step", True):
+        print("inflating psi")
+        psi = _inflate_psi(psi, missing)
     
     pi = ti / N
 
@@ -1206,6 +1229,17 @@ def _compute_precision_cholesky_full(cov):
     # Return the precision matrix.
     D, _ = cov.shape
     return linalg.solve_triangular(cholesky_cov, np.eye(D), lower=True).T
+
+
+def _inflate_psi(psi, missing):
+    r"""
+    Inflate \psi by the fraction of missing data points according to Rubin's rule.
+    """
+
+    return psi if missing is None \
+               else psi / (1 - np.sum(missing, axis=0) / missing.shape[0])
+
+
 
 
 
