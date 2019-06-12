@@ -17,6 +17,8 @@ from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
+# I think this is The Right Thing(tm) to do.
+_INFLATE_PSI_AT_EACH_EM_STEP = True
 
 class MCFA(object):
 
@@ -71,7 +73,7 @@ class MCFA(object):
         self.n_latent_factors = int(n_latent_factors)
         self.max_iter = int(max_iter)
         self.tol = float(tol)
-        self.random_seed = random_seed
+        self.random_seed = check_random_state(random_seed)
         self.init_components = init_components
         self.init_factors = init_factors
         self.verbose = int(verbose)
@@ -105,8 +107,6 @@ class MCFA(object):
                              f"or be a callable function")
 
         self.log_likelihoods_ = []
-
-        self.__inflate_psi_at_each_step = kwargs.get("__inflate_psi_at_each_step", True)
 
         return None
 
@@ -418,7 +418,6 @@ class MCFA(object):
         return _maximization(X, tau, pi, A, xi, omega, psi, 
                              X2=self._check_precomputed_X2(X, **kwargs),
                              covariance_regularization=self.covariance_regularization,
-                             __inflate_psi_at_each_step=self.__inflate_psi_at_each_step,
                              **kwargs)
 
 
@@ -472,14 +471,32 @@ class MCFA(object):
             The fitted model.
         """
 
-        np.random.seed(self.random_seed)
-
         Y, missing = self._check_data(X)
 
-        theta = prev_theta = self._initial_parameters(Y, missing, self.random_seed) \
-                             if init_params is None else deepcopy(init_params) 
+        # Allow for multiple initialisations.
+        n_inits = kwargs.get("n_inits", 1)
 
-        prev_ll, tau = self.expectation(Y, *theta)
+        initial_lls = []
+        initial_params = []
+
+        # Generate seeds.
+        for seed in np.random.randint(2**32, size=n_inits):
+            theta = prev_theta = self._initial_parameters(Y, missing, seed) \
+                                 if init_params is None else deepcopy(init_params) 
+            ll, tau = self.expectation(Y, *theta)
+
+            initial_lls.append(ll)
+            initial_params.append([theta, tau])
+
+            print(f"SEED: {seed} {ll:.1e}")
+
+
+        # Get best.
+        idx = np.argmax(initial_lls)
+        prev_ll = initial_lls[idx]
+        theta, tau = initial_params[idx]
+
+        print(f"PTP: {np.ptp(initial_lls)}")
 
         # TODO: start n_iter counter from previous value if we are starting from
         #       a previously optimised value.
@@ -548,7 +565,7 @@ class MCFA(object):
 
         A = _post_check_factor_loads(A)
         
-        if not self.__inflate_psi_at_each_step:
+        if not _INFLATE_PSI_AT_EACH_EM_STEP:
             psi = _inflate_psi(psi, missing)
 
         self.tau_ = tau
@@ -1121,9 +1138,8 @@ def _maximization(X, tau, pi, A, xi, omega, psi,
 
     psi = (Di - np.sum((A @ A2) * A, axis=1)) / N
 
-    # Inflate psi according to Rubin's rule, given the missing data mask.
-    if kwargs.get("__inflate_psi_at_each_step", True):
-        print("inflating psi")
+    if _INFLATE_PSI_AT_EACH_EM_STEP:
+        # Inflate psi according to Rubin's rule, given the missing data mask.
         psi = _inflate_psi(psi, missing)
     
     pi = ti / N
@@ -1235,7 +1251,6 @@ def _inflate_psi(psi, missing):
     r"""
     Inflate \psi by the fraction of missing data points according to Rubin's rule.
     """
-
     return psi if missing is None \
                else psi / (1 - np.sum(missing, axis=0) / missing.shape[0])
 
@@ -1250,74 +1265,4 @@ def _post_check_factor_loads(A):
 
     return A 
 
-
-if __name__ == "__main__":
-
-    
-    from sklearn.datasets import load_iris
-    
-    X = load_iris().data
-
-    model = MCFA(n_components=3, n_latent_factors=2)
-    model.fit(X)
-
-
-    try:
-        from .mpl_utils import plot_latent_space
-    except ModuleNotFoundError:
-        from mpl_utils import plot_latent_space # TODO don't do this
-
-
-    fig = plot_latent_space(model, X)
-
-
-"""
-        S = lambda m: (m*np.pi**(0.5 * m))/np.exp(gammaln(0.5*m + 1))
-
-        pi, A, xi, omega, psi = theta
-
-        # Approximate the normalization constants (p308 of Wallace 2005)
-        #  J = [1     2     3     4     5      6]
-        A_Js = [0, 0.24, 1.35, 3.68, 7.45, 12.64]
-        B_Js = [0, 0.58, 0.64, 0.73, 0.86,  1.21]
-
-        bj_sq = A**2
-        v = self.factor_scores(X)[1]
-        vj_sq = np.diag((v.T @ v)) # very unsure about this.
-        
-
-        if J > len(A_Js):
-
-            #raise NotImplementedError("too many latent factors; "
-            #                          "cannot approximate normalization constants")
-            logger.warn("Too many latent factors; "
-                        "cannot approximate normalization constants when J > 6")
-
-            A_J, B_J = (A_Js[-1], B_Js[-1])
-
-        else:
-            A_J, B_J = (A_Js[int(J) - 1], B_Js[int(J) - 1])
-
-        log_GNK = -(A_J + 0.5 * J * (J - 1) * np.log(D - B_J))
-
-        # I_0 is term for MLF model (no mixture)
-        # TODO: missing term related to S(N-1) ?
-        # TODO: commented-out missing terms
-        I_0 = (D/2 - 2 * J) * np.log(2) + D * np.log(N) \
-            + 0.5 * J * N * np.log(2 * np.pi) \
-            - gammaln(J + 1) - J * np.log(S(N)) \
-            - J * np.log(S(D)/S(D + 1)) \
-            + (N - 1) * np.sum(0.5 * np.log(psi)) \
-            + np.sum(log_likelihood) \
-            - 0.5 * D * np.log(2 * np.pi) + 0.5 * np.log(D * np.pi) \
-            - log_GNK #\
-            #+ 0.5 * np.sum(vj_sq)
-            #+ 0.5 * (D - J + 1) * np.sum(np.log(vj_sq))
-            #+ 0.5 * (N + D - 1) * np.sum(np.log(1 + bj_sq)) 
-            #+ 0.5 * np.sum(np.sum(vj_sq, axis=0) * np.sum(bj_sq, axis=0))
-            #- np.sum(b_j.T @ X @ b_j / Q_j) \
-        
-        if J > 3 and K > 2:
-            raise a
-"""
 

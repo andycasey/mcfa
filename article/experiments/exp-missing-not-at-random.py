@@ -28,6 +28,7 @@ n_samples = 10000
 omega_scale = 1
 noise_scale = 1
 random_seed = 0
+random_seed = 42
 
 uniform_missing_probabilities = False
 
@@ -42,14 +43,14 @@ data_kwds = dict(n_features=n_features,
                  random_seed=random_seed)
 
 
-mcfa_kwds = dict(tol=1e-8,
+mcfa_kwds = dict(tol=1e-5,
                  max_iter=10000,
-                 init_factors="random",
+                 init_factors="svd",
                  init_components="kmeans++",
-                 random_seed=random_seed,
-                 covariance_regularization=0,
-                 __inflate_psi_per_step=False)
+                 random_seed=0,
+                 covariance_regularization=1e-6)
 
+fit_kwds = dict(n_inits=20)
 
 
 Y, truth = utils.generate_data(**data_kwds)
@@ -78,8 +79,8 @@ else:
     """
 
 
-for missing_data_fraction in (0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, ):
-
+#for missing_data_fraction in (0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, ):
+for missing_data_fraction in (0, 0.1, 0.2, 0.5):
 
     # Throw away data, randomly within dimensions.
     # (There must be a better way to do this,..)
@@ -115,7 +116,7 @@ for missing_data_fraction in (0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, ):
                       n_latent_factors=data_kwds["n_latent_factors"],
                       **mcfa_kwds)
     tick = time()
-    model.fit(X)
+    model.fit(X, **fit_kwds)
     tock = time()
 
     model.message_length(X)
@@ -178,6 +179,18 @@ for missing_data_fraction in (0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, ):
         r"$\Delta\mathbf{\Psi}$"
     ]
 
+    residual_ax_y_limits = [
+        0.35,
+        7,
+        0.5
+    ]
+
+    common_ax_limits = [
+        0.75,
+        21,
+        4
+    ]
+
     idx = 0
     for i in range(3):
         ax_residual = fig.add_subplot(gs[idx])
@@ -185,17 +198,19 @@ for missing_data_fraction in (0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, ):
 
         x, y = (xs[i], ys[i])
 
-        if i == 2:
-            scatter_kwds.update(c=fractional_prob_missing)
         ax.scatter(x, y, **scatter_kwds)
         ax_residual.scatter(x, y - x, **scatter_kwds)
 
+        """
         lims = np.max(np.abs(np.hstack([ax.get_xlim(), ax.get_ylim()])))
         if i == 2:
             lims = (0, +lims)
         else:
             lims = (-lims, +lims)
-
+        """
+        lims = [-common_ax_limits[i], +common_ax_limits[i]]
+        if i == 2:
+            lims[0] = 0
         kwds = dict(c="#666666", linestyle=":", linewidth=0.5, zorder=-1)
         ax.plot([lims[0], +lims[1]], [lims[0], +lims[1]], "-", **kwds)
         ax_residual.plot([lims[0], +lims[1]], [0, 0], "-", **kwds)
@@ -204,6 +219,7 @@ for missing_data_fraction in (0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, ):
         ax.set_ylim(lims[0], +lims[1])
         ax_residual.set_xlim(lims[0], +lims[1])
         ylim = np.max(np.abs(ax_residual.get_ylim()))
+        #ylim = abs(residual_ax_y_limits[i])
         ax_residual.set_ylim(-ylim, +ylim)
 
         ax_residual.yaxis.set_major_locator(MaxNLocator(3))
@@ -228,8 +244,5 @@ for missing_data_fraction in (0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, ):
 
     fig.tight_layout()
 
-    fig.savefig(f"exp-missing-data-not-at-random-{100*missing_data_fraction:.0f}percent.png")
-    fig.savefig(f"exp-missing-data-not-at-random-{100*missing_data_fraction:.0f}percent.pdf", dpi=300)
-
-
-raise a
+    fig.savefig(f"exp-missing-data-not-at-random-inflated-{100*missing_data_fraction:.0f}percent.png")
+    #fig.savefig(f"exp-missing-data-not-at-random-inflated-{100*missing_data_fraction:.0f}percent.pdf", dpi=300)
