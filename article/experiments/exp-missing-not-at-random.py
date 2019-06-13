@@ -80,7 +80,7 @@ else:
 
 
 #for missing_data_fraction in (0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, ):
-for missing_data_fraction in (0, 0.1, 0.2, 0.5):
+for missing_data_fraction in (0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75):
 
     # Throw away data, randomly within dimensions.
     # (There must be a better way to do this,..)
@@ -190,6 +190,7 @@ for missing_data_fraction in (0, 0.1, 0.2, 0.5):
         21,
         4
     ]
+    use_common_limits = True
 
     idx = 0
     for i in range(3):
@@ -201,26 +202,30 @@ for missing_data_fraction in (0, 0.1, 0.2, 0.5):
         ax.scatter(x, y, **scatter_kwds)
         ax_residual.scatter(x, y - x, **scatter_kwds)
 
-        """
-        lims = np.max(np.abs(np.hstack([ax.get_xlim(), ax.get_ylim()])))
-        if i == 2:
-            lims = (0, +lims)
-        else:
-            lims = (-lims, +lims)
-        """
-        lims = [-common_ax_limits[i], +common_ax_limits[i]]
-        if i == 2:
-            lims[0] = 0
-        kwds = dict(c="#666666", linestyle=":", linewidth=0.5, zorder=-1)
-        ax.plot([lims[0], +lims[1]], [lims[0], +lims[1]], "-", **kwds)
-        ax_residual.plot([lims[0], +lims[1]], [0, 0], "-", **kwds)
+        if use_common_limits:
+            ylims = abs(residual_ax_y_limits[i])
+            xlims = [-common_ax_limits[i], +common_ax_limits[i]]
+            if i == 2:
+                xlims[0] = 0
 
-        ax.set_xlim(lims[0], +lims[1])
-        ax.set_ylim(lims[0], +lims[1])
-        ax_residual.set_xlim(lims[0], +lims[1])
-        ylim = np.max(np.abs(ax_residual.get_ylim()))
-        #ylim = abs(residual_ax_y_limits[i])
-        ax_residual.set_ylim(-ylim, +ylim)
+        else:
+            xlims = np.max(np.abs(np.hstack([ax.get_xlim(), ax.get_ylim()])))
+            if i == 2:
+                xlims = (0, +xlims)
+            else:
+                xlims = (-xlims, +xlims)
+
+            ylims = np.max(np.abs(ax_residual.get_ylim()))
+            
+
+        kwds = dict(c="#666666", linestyle=":", linewidth=0.5, zorder=-1)
+        ax.plot([xlims[0], +xlims[1]], [xlims[0], +xlims[1]], "-", **kwds)
+        ax_residual.plot([xlims[0], +xlims[1]], [0, 0], "-", **kwds)
+
+        ax.set_xlim(xlims[0], +xlims[1])
+        ax.set_ylim(xlims[0], +xlims[1])
+        ax_residual.set_xlim(xlims[0], +xlims[1])
+        ax_residual.set_ylim(-ylims, +ylims)
 
         ax_residual.yaxis.set_major_locator(MaxNLocator(3))
         ax_residual.xaxis.set_major_locator(MaxNLocator(3))
