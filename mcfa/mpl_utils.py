@@ -1011,13 +1011,18 @@ def plot_factor_loads(factor_loads, scales=1, separate_axes=False,
         rotated_percentiles[i] *= flip_loads
         rotated_percentiles[i] = (rotated_percentiles[i].T * scales).T
 
-    if separate_axes:
-        fig, ax = plt.subplots(J, 1, figsize=figsize)
-        ax = np.atleast_2d(ax).flatten()
+    if kwargs.get("fig", None) is not None:
+        fig = kwargs.pop("fig")
+        ax = list(np.atleast_1d(fig.axes).flatten())
 
-    else:
-        fig, ax = plt.subplots()
-        ax = [ax]
+    else:        
+        if separate_axes:
+            fig, ax = plt.subplots(J, 1, figsize=figsize)
+            ax = np.atleast_2d(ax).flatten()
+
+        else:
+            fig, ax = plt.subplots()
+            ax = [ax]
 
     for j in range(J):
 

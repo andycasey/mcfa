@@ -16,6 +16,7 @@ from time import time
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # I think this is The Right Thing(tm) to do.
 _INFLATE_PSI_AT_EACH_EM_STEP = True
