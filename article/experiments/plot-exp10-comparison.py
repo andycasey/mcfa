@@ -5,8 +5,13 @@ Plot results from exp10
 
 import os
 import pickle
+import sys
 import matplotlib.pyplot as plt
 import yaml
+import numpy as np
+from scipy import linalg
+
+sys.path.insert(0, "../../")
 
 from mcfa import (mcfa, grid_search, mpl_utils, utils)
 
@@ -14,7 +19,7 @@ np.random.seed(0)
 
 
 # Get original model.
-with open("8761b-exp3-model.pkl", "rb") as fp:
+with open("89dab-exp3-model.pkl", "rb") as fp:
     original_model = pickle.load(fp)
 
 
@@ -25,6 +30,7 @@ comparison_model_paths = [
     "exp10-models-size-10000.pkl",
 ]
 
+# 89dab is for all intents and purposes identical to 8761b
 with open("8761b.yml") as fp:
     config = yaml.load(fp)
 
@@ -127,6 +133,7 @@ plot_factor_loads_kwds = dict(colors=colors, separate_axes=True, lw=1, xlabel=r"
                               xticklabels=[r"$\textrm{{{0}}}$".format(ea.split("_")[0].title()) for ea in label_names])
 
 fig = mpl_utils.plot_factor_loads(viz_load(_fill_factors(A_original, J_max)), 
+                                  figsize=(6.75, 9.50),
                                   **plot_factor_loads_kwds)
 plot_factor_loads_kwds.update(fig=fig)
 
@@ -215,11 +222,11 @@ for i, comparison_model_path in enumerate(comparison_model_paths):
 if ABS_ONLY:
     for i, ax in enumerate(fig.axes):
         ax.set_ylim(0, ax.get_ylim()[1])
-        ax.set_ylabel(r"$|\mathbf{{L}}_{{{0}}}|$".format(i))
+        ax.set_ylabel(r"$|\mathbf{{L}}_{{{0}}}|$".format(i + 1))
 
 
-fig.set_figwidth(6.75)
-fig.set_figheight(9.50)
+#fig.set_figwidth(6.75)
+#fig.set_figheight(9.50)
 
 fig.tight_layout()
 

@@ -706,12 +706,12 @@ def plot_factor_loads_and_contributions(model, Y, label_names=None, colors=None,
         ax.set_xlim(0, D)
 
         if absolute_only:
-            ax.set_ylabel(r"$|\mathbf{{L}}_{{{0}}}|$".format(j))
+            ax.set_ylabel(r"$|\mathbf{{L}}_{{{0}}}|$".format(j + 1))
             ax.set_ylim(-0.1, 1.1)
             ax.set_yticks([0, 1])
 
         else:
-            ax.set_ylabel(r"$\mathbf{{L}}_{{{0}}}$".format(j))
+            ax.set_ylabel(r"$\mathbf{{L}}_{{{0}}}$".format(j + 1))
             ax.set_ylim(-1.1, 1.1)
             ax.set_yticks([-1, 0, 1])
 

@@ -194,8 +194,9 @@ latex_label_names = [r"$\textrm{{{0}}}$".format(ea.split("_")[0].title()) for ea
 
 # Draw unrotated.
 J_max = config["max_n_latent_factors_for_colormap"]
-cmap = mpl_utils.discrete_cmap(J_max, base_cmap="Spectral_r")
-colors = [cmap(j) for j in range(J_max)][::-1]
+J_max = 8
+cmap = mpl_utils.discrete_cmap(J_max, base_cmap="Spectral")
+colors = [cmap(j) for j in range(J_max)]#[::-1]
 
 
 A_est = model.theta_[model.parameter_names.index("A")]
@@ -225,23 +226,35 @@ if config["correct_A_astrophysical"]:
     A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(model.n_latent_factors))
 
 
-R, p_opt, cov, *_ = utils.find_rotation_matrix(A_astrophysical, A_est, 
-                                               full_output=True)
 
-R_opt = utils.exact_rotation_matrix(A_astrophysical, A_est, 
-                                    p0=np.random.uniform(-np.pi, np.pi, model.n_latent_factors**2))
+max_n_rotations = 3
 
-# WTF check R_opt.
-AL = linalg.cholesky(R_opt.T @ R_opt)
-R_opt2 = R_opt @ linalg.solve(AL, np.eye(model.n_latent_factors))
+for each in range(max_n_rotations):
 
-chi1 = np.sum(np.abs(A_est @ R - A_astrophysical))
-chi2 = np.sum(np.abs(A_est @ R_opt2 - A_astrophysical))
+    A_est = model.theta_[model.parameter_names.index("A")]
 
-R = R_opt2 if chi2 < chi1 else R
+    R, p_opt, cov, *_ = utils.find_rotation_matrix(A_astrophysical, A_est, 
+                                                   full_output=True)
 
-# Now make it a valid rotation matrix.
-model.rotate(R, X=X, ensure_valid_rotation=True)
+    R_opt = utils.exact_rotation_matrix(A_astrophysical, A_est, 
+                                        p0=np.random.uniform(-np.pi, np.pi, model.n_latent_factors**2))
+
+    # WTF check R_opt.
+    AL = linalg.cholesky(R_opt.T @ R_opt)
+    R_opt2 = R_opt @ linalg.solve(AL, np.eye(model.n_latent_factors))
+
+    chi1 = np.sum(np.abs(A_est @ R - A_astrophysical))
+    chi2 = np.sum(np.abs(A_est @ R_opt2 - A_astrophysical))
+
+    R = R_opt2 if chi2 < chi1 else R
+
+    # Now make it a valid rotation matrix.
+    model.rotate(R, X=X, ensure_valid_rotation=True)
+
+
+import pickle
+with open(f"{unique_hash}-exp3-model.pkl", "wb") as fp:
+    pickle.dump(model, fp)
 
 """
 J = model.n_latent_factors
@@ -310,13 +323,15 @@ savefig(fig_fac, "latent-factors-and-contributions")
 
 
 
+
+
 # Plot clustering in data space and latent space.
 
 # For the latent space we will just use a corner plot.
 component_cmap = mpl_utils.discrete_cmap(7, base_cmap="Spectral_r")
 
 fig = mpl_utils.plot_latent_space(model, X, ellipse_kwds=dict(alpha=0), s=10, edgecolor="none", alpha=1, c=[component_cmap(_) for _ in np.argmax(model.tau_, axis=1)], show_ticks=True,
-                                  label_names=[r"$\mathbf{{S}}_{{{0}}}$".format(i) for i in range(model.n_latent_factors)])
+                                  label_names=[r"$\mathbf{{S}}_{{{0}}}$".format(i + 1) for i in range(model.n_latent_factors)])
 for ax in fig.axes:
     if ax.is_last_row():
         ax.set_ylim(-1, 1)

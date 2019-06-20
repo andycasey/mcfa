@@ -20,6 +20,7 @@
 \newcommand{\GALAH}{\project{GALAH}}
 \newcommand{\APOGEE}{\project{APOGEE}}
 \newcommand{\todo}[1]{\textcolor{red}{#1}}
+\newcommand{\consider}[1]{\textcolor{blue}{#1}}
 
 
 \newcommand{\vect}[1]{\boldsymbol{\mathbf{#1}}}
@@ -52,8 +53,18 @@
 \newcommand{\NumComponents}{K}
 \newcommand{\numcomponents}{k}
 \newcommand{\likelihood}{\mathcal{L}}
-\newcommand{\ExperimentHash}{8761b}
+\newcommand{\ExperimentHash}{89dab}
 
+
+% NEED: Final model with # of loads and # of clusters so we can:
+% 		[ ] Update figure of loads (exp10-comparison)
+% 		[ ] Make a clustering plot in abundances
+% 		[ ] Check to see if any chemical clusters correspond to known clusters.
+% 		[ ] Update discussion w.r.t. final model loads, etc.
+% 		[ ] Update conclusion w.r.t. final model loads/clusters, etc, and missing data.
+% 		[ ] Update abstract w.r.t. final model loads/clusters.
+% 		[ ] Upload PDF to Galah survey website
+%		[ ] Send email to Galah team for comment
 
 
 \received{2019}
@@ -84,8 +95,8 @@
 \correspondingauthor{Andrew R. Casey}
 \email{andrew.casey@monash.edu}
 
-%[0000-0003-0174-0564]
-\author{Some combination (TBD) of: Andrew R. Casey}
+
+\author[0000-0003-0174-0564]{Andrew R. Casey}
 \affiliation{School of Physics \& Astronomy, 
 			 Monash University,
 			 Wellington Rd, Clayton 3800, Victoria, Australia}
@@ -93,17 +104,17 @@
 			 Monash University, 
 			 Wellington Rd, Clayton 3800, Victoria, Australia}
 			 
-\author{John Lattanzio}
+\author[0000-0003-2952-859X]{John C. Lattanzio}
 \affiliation{School of Physics \& Astronomy, 
 			 Monash University,
 			 Wellington Rd, Clayton 3800, Victoria, Australia}
 
-\author{Aldeida Aleti}
+\author[0000-0002-1716-690X]{Aldeida Aleti}
 \affiliation{Faculty of Information Technology, 
 			 Monash University, 
 			 Wellington Rd, Clayton 3800, Victoria, Australia}
 
-\author{David Dowe}
+\author[0000-0002-0583-5918]{David Dowe}
 \affiliation{Faculty of Information Technology, 
 			 Monash University, 
 			 Wellington Rd, Clayton 3800, Victoria, Australia}
@@ -127,22 +138,22 @@ each star, the partial assignment of each star
 to each cluster, and the latent factors common to all stars.
 We use an information-theoretic Bayesian principle to estimate the number of
 latent factors and clusters.
-We find that five latent factors are preferred to explain 18 chemical elements
-in the second \Galah\ data release.
+\consider{We find that five latent factors are preferred to explain 18 chemical elements
+in the second \Galah\ data release.}
 From these latent factors we identify the rapid- and slow-neutron capture 
 processes, as well as latent factors consistent with Fe-peak and 
-$\alpha$-element production, and a fifth latent factor where only K and Zn
-dominate. We discuss examples where the inferred latent factors deviate from 
-expected yields, which includes an  indication that Sc is associated with the r-process.
-We find three clusters are preferred given 1,072 stars in \Galah,
+$\alpha$-element production, and a \consider{fifth latent factor where only K and Zn
+dominate}. We discuss examples where the inferred latent factors deviate from 
+expected yields, which includes an \consider{indication that Sc is associated with the r-process}.
+\consider{We find three clusters are preferred given 1,072 stars in \Galah,
 two of which are representative of the [$\alpha$/Fe]-poor and 
-[$\alpha$/Fe]-rich populations in the Milky Way disk. 
+[$\alpha$/Fe]-rich populations in the Milky Way disk.}
 We release accompanying software that scales well with the available data,
 allowing for model parameters to be optimised in seconds given a fixed number
-of latent factors, components, and $\sim10^6$ abundance measurements.
+of latent factors, components, and $\sim10^7$ abundance measurements.
 \end{abstract}
 
-\keywords{methods: statistical}
+\keywords{Bayesian statistics (1900), Chemical abundances (224), Galaxy chemical evolution (580)}
 
 \section{Introduction} \label{sec:intro}
 
@@ -221,9 +232,11 @@ to each star is an unsolved problem. For example, the so-called [$\alpha$/Fe] `k
 abundance ratios in the Milky Way can qualitatively be explained by 
 core-collapse supernovae being the predominant nucleosynthetic process in the
 early Milky Way before Type Ia supernovae made a significant contribution, but 
-efforts to date have not sought to try to explain the detailed abundances of a 
-single star as a contribution of yields from different systems (e.g., 20\% of the
-Ba was produced by 3 M$_\odot$ asymptotic giant branch stars). This is in part 
+efforts to date have not sought to try to explain the detailed abundances of 
+stars as a contribution of yields from different systems \citep[however see][]{West:2013}.
+%e.g., 20\% of the
+%Ba was produced by 3 M$_\odot$ asymptotic giant branch stars).
+This is in part 
 because of the challenging and degenerate nature of the problem as described, 
 and is complicated by the differences in yield predictions that account from 
 prescriptions used in different theoretical models.
@@ -288,7 +301,7 @@ for the $\numdata$th data point
 \begin{equation}
 	\factorscores_\numdata \sim \mathcal{N}(\vec\xi_\numcomponents, \vec\Omega_\numcomponents)
 \end{equation}
-\noindent{}are drawn from\footnote{For clarifying nomenclature across disciplines, the terminology e$z \sim \mathcal{N}(0, 1)$ indicates that the variable $z$ is drawn from a standard normal distribution.} the $\numcomponents$th multivariate normal distribution.
+\noindent{}are drawn from\footnote{For clarifying nomenclature across disciplines, the terminology $z \sim \mathcal{N}(0, 1)$ indicates that the $z$ variable \emph{is drawn from} a standard normal distribution.} the $\numcomponents$th multivariate normal distribution.
 The mean vector $\vec\mu$ describes the mean datum in each dimension.
 The factor scores for all data points $\factorscores$ is then a 
 $\NumData \times \NumLatentFactors$ matrix, where each data point has a partial
@@ -416,6 +429,7 @@ model given that trial of $\NumLatentFactors$, $\NumComponents$, and the data. A
 this optimisation procedure is not convex, in practice it is normally sufficient to
 initialise from many points to avoid local minima.
 
+\vspace{3em}
 %Throughout this work we found that the optimised model parameters appear
 %to be insensitive to the choice of initialisation up until orthogonal
 %rotation of the latent space.
@@ -507,6 +521,35 @@ we do not add any observed errors to the constructed covariance matrices.
 %matrices in latent space $\scorecovs$, we set this regularisation term to zero for all
 %experiments performed here. Similarly, we assume that the data are noiseless and we do
 %not add any observed errors to the constructed covariance matrices.
+
+
+
+\subsection{Missing data}
+
+The Expectation-Maximization procedure as described requires that there be no 
+missing data entries in order to update our estimates of the model parameters.
+In practice, however, there will often be abundance measurements that are missing
+for some subset of stars. There are many potential reasons for this, including
+astrophysical explanations (e.g., an absorption line was not present above the noise),
+observational limitations (e.g., the signal-to-noise ratio was too low, or 
+contamination by a cosmic ray), or various other reasons.
+
+In this work we will assume that any missing data measurements are
+missing at random. The missing data points can then be treated as unknown
+parameters that must be solved for (and updated) at each iteration. Initially
+we impute zeros for missing data entries, and at each iteration we update
+this imputed value with our estimate of what the missing data values
+are, given the current model parameters. Similarly, with each update we inflate
+our estimates of the specific variances $\vec\psi$ based on the fraction of missing
+data points in each dimension
+\begin{equation}
+\specificvariance\nextstep = \specificvariance\nextstep\left(\frac{N}{N-\vec{M}}\right)
+\end{equation}
+\noindent{}where $\vec{M}$ is a vector that contains the number of missing data entries in
+all $D$ dimensions.
+In Section \ref{sec:toy-model-missing-data} we show with a toy model that the latent
+factor loads and scores can be reliably estimated even in the presence of high fractions
+of missing data, with varying fractions of missing data in each dimension.
 
 
 
@@ -676,11 +719,12 @@ as $|\mathcal{F}(\scoremeans)||\mathcal{F}(\scorecovs)|$ \citep{Oliver:1996,Figu
 % todo put line in equation.
 \begin{eqnarray}
 	I(\scoremeans,\scorecovs) &=& -\sum_{\numcomponents=1}^{\NumComponents}\log{p(\scoremeans_k,\scorecovs_k)} + \frac{1}{2}\sum_{\numcomponents=1}^{\NumComponents}\log{|\mathcal{F}(\scoremeans_k,\scorecovs_k)|} \nonumber \\
-	&=& \frac{1}{2}\sum_{\numcomponents=1}^{\NumComponents}\log\left[(\NumData\weight_k)^{\frac{1}{2}\NumLatentFactors(\NumLatentFactors+3)}2^{-\NumData}|\scorecovs_k|^{-(\NumData + 2)}\right] \nonumber \\
-	&& \cdots \,\, -\sum_{\numcomponents=1}^{\NumComponents}\log{|\scorecovs_k|}^{\frac{1}{2}(\NumLatentFactors + 1)} \\
+%	&=& \frac{1}{2}\sum_{\numcomponents=1}^{\NumComponents}\log\left[(\NumData\weight_k)^{\frac{1}{2}\NumLatentFactors(\NumLatentFactors+3)}2^{-\NumData}|\scorecovs_k|^{-(\NumData + 2)}\right] \nonumber \\
+%	&& \cdots \,\, -\sum_{\numcomponents=1}^{\NumComponents}\log{|\scorecovs_k|}^{\frac{1}{2}(\NumLatentFactors + 1)} \\
 I(\scoremeans,\scorecovs) &=& \frac{1}{4}\NumLatentFactors(\NumLatentFactors+3)\sum_{\numcomponents=1}^\NumComponents\log{\NumData\weight_k} - \frac{KD}{2}\log{2} \nonumber \\ 
 && \cdots \,\, -\frac{1}{2}(2\NumLatentFactors+3)\sum_{k=1}^{K}\log{|\scorecovs_k|}  \quad . \label{eq:prior_xi_omega} 
 \end{eqnarray}
+
 
 Previous work on multiple latent factor analysis within the context of MML have
 addressed the indeterminacy between the factor loads and factor scores by
@@ -705,6 +749,7 @@ Wishart joint prior density gives highest support for mutually orthogonal vector
 	p(\factorloads) = \frac{|\factorloads\transpose\factorloads|^{\frac{1}{2}(\NumDimensions - \NumLatentFactors - 1)}}{2^{\frac{\NumDimensions\NumLatentFactors}{2}}|\vec{W}|^{\frac{\NumDimensions}{2}}\Gamma(\frac{\NumDimensions}{2})}\exp\left[-\frac{1}{2}\textrm{Tr}(\vec{W}^{-1}\factorloads\transpose\factorloads)\right] \quad .
 \end{equation}
 
+
 %\todo{Fisher:}
 %\begin{widetext}
 %\begin{eqnarray}
@@ -715,14 +760,17 @@ Wishart joint prior density gives highest support for mutually orthogonal vector
 %\end{eqnarray}
 %\end{widetext}
 
-The Fisher information for $\factorloads$ \todo{needs to be double checked.}
+%The Fisher information for $\factorloads$ \todo{needs to be double checked.}
 Thus the message length to encode $\factorloads$ is given by
 \begin{eqnarray}
 	I(\factorloads) &=& -\log\left(\frac{p(\factorloads)}{\sqrt{|\mathcal{F}(\factorloads)|}}\right) \nonumber \\
 I(\factorloads)	&=& \frac{1}{2}\textrm{Tr}(\textrm{Cov}(\factorloads\transpose)^{-1}\factorloads\transpose\factorloads) - \frac{1}{2}(\NumDimensions - \NumLatentFactors - 1)\log{|\factorloads\transpose\factorloads|} \nonumber \\
-	&& \cdots \,\, + \frac{1}{2}\NumDimensions\NumLatentFactors\log{2} + \frac{1}{2}\NumDimensions\log{|\textrm{Cov(\factorloads)}|} - \Gamma\left(\frac{\NumDimensions}{2}\right) \nonumber \\
-	&& \cdots \todo{+\frac{1}{2}\log{|\mathcal{F}(\factorloads)|}} \quad . \label{eq:prior_L}
+	&& \cdots \,\, + \frac{1}{2}\NumDimensions\NumLatentFactors\log{2} + \frac{1}{2}\NumDimensions\log{|\textrm{Cov(\factorloads)}|} - \Gamma\left(\frac{\NumDimensions}{2}\right) \nonumber \\ \label{eq:prior_L}%\nonumber \\
+%	&& \cdots \todo{+\frac{1}{2}\log{|\mathcal{F}(\factorloads)|}} \quad . \label{eq:prior_L}
 \end{eqnarray}
+
+%\todo{As...}% TODO: 
+\vspace{10em}
 
 Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{eq:prior_xi_omega}, and \ref{eq:prior_L} with equation \ref{eq:mml} leads to the full message length:
 \begin{widetext}
@@ -731,10 +779,11 @@ Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{
  +\frac{1}{4}\left(\NumLatentFactors + 4\right)\left(\NumLatentFactors - 1\right)\sum_{\numcomponents=1}^\NumComponents\log\weight_\numcomponents + \left(\NumComponents - \frac{1}{2}\right)\log{\NumData}
  +\frac{1}{2}\NumDimensions\log|\textrm{Cov}\left(\factorloads\transpose\right)| \nonumber \\
   && \cdots -\frac{1}{2}\left(D-J-1\right)\log|\factorloads\transpose\factorloads| + \textrm{Tr}\left(\textrm{Cov}\left(\factorloads\transpose\right)^{-1}\factorloads\transpose\factorloads\right) - \left(\NumLatentFactors + \frac{3}{2}\right)\sum_{\numcomponents=1}^\NumComponents\log|\scorecovs_\numcomponents|  -\log\Gamma\left(\NumComponents\right) - \Gamma\left(\frac{\NumDimensions}{2}\right) \nonumber \\
-&& \cdots +\frac{Q}{2}\log\kappa_q +\frac{1}{2}\left[\NumLatentFactors(\NumDimensions + 2) + \NumComponents(2-\NumData)\right]\log{2} + \todo{\frac{1}{2}\log{|\mathcal{F}(\factorloads)|}} \quad . \label{eq:message-length}
+&& \cdots +\frac{Q}{2}\log\kappa_q +\frac{1}{2}\left[\NumLatentFactors(\NumDimensions + 2) + \NumComponents(2-\NumData)\right]\log{2}  \quad . \nonumber \label{eq:message-length}
  \end{eqnarray}
 \end{widetext}
-
+%\vspace{10em}\clearpage
+% \todo{\frac{1}{2}\log{|\mathcal{F}(\factorloads)|}}
 
 % -\log\likelihood(\vec\data|\vec\Psi) \
 % + (J + K + \frac{KN}{2} + \frac{DJ}{2})\log{2}     --> \frac{1}{2}(3(J+K) + ND)\log{2}
@@ -744,36 +793,6 @@ Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{
 % + factor loads stuff
 % + Q/2\log\kappa(q)
  
-
-
-
-
-
-%\clearpage
-
-\section{Experiments} \label{sec:experiments}
-
-
-\subsection{Toy model with generated data} \label{sec:exp-1}
-
-
-
-
-We generated a data set with ${\NumData = 1}$00,000 data points, each with
-$\NumDimensions = 15$ dimensions. We adopted a latent dimensional space of 
-$\NumLatentFactors = 5$ factor loads such that the vector $\factorloads$ has
-shape $\NumLatentFactors \times \NumDimensions$,
-with $\NumComponents = 20$ clusters in the latent space. 
-We generated the factor loads in the same way that we initialise the optimisation (Section~\ref{sec:initialisation}). The relative weights $\vec\weight$
-are drawn from a multinomial distribution and the means of the clusters
-in factor scores $\scoremeans$ are drawn from a standard normal
-distribution. The off-diagonal entries in the covariance matrices in factor scores $\scorecovs$ are drawn from a gamma distribution $\scorecovs_{\numcomponents,i,i} \sim \vec\Gamma\left(1\right)$. The variance in 
-each dimension $\specificvariance$ are also drawn $\specificvariance \sim \vec\Gamma\left(1\right)$.
-The $\numdata$th data point (which belongs to the $\numcomponents$th cluster) is then
-generated by drawing $\factorscores_{\numdata} \sim \mathcal{N}(\scoremeans_\numcomponents,\scorecovs_\numcomponents)$, projecting by the factor loads $\factorloads$, and adding variance $\specificvariance$.
-
-
-
 
 \begin{figure}
 	\includegraphics[width=0.45\textwidth]{experiments/exp1-gridsearch-ll-contours.pdf}
@@ -796,14 +815,56 @@ generated by drawing $\factorscores_{\numdata} \sim \mathcal{N}(\scoremeans_\num
 
 
 
-\begin{figure*}
-	\includegraphics[width=\textwidth]{experiments/exp1-latent.pdf}
-    \caption{The inferred latent scores $\factorscores$ for our toy model
-     with $\NumLatentFactors = 5$ latent factors and
-		 	 $\NumComponents = 20$ components.
-             Points are coloured by the inferred component.} 
-    \label{fig:exp1-latent}
+
+
+
+%\clearpage
+
+\section{Experiments} \label{sec:experiments}
+
+
+\subsection{A toy model} \label{sec:exp-1}
+
+Here we introduce a toy model where we use generated data to verify that
+we recover the true data-generating parameters given some data, and to
+ensure that the method is yielding consistent results.
+We generated a data set with ${\NumData = 1}$00,000 data points, each with
+$\NumDimensions = 15$ dimensions. We adopted a latent dimensional space of 
+$\NumLatentFactors = 5$ factor loads such that the vector $\factorloads$ has
+shape $\NumLatentFactors \times \NumDimensions$,
+with $\NumComponents = 20$ clusters in the latent space. 
+We generated the factor loads in the same way that we initialise the optimisation (Section~\ref{sec:initialisation}). The relative weights $\vec\weight$
+are drawn from a multinomial distribution and the means of the clusters
+in factor scores $\scoremeans$ are drawn from a standard normal
+distribution. The off-diagonal entries in the covariance matrices in factor scores $\scorecovs$ are drawn from a gamma distribution $\scorecovs_{\numcomponents,i,i} \sim \vec\Gamma\left(1\right)$. The variance in 
+each dimension $\specificvariance$ are also drawn $\specificvariance \sim \vec\Gamma\left(1\right)$.
+The $\numdata$th data point (which belongs to the $\numcomponents$th cluster) is then
+generated by drawing $\factorscores_{\numdata} \sim \mathcal{N}(\scoremeans_\numcomponents,\scorecovs_\numcomponents)$, projecting by the factor loads $\factorloads$, and adding variance $\specificvariance$.
+
+
+
+
+
+%\begin{figure*}
+%	\includegraphics[width=\textwidth]{experiments/exp1-latent.pdf}
+%    \caption{The inferred latent scores $\factorscores$ for our toy model
+%     with $\NumLatentFactors = 5$ latent factors and
+%		 	 $\NumComponents = 20$ components.
+%             Points are coloured by the inferred component.} 
+%    \label{fig:exp1-latent}
+%\end{figure*}
+
+
+
+\begin{figure*}[t!]
+	\includegraphics[width=\textwidth]{experiments/exp1-compare-all.pdf}
+    \caption{The estimated factor loads $\factorloads$ (left), factor scores $\factorscores$ (middle),
+    		 and specific variances $\specificvariance$ (right) compared to the 
+		 	 true data generating values
+		 	 for Experiment~1. The agreement is excellent.}
+    \label{fig:exp1-compare}
 \end{figure*}
+
 
 
 Here we treat the generated data set as if the true number of latent factors
@@ -822,17 +883,6 @@ Unsurprisingly the negative log likelihood increases with increasing numbers of 
 factors $\NumLatentFactors$ and increasing numbers of components $\NumComponents$.
 The lowest BIC value and message length is found at $\NumLatentFactors = 5$
 and $\NumComponents = 20$, identical to the true values.
-
-\begin{figure*}
-	\includegraphics[width=\textwidth]{experiments/exp1-compare-all.pdf}
-    \caption{The estimated factor loads $\factorloads$ (left), factor scores $\factorscores$ (middle),
-    		 and specific variances $\specificvariance$ (right) compared to the 
-		 	 true data generating values
-		 	 for Experiment~1. The agreement is excellent.}
-    \label{fig:exp1-compare}
-\end{figure*}
-
-
 It is clear from Figure~\ref{fig:experiment-1-gridsearch} that a combination of latent factors
 and clustering in the latent space provides a better description of the (generated) data.
 Adding components to the model does improves the log likelihood, even with a single latent factor,
@@ -841,8 +891,10 @@ but the addition of just \emph{one latent factor} improves the log likelihood mo
 is drawn from a higher number of latent factors, but this toy model does illustrate how 
 clustering in high dimensional data can be better described by latent factors with 
 clustering in the lower dimensional latent space.
-The inferred clustering in latent space is shown in Figure~\ref{fig:exp1-latent},
-where each point is coloured by the inferred associated component. 
+%The inferred clustering in latent space is shown in Figure~\ref{fig:exp1-latent},
+%where each point is coloured by the inferred associated component. 
+
+
 
 
 
@@ -1004,7 +1056,7 @@ Cr, Mn, and Fe all have their largest contributions from $\mathbf{L}_2$.
 %Similarly, the last component shows a very strong positive contribution towards
 %Eu, and could be interpreted as production from the rapid nucleosynthesis process.
 
-\begin{figure*}
+\begin{figure*}[t!]
 	\includegraphics[width=\textwidth]{experiments/exp2-\ExperimentHash-latent-factors-and-contributions-with-targets.pdf}
 	\caption{Latent factors found in Experiment~2 using the \citet{Barklem:2005}
 			 data. The panels on the left show the absolute entries for each factor load. 
@@ -1043,6 +1095,41 @@ the assumptions of our model (e.g., we assume mutually orthogonal latent factors
 
 \end{comment}
 
+
+\subsection{A toy model with data missing at random}
+\label{sec:toy-model-missing-data}
+
+Here we repeat the toy model used in the previous Section, but we discard an increasing fraction
+of the data and evaluate the model's performance in the presence
+of incomplete data. We considered missing data fractions from 1\% to
+40\%. In each case we treated the model parameters as unknown, assumed
+the missing data points were missing at random, and initialised the
+model as per Section~\ref{sec:exp-1}.
+
+\begin{figure*}[t!]
+	\includegraphics[width=\textwidth]{experiments/exp-missing-data-not-at-random-inflated-40percent.png}
+    \caption{The estimated factor loads $\factorloads$ (left), factor scores $\factorscores$ (middle),
+    		 and specific variances $\specificvariance$ (right) compared to the 
+		 	 true data generating values
+		 	 for Experiment~2. Here 40\% of the data are missing at random.
+			 The agreement remains excellent,
+			 despite the large fraction of missing data entries.}
+    \label{fig:exp1-missing-data}
+\end{figure*}
+
+
+In Figure~\ref{fig:exp1-missing-data} we show the results of this
+experiment for our worst considered case, where 40\% of the data
+entries are randomly discarded. We find that despite the high fraction
+of missing entries, our estimates of the model parameters remain unbiased
+in this example using a toy model. The corrections to our estimates of the
+specific variances are sufficient, in that the specific variance in each
+dimension is not systematically under-estimated from the true values, 
+despite 40\% of the data entries to be missing.
+
+
+
+
 \subsection{The \Galah\ survey}
 \label{sec:exp4}
 
@@ -1050,21 +1137,30 @@ In this experiment we perform blind chemical tagging using the
 photospheric abundances released as part of the second \Galah\ 
 data release \citep{Buder:2018}. This data set includes
 up to 23 chemical abundances reported for 342,682 stars.
-Some abundances are not reported for a variety of 
-reasons related to astrophysics or the adopted analyses
-(e.g., a star is too hot to estimate the abundance for a given
-electronic transition, or the signal-to-noise of the spectrum is too low).
-Our method as described cannot efficiently handle missing data 
-entries for a given star, and as such we are forced to exclude stars that
-do not have a full complement of abundances. However, we also
-chose to exclude some elemental abundances from our chemical
-tagging experiments. For example, our experiments
-with \Galah\ data do not include lithium or carbon abundances because the
+%Some abundances are not reported for a variety of 
+%reasons related to astrophysics or the adopted analyses
+%(e.g., a star is too hot to estimate the abundance for a given
+%electronic transition, or the signal-to-noise of the spectrum is too low).
+%Our method as described cannot efficiently handle missing data 
+%entries for a given star, and as such we are forced to exclude stars that
+%do not have a full complement of abundances. However, we also
+%chose to exclude some elemental abundances from our chemical
+In this example we chose to restrict ourselves to stars with a
+complete set of abundance measurements for a subset of those 23 elements
+(i.e., no missing data entries).
+%tagging experiments. 
+%For example, our experiments
+For example, here we will exclude
+%The element subset should not 
+%with \Galah\ data do not include 
+lithium and carbon abundances because the
 photospheric values will vary throughout a star's lifetime \citep[e.g.,][]{Casey:2016b,Casey:2019}. This is true
 to a small degree for many elements \citep[e.g.,][]{Dotter:2017},
 but for the purposes of this experiment we assume that all other
 photospheric abundances remain constant throughout a star's
 lifetime.
+
+
 
 
 \begin{figure}
@@ -1086,11 +1182,10 @@ lifetime.
 
 \begin{figure*}
 	\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-latent-factors-and-contributions-with-targets.pdf}
-	\caption{Latent factors inferred from the \Galah\
-			 data \citep[][; thick lines]{Buder:2018}. The panels on the left show the absolute entries for each
+	\caption{Latent factors inferred from 1,072 stars in \Galah\
+			 \citep[][thick lines]{Buder:2018} with 17 abundance measurements. Left panels show the absolute entries for each
 			 factor load, where the thin lines indicate the target latent factors (see Section~\ref{sec:exp4}). On the right we show the absolute fractional contributions
-			 to each element, ordered by the loads that contribute most to each
-			 element.}
+			 to each element, ordered by the loads that contribute most.}
     \label{fig:exp3-factor-loads}
 \end{figure*}
 
@@ -1125,6 +1220,7 @@ leaving us with a sample of \todo{50,000} stars.
 \end{comment}
 
 
+
 \begin{comment}
 \begin{figure}
 	\includegraphics[width=0.45\textwidth]{experiments/exp3-abundance-counts.pdf}
@@ -1151,6 +1247,7 @@ The behaviour of the BIC and the message length are very different here, unlike 
 in our toy model. Here the BIC behaviour appears similar to the negative log likelihood in that the BIC
 prefers higher components and latent factors than the extent of the grid (e.g., $J > 7$ and $K > 5$).
 The model with five latent factors and three components ($J = 5$, $K = 3$) is found to have the shortest message length, which we take as our preferred model for these data.
+
 
 
 \begin{figure}
@@ -1218,6 +1315,60 @@ for Fe and largest for K (Figure~\ref{fig:exp3-specific-scatter}). The typical s
 In Figure~\ref{fig:exp3-latent-space} we show the inferred clustering in latent space,
 where the separation between components is arguably best seen in the splitting between $\factorscores_4$ with respect to $\factorscores_1$ or $\factorscores_2$. When projected to data space (Figure~\ref{fig:exp3-data-space}) the third component (purple) is seen to have relatively higher abundance ratios of [K,Ba,Zn/Fe] at a given [Fe/H],
 and lower abundance ratios of [V/Fe]. This is consistent with the clustering in latent space, where $\factorloads_4$ is the dominant contributor to K and Zn, and $\factorloads_{1,2}$ are the dominant contributor to Ba and V, respectively.
+
+
+\subsection{\Galah\ survey data with an increasing number of stars with missing data entries} \label{sec:exp10}
+Here we extend our experiment in Section~\ref{sec:exp4} to progressively
+include more stars, even though those stars have some abundance measurements
+missing. We assume those measurements are missing at random, and discuss the
+impact of that assumption (and others) in Section~\ref{sec:discussion}.
+Specifically we started with the same subset of 1,072 stars in Section~\ref{sec:exp4}
+and added a random set of stars that met our criteria of \texttt{flag\_cannon = 0} and
+\texttt{snr\_c1 > 40}. 
+
+
+We initially added 100 stars to give a sample of $N =$ 1,172, then repeated
+the grid search for the number of latent factors and components, and recorded
+the model with the lowest message length. We then repeated this
+procedure using 1,000 stars ($N =$ 2,072), then again with 10,000 ($N =$ 11,072),
+and finally using all 99,174 stars that met the criteria of \texttt{flag\_cannon = 0} and
+\texttt{snr\_c1 > 40} to give a total sample size of $N =$ 100,246 stars.
+
+\consider{For sample sizes up to $N = 11,072$ we find that the number of preferred latent
+factors remains at $J = 5$. The factor loads inferred from each subset of stars
+is shown in Figure~\ref{fig:exp10-comparison-loads}, illustrating that the
+first\footnote{`First' has no concept here in terms of factor load ordering, but
+for the purposes of comparing inferred loads from different data sets we have ordered
+the loads to be as close to those inferred in Section~\ref{sec:exp4}.} inferred factor
+loads remain largely unchanged despite the increasing sample size, with an increasing
+fraction of missing data entries. It is not until the data set reaches $N = 11,072$ 
+stars where we find that $J = 8$ factor loads are preferred by the data. Again, the
+first five latent factors are extremely similar to those inferred from just 1,072
+stars with complete abundances, except for the notable difference in Zn loads in
+factor load $|\mathbf{L}_4|$, which disappears for $N = 11,072$ and re-appears
+in the sixth factor load $|\mathbf{L}_5|$ -- indicative that the additional data
+prefers the fourth latent factor to split into an additional latent factor where
+Zn contributions dominate.}
+
+
+\begin{figure*}[t!]
+	\includegraphics[width=0.95\textwidth]{experiments/exp10-comparison.pdf}
+	\caption{Latent factors found in Section~\ref{sec:exp10} using different subsets
+	         of \Galah\ data \citep{Buder:2018}. The thin line shows the result from
+	         Section~\ref{sec:exp4} with $N=1,072$ stars with 17 abundances and no
+	         missing data. Dotted line shows that data set complemented with 100 random
+	         stars that have some abundances missing. Dot-and-dashed line shows the
+	         original 1,072 stars with 1,000 random stars with some missing abundances,
+	         and the thick line shows the original 1,072 with 10,000 stars with
+	         missing abundances, where eight latent factors were preferred over five.}
+    \label{fig:exp10-comparison}
+\end{figure*}
+
+
+\todo{If we use ALL data, how many? Then just comment on clustering in the N = XXX,XXX data}
+
+% Something about the clustering in the large example.
+
 
 
 \section{Discussion} \label{sec:discussion}
@@ -1349,7 +1500,9 @@ the number of components we can infer, and the efficacy of chemical tagging. Onl
 components were preferred from the data set of 1,072 stars, which we identified as
 being stars with low- and high-[$\alpha$/Fe] abundance ratios, and a third component that
 primarily differs in its abundances of K, Ba, Zn, and V (e.g., given some [Fe/H] and [$\alpha$/Fe]). A worthwhile extension
-of this work would be to incorporate missing and noisy data in order to allow for
+of this work would be to incorporate missing and noisy data, either by imputing the
+missing data values or by additive variance in the constructed
+covariance matrices. In doing so would allow for
 blind chemical tagging on an industrial scale, allowing for the latent factors to
 be efficiently estimated while chemical tagging occurs in the lower-dimensional
 latent space.
@@ -1392,8 +1545,6 @@ A/2014A/25, A/2015A/19, A/2017A/18. We acknowledge the traditional owners of the
 people, and pay our respects to elders past and present.
 %This work presents results from the European Space Agency (ESA) space mission Gaia. Gaia data is being processed by the Gaia Data Processing and Analysis Consortium (DPAC). Funding for the DPAC is provided by national institutions, in particular the institutions participating in the Gaia MultiLateral Agreement (MLA). The Gaia mission website is https://www.cosmos.esa.int/gaia . The Gaia archive website is https://archives.esac.esa.int/gaia .
 This research has made use of NASA's Astrophysics Data System.
-
-\clearpage
 
 \software{
 	\package{Astropy} \citep{astropy:v1,astropy:v2},\,\,
