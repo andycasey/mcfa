@@ -118,7 +118,65 @@ delta_K = 2
 
 
 OVERWRITE = False
-sizes = (100, 1000, 10000)# sum(possible_additions_mask))
+
+# Do custom things for the biggest one 
+if True:
+    size = sum(possible_additions_mask)
+
+    indices = np.random.choice(np.where(possible_additions_mask)[0], size=size, replace=False)
+
+    # Generate mask.
+    trial_mask = np.copy(mask)
+    trial_mask[indices] = True
+
+    X_H, label_names = galah.get_unflagged_abundances_wrt_h(elements, trial_mask)
+
+
+    print(f"SIZE: {X_H.shape}")
+
+    if config["wrt_x_fe"]:
+        X = convert_xh_to_xy(X_H, label_names, "fe_h")
+    else:
+        X = X_H
+
+    if not config["log_abundance"]:
+        X = 10**X
+
+    if config["subtract_mean"]:
+        X = X - np.nanmean(X, axis=0)
+
+
+    # OK, let's do a rough grid to figure out where we are.
+
+    #Js = np.arange(7, 12 + 1)
+    ## At J = 7, K_best = 16
+    #Ks = np.arange(16 - 3, 16 + 3 + 1)
+
+    Js = np.array([10, 11, 12])
+    Ks = np.array([14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25])
+
+    N_inits = 5
+
+    gJs, gKs, converged, meta = grid_search.grid_search(Js, Ks, X, N_inits=N_inits, mcfa_kwds=mcfa_kwds)
+    mml = meta["message_length"]
+
+
+    # Plot some contours.
+    plot_filled_contours_kwds = dict(converged=converged,
+                                     marker_function=np.nanargmin, N=100,
+                                     cmap="Spectral_r")
+
+    fig_mml = mpl_utils.plot_filled_contours(gJs, gKs, mml,
+                                             colorbar_label=r"$\textrm{MML}$",
+                                             **plot_filled_contours_kwds)
+    savefig(fig_mml, f"size-{size}-gridsearch-mml")
+    raise a
+
+
+
+
+
+sizes = (100, 1000, 10000)#, sum(possible_additions_mask))
 
 saved_models = dict()
 
@@ -136,6 +194,7 @@ for size in sizes:
     if os.path.exists(output_path) and not OVERWRITE:
         print(f"Skipping size = {size} because {output_path} already exists")
         continue
+    print("NOT SKIPPING")
 
     print(f"Doing size = {size}")
 
@@ -201,16 +260,67 @@ for size in sizes:
 
     except:
         None
-
-
+    
 
     # Fucking save everything.
     with open(output_path, "wb") as fp:
-        pickle.dump((Js, Ks, gJs, gKs, converged, meta), fp)
+        pickle.dump((Js, Ks, gJs, gKs, converged, meta, X_H, label_names), fp)
 
 
     # Compare model with previously saved model.
-    saved_models[size] = meta["best_models"][config["adopted_metric"]]
+    model = meta["best_models"][config["adopted_metric"]]
+
+    saved_models[size] = model
+
+    # Plot clustering in data space.
+    component_cmap = mpl_utils.discrete_cmap(7, base_cmap="Spectral_r")
+
+    fig, axes = plt.subplots(5, 3, figsize=(7.1, 9.0))
+    axes = np.atleast_1d(axes).flatten()
+
+
+    x = X_H.T[label_names.index("fe_h")]
+    c = np.argmax(model.tau_, axis=1)
+
+    K = model.n_components
+
+
+    y_idx = 0
+    for i, ax in enumerate(axes):
+        if label_names[i] == "fe_h":
+            y_idx += 1
+
+        y = X_H.T[y_idx] - x
+
+        ax.scatter(x, y, c=[component_cmap(_) for _ in c], s=1, edgecolor="none", rasterized=True)
+
+        element = label_names[y_idx].split("_")[0].title()
+        ax.set_ylabel(r"$[\textrm{{{0}/Fe}}]$".format(element))
+        y_idx += 1
+
+
+    x_lims = (-1.5, 0.5)
+    y_lims = (-0.5, 1.0)
+
+    for ax in axes:
+        ax.set_xlim(x_lims)
+        ax.set_ylim(y_lims)
+
+        ax.set_xticks([-1.5, -0.5, 0.5])
+        #ax.set_yticks([-0.5, 0.25, 1.0, 1.75])
+        ax.set_yticks([-0.5, 0, 0.5, 1.0])
+
+        if ax.is_last_row():
+            ax.set_xlabel(r"$[\textrm{Fe/H}]$")
+        else:
+            ax.set_xticklabels([])
+
+        ax.plot(x_lims, [0, 0], ":", c="#666666", lw=0.5, zorder=-1)
+        ax.plot([0, 0], y_lims, ":", c="#666666", lw=0.5, zorder=-1)
+
+    fig.tight_layout()
+
+    savefig(fig, f"size-{size}-data-space")
 
 
 

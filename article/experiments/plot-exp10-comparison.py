@@ -6,6 +6,7 @@ Plot results from exp10
 import os
 import pickle
 import matplotlib.pyplot as plt
+import yaml
 
 from mcfa import (mcfa, grid_search, mpl_utils, utils)
 
@@ -21,8 +22,12 @@ with open("8761b-exp3-model.pkl", "rb") as fp:
 comparison_model_paths = [
     "exp10-models-size-100.pkl",
     "exp10-models-size-1000.pkl",
-    #"exp10-models-size-10000.pkl",
+    "exp10-models-size-10000.pkl",
 ]
+
+with open("8761b.yml") as fp:
+    config = yaml.load(fp)
+
 
 
 label_names = [
@@ -76,25 +81,66 @@ colors = [cmap(j) for j in range(J_max)][::-1]
 # Create comparison figure.
 A_original = original_model.theta_[original_model.parameter_names.index("A")]
 
+D = 17
+
+J_ast = len(config["grouped_elements"])
+A_astrophysical = np.zeros((D, J_ast))#np.random.normal(0, 0.1, size=A_est.shape)
+for i, tes in enumerate(config["grouped_elements"][:J_ast]):
+    for j, te in enumerate(tes):
+        try:
+            idx = label_names.index("{0}_h".format(te.lower()))
+
+        except ValueError:
+            print(f"Skipping {te}")
+
+        else:
+            count = sum([(te in foo) for foo in config["grouped_elements"][:J_ast]])
+            A_astrophysical[idx, i] = 1.0/count
+
+A_astrophysical /= np.clip(np.sqrt(np.sum(A_astrophysical, axis=0)), 1, np.inf)
+
+# Un-assigned columns
+for column_index in np.where(np.all(A_astrophysical == 0, axis=0))[0]:
+    print(f"Warning: unassigned column index: {column_index}")
+    A_astrophysical[:, column_index] = np.random.normal(0, 1e-2, size=D)
+
+if config["correct_A_astrophysical"]:
+    AL = linalg.cholesky(A_astrophysical.T @ A_astrophysical)
+    A_astrophysical = A_astrophysical @ linalg.solve(AL, np.eye(J_ast))
+
+
+
 # Fill up.
 def _fill_factors(A, J_max):
     D, J = A.shape
     return np.hstack([A, np.ones((D, J_max - J)) * np.nan])
 
 
-plot_factor_loads_kwds = dict(colors=colors, separate_axes=True)
 
-fig = mpl_utils.plot_factor_loads(_fill_factors(A_original, J_max), 
+ABS_ONLY = True
+if ABS_ONLY:
+    viz_load = lambda A: np.abs(A)
+else:
+    viz_load = lambda A: A
+
+plot_factor_loads_kwds = dict(colors=colors, separate_axes=True, lw=1, xlabel=r"$\textrm{element}$", alpha=0.25,
+                              xticklabels=[r"$\textrm{{{0}}}$".format(ea.split("_")[0].title()) for ea in label_names])
+
+fig = mpl_utils.plot_factor_loads(viz_load(_fill_factors(A_original, J_max)), 
                                   **plot_factor_loads_kwds)
 plot_factor_loads_kwds.update(fig=fig)
 
 plot_kwds = {
-    "exp10-models-size-100.pkl": dict(linestyle=":"),
-    "exp10-models-size-1000.pkl": dict(linestyle="-."),
-    "exp10-models-size-10000.pkl": dict(linestyle="--"),
+    "exp10-models-size-100.pkl": dict(linestyle=":", lw=2, alpha=0.5),
+    "exp10-models-size-1000.pkl": dict(linestyle="-.", lw=3, alpha=0.75),
+    "exp10-models-size-10000.pkl": dict(linestyle="-", lw=4, alpha=1),
 }
 
 
+#A_target = A_astrophysical
+A_target = A_original
+#A_target[:-2, 0] = 0
+#A_target[-2:, 0] = 1
 
 
 for i, comparison_model_path in enumerate(comparison_model_paths):
@@ -110,19 +156,19 @@ for i, comparison_model_path in enumerate(comparison_model_paths):
 
     # Perform rotation.
     A_est = comparison_model.theta_[comparison_model.parameter_names.index("A")]
-    if A_est.shape == A_original.shape:
+    if A_est.shape == A_target.shape:
 
-        R, p_opt, cov, *_ = utils.find_rotation_matrix(A_original, A_est, 
+        R, p_opt, cov, *_ = utils.find_rotation_matrix(A_target, A_est, 
                                                        full_output=True)
 
-        R_opt = utils.exact_rotation_matrix(A_original, A_est, 
+        R_opt = utils.exact_rotation_matrix(A_target, A_est, 
                                             p0=np.random.uniform(-np.pi, np.pi, comparison_model.n_latent_factors**2))
 
         AL = linalg.cholesky(R_opt.T @ R_opt)
         R_opt2 = R_opt @ linalg.solve(AL, np.eye(comparison_model.n_latent_factors))
 
-        chi1 = np.sum(np.abs(A_est @ R - A_original))
-        chi2 = np.sum(np.abs(A_est @ R_opt2 - A_original))
+        chi1 = np.sum(np.abs(A_est @ R - A_target))
+        chi2 = np.sum(np.abs(A_est @ R_opt2 - A_target))
 
         R = R_opt2 if chi2 < chi1 else R
 
@@ -131,8 +177,29 @@ for i, comparison_model_path in enumerate(comparison_model_paths):
 
     else:
         # Now it gets Hard(tm)
+        A_target_copy = _fill_factors(A_target, A_est.shape[1])
+        M = np.sum(~np.isfinite(A_target_copy))
 
-        raise a
+        A_target_copy[~np.isfinite(A_target_copy)] = np.random.normal(0, 1e-2, size=M)
+
+
+        R, p_opt, cov, *_ = utils.find_rotation_matrix(A_target_copy, A_est, 
+                                                       full_output=True)
+
+        R_opt = utils.exact_rotation_matrix(A_target_copy, A_est, 
+                                            p0=np.random.uniform(-np.pi, np.pi, comparison_model.n_latent_factors**2))
+
+        AL = linalg.cholesky(R_opt.T @ R_opt)
+        R_opt2 = R_opt @ linalg.solve(AL, np.eye(comparison_model.n_latent_factors))
+
+        chi1 = np.sum(np.abs(A_est @ R - A_target_copy))
+        chi2 = np.sum(np.abs(A_est @ R_opt2 - A_target_copy))
+
+        R = R_opt2 if chi2 < chi1 else R
+
+        # Now make it a valid rotation matrix.
+        comparison_model.rotate(R)
+
 
 
     # Now plot the comparison latent factors.
@@ -142,11 +209,21 @@ for i, comparison_model_path in enumerate(comparison_model_paths):
     kwds.update(plot_kwds.get(comparison_model_path, {}))
 
     # Fill up?
-    fig = mpl_utils.plot_factor_loads(A_comparison, **kwds)
+    fig = mpl_utils.plot_factor_loads(viz_load(A_comparison), **kwds)
 
+
+if ABS_ONLY:
+    for i, ax in enumerate(fig.axes):
+        ax.set_ylim(0, ax.get_ylim()[1])
+        ax.set_ylabel(r"$|\mathbf{{L}}_{{{0}}}|$".format(i))
+
+
+fig.set_figwidth(6.75)
+fig.set_figheight(9.50)
+
+fig.tight_layout()
+
+fig.savefig("exp10-comparison.pdf", dpi=300)
 
 
 raise a
-for ax in fig.axes:
-    ax.set_ylim(0, ax.get_ylim()[1])
-
