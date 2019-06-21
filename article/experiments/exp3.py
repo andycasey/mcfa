@@ -194,7 +194,7 @@ latex_label_names = [r"$\textrm{{{0}}}$".format(ea.split("_")[0].title()) for ea
 
 # Draw unrotated.
 J_max = config["max_n_latent_factors_for_colormap"]
-J_max = 8
+J_max = 12
 cmap = mpl_utils.discrete_cmap(J_max, base_cmap="Spectral")
 colors = [cmap(j) for j in range(J_max)]#[::-1]
 
@@ -321,7 +321,7 @@ fig_fac = mpl_utils.plot_factor_loads_and_contributions(model, X,
                                                         label_names=latex_label_names, colors=colors)
 savefig(fig_fac, "latent-factors-and-contributions")
 
-
+raise a
 
 
 

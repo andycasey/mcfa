@@ -28,6 +28,7 @@ comparison_model_paths = [
     "exp10-models-size-100.pkl",
     "exp10-models-size-1000.pkl",
     "exp10-models-size-10000.pkl",
+    "exp10-models-size-99174.pkl"
 ]
 
 # 89dab is for all intents and purposes identical to 8761b
@@ -79,6 +80,7 @@ for comparison_model_path in comparison_model_paths:
 
 # TODO: Set this from config, or something crazy to keep colours consistent?
 J_max = np.max(n_latent_factors)
+#J_max = 8
 
 cmap = mpl_utils.discrete_cmap(J_max, base_cmap="Spectral_r")
 colors = [cmap(j) for j in range(J_max)][::-1]
@@ -122,6 +124,7 @@ def _fill_factors(A, J_max):
     return np.hstack([A, np.ones((D, J_max - J)) * np.nan])
 
 
+max_rotations = 3
 
 ABS_ONLY = True
 if ABS_ONLY:
@@ -138,9 +141,10 @@ fig = mpl_utils.plot_factor_loads(viz_load(_fill_factors(A_original, J_max)),
 plot_factor_loads_kwds.update(fig=fig)
 
 plot_kwds = {
-    "exp10-models-size-100.pkl": dict(linestyle=":", lw=2, alpha=0.5),
-    "exp10-models-size-1000.pkl": dict(linestyle="-.", lw=3, alpha=0.75),
-    "exp10-models-size-10000.pkl": dict(linestyle="-", lw=4, alpha=1),
+    "exp10-models-size-100.pkl": dict(linestyle=":", lw=1, alpha=0.75),
+    "exp10-models-size-1000.pkl": dict(linestyle="-", lw=1, alpha=0.75),
+    "exp10-models-size-10000.pkl": dict(linestyle=":", lw=2, alpha=1),
+    "exp10-models-size-99174.pkl": dict(linestyle="-", lw=2, alpha=1)
 }
 
 
@@ -149,6 +153,7 @@ A_target = A_original
 #A_target[:-2, 0] = 0
 #A_target[-2:, 0] = 1
 
+stored_models = []
 
 for i, comparison_model_path in enumerate(comparison_model_paths):
 
@@ -165,49 +170,63 @@ for i, comparison_model_path in enumerate(comparison_model_paths):
     A_est = comparison_model.theta_[comparison_model.parameter_names.index("A")]
     if A_est.shape == A_target.shape:
 
-        R, p_opt, cov, *_ = utils.find_rotation_matrix(A_target, A_est, 
-                                                       full_output=True)
+        for rotation in range(max_rotations):
 
-        R_opt = utils.exact_rotation_matrix(A_target, A_est, 
-                                            p0=np.random.uniform(-np.pi, np.pi, comparison_model.n_latent_factors**2))
+            A_est = comparison_model.theta_[comparison_model.parameter_names.index("A")]
 
-        AL = linalg.cholesky(R_opt.T @ R_opt)
-        R_opt2 = R_opt @ linalg.solve(AL, np.eye(comparison_model.n_latent_factors))
+            R, p_opt, cov, *_ = utils.find_rotation_matrix(A_target, A_est, 
+                                                           full_output=True)
 
-        chi1 = np.sum(np.abs(A_est @ R - A_target))
-        chi2 = np.sum(np.abs(A_est @ R_opt2 - A_target))
+            R_opt = utils.exact_rotation_matrix(A_target, A_est, 
+                                                p0=np.random.uniform(-np.pi, np.pi, comparison_model.n_latent_factors**2))
 
-        R = R_opt2 if chi2 < chi1 else R
+            AL = linalg.cholesky(R_opt.T @ R_opt)
+            R_opt2 = R_opt @ linalg.solve(AL, np.eye(comparison_model.n_latent_factors))
 
-        # Now make it a valid rotation matrix.
-        comparison_model.rotate(R)
+            chi1 = np.sum(np.abs(A_est @ R - A_target))
+            chi2 = np.sum(np.abs(A_est @ R_opt2 - A_target))
+
+            R = R_opt2 if chi2 < chi1 else R
+
+            # Now make it a valid rotation matrix.
+            comparison_model.rotate(R)
 
     else:
         # Now it gets Hard(tm)
-        A_target_copy = _fill_factors(A_target, A_est.shape[1])
-        M = np.sum(~np.isfinite(A_target_copy))
+        if comparison_model_path == "exp10-models-size-10000.pkl":
+            A_target_copy = _fill_factors(A_target, A_est.shape[1])
 
+        else:
+            # Should actually rotate to the next biggest set of factors...
+            A_target_copy = stored_models[0].theta_[stored_models[0].parameter_names.index("A")]
+            A_target_copy = _fill_factors(A_target_copy, A_est.shape[1])
+
+        M = np.sum(~np.isfinite(A_target_copy))
         A_target_copy[~np.isfinite(A_target_copy)] = np.random.normal(0, 1e-2, size=M)
 
 
-        R, p_opt, cov, *_ = utils.find_rotation_matrix(A_target_copy, A_est, 
-                                                       full_output=True)
+        for rotation in range(max_rotations):
 
-        R_opt = utils.exact_rotation_matrix(A_target_copy, A_est, 
-                                            p0=np.random.uniform(-np.pi, np.pi, comparison_model.n_latent_factors**2))
+            A_est = comparison_model.theta_[comparison_model.parameter_names.index("A")]
+            R, p_opt, cov, *_ = utils.find_rotation_matrix(A_target_copy, A_est, 
+                                                           full_output=True)
 
-        AL = linalg.cholesky(R_opt.T @ R_opt)
-        R_opt2 = R_opt @ linalg.solve(AL, np.eye(comparison_model.n_latent_factors))
+            R_opt = utils.exact_rotation_matrix(A_target_copy, A_est, 
+                                                p0=np.random.uniform(-np.pi, np.pi, comparison_model.n_latent_factors**2))
 
-        chi1 = np.sum(np.abs(A_est @ R - A_target_copy))
-        chi2 = np.sum(np.abs(A_est @ R_opt2 - A_target_copy))
+            AL = linalg.cholesky(R_opt.T @ R_opt)
+            R_opt2 = R_opt @ linalg.solve(AL, np.eye(comparison_model.n_latent_factors))
 
-        R = R_opt2 if chi2 < chi1 else R
+            chi1 = np.sum(np.abs(A_est @ R - A_target_copy))
+            chi2 = np.sum(np.abs(A_est @ R_opt2 - A_target_copy))
 
-        # Now make it a valid rotation matrix.
-        comparison_model.rotate(R)
+            R = R_opt2 if chi2 < chi1 else R
 
+            # Now make it a valid rotation matrix.
+            comparison_model.rotate(R)
 
+        if comparison_model_path == "exp10-models-size-10000.pkl":
+            stored_models.append(comparison_model)
 
     # Now plot the comparison latent factors.
     A_comparison = comparison_model.theta_[comparison_model.parameter_names.index("A")]
@@ -216,7 +235,7 @@ for i, comparison_model_path in enumerate(comparison_model_paths):
     kwds.update(plot_kwds.get(comparison_model_path, {}))
 
     # Fill up?
-    fig = mpl_utils.plot_factor_loads(viz_load(A_comparison), **kwds)
+    fig = mpl_utils.plot_factor_loads(viz_load(A_comparison[:, :J_max]), **kwds)
 
 
 if ABS_ONLY:
@@ -229,8 +248,131 @@ if ABS_ONLY:
 #fig.set_figheight(9.50)
 
 fig.tight_layout()
+for ax in fig.axes:
+    ax.set_yticks([0, 1])
+    ax.set_yticklabels([r"$0$", r"$1$"])
+
+fig.axes[-1].set_xlabel("")
+
+fig.tight_layout()
+fig.subplots_adjust(hspace=0.25)
 
 fig.savefig("exp10-comparison.pdf", dpi=300)
+
+
+
+raise a
+
+# Load the largest one and make plots
+model = comparison_model
+
+with open('exp10-99174-data.pkl', 'rb') as fp:
+    _, X, mask = pickle.load(fp)
+
+
+# For the latent space we will just use a corner plot.
+component_cmap = mpl_utils.discrete_cmap(16, base_cmap="tab20")
+
+fig = mpl_utils.plot_latent_space(model, X, ellipse_kwds=dict(alpha=0), s=10, edgecolor="none", alpha=1, c=[component_cmap(_) for _ in np.argmax(model.tau_, axis=1)], show_ticks=True,
+                                  label_names=[r"$\mathbf{{S}}_{{{0}}}$".format(i + 1) for i in range(model.n_latent_factors)])
+for ax in fig.axes:
+    if ax.is_last_row():
+        ax.set_ylim(-1, 1)
+        ax.set_yticks([-1, 0, 1])
+
+fig.tight_layout()
+
+fig.savefig("exp10-size-all-latent-space.pdf", dpi=300)
+
+
+# Get X_H from mask
+import galah_dr2 as galah
+
+elements = [ea.split("_")[0].title() for ea in label_names]
+X_H, label_names = galah.get_unflagged_abundances_wrt_h(elements, mask)
+
+
+print(f"SIZE: {X_H.shape}")
+
+
+
+# Plot
+fig, axes = plt.subplots(5, 3, figsize=(7.1, 9.0))
+axes = np.atleast_1d(axes).flatten()
+
+
+x = X_H.T[label_names.index("fe_h")]
+c = np.argmax(model.tau_, axis=1)
+
+K = model.n_components
+
+component_cmap = mpl_utils.discrete_cmap(17, base_cmap="Spectral")
+
+
+
+y_idx = 0
+for i, ax in enumerate(axes):
+    if label_names[i] == "fe_h":
+        y_idx += 1
+
+    y = X_H.T[y_idx] - x
+
+    ax.scatter(x, y, c=[component_cmap(_) for _ in c], s=1, alpha=0.5, edgecolor="none", rasterized=True)
+
+    element = label_names[y_idx].split("_")[0].title()
+    ax.set_ylabel(r"$[\textrm{{{0}/Fe}}]$".format(element))
+    y_idx += 1
+
+
+x_lims = (-1.5, 0.5)
+y_lims = (-0.5, 1.0)
+
+for ax in axes:
+    ax.set_xlim(x_lims)
+    ax.set_ylim(y_lims)
+
+    ax.set_xticks([-1.5, -0.5, 0.5])
+    #ax.set_yticks([-0.5, 0.25, 1.0, 1.75])
+    ax.set_yticks([-0.5, 0, 0.5, 1.0])
+
+    if ax.is_last_row():
+        ax.set_xlabel(r"$[\textrm{Fe/H}]$")
+    else:
+        ax.set_xticklabels([])
+
+    ax.plot(x_lims, [0, 0], ":", c="#666666", lw=0.5, zorder=-1)
+    ax.plot([0, 0], y_lims, ":", c="#666666", lw=0.5, zorder=-1)
+
+fig.tight_layout()
+
+
+# Build an array of data points etc to play in topcat.
+subset = galah.data[mask]
+subset["component"] = np.argmax(model.tau_, axis=1)
+
+for i in range(model.n_components):
+    subset[f"group_{i}"] = (subset["component"] == i)
+
+subset.write("exp10-galah-data.fits", overwrite=True)
+
+# Hide data where it's bad
+
+"""
+Hard to do contributions when there are missing data. Needs a thinko.
+
+cmap = mpl_utils.discrete_cmap(12, base_cmap="Spectral_r")
+colors = [cmap(j) for j in range(12)][::-1]
+
+
+latex_label_names = [r"$\textrm{{{0}}}$".format(ea.split("_")[0].title()) for ea in label_names]
+
+fig_fac = mpl_utils.plot_factor_loads_and_contributions(model, X, 
+                                                        label_names=latex_label_names, colors=colors)
+savefig(fig_fac, "latent-factors-and-contributions")
+"""
+
+
+
 
 
 raise a
