@@ -56,17 +56,6 @@
 \newcommand{\ExperimentHash}{89dab}
 
 
-% NEED: Final model with # of loads and # of clusters so we can:
-% 		[ ] Update figure of loads (exp10-comparison)
-% 		[ ] Make a clustering plot in abundances
-% 		[ ] Check to see if any chemical clusters correspond to known clusters.
-% 		[ ] Update discussion w.r.t. final model loads, etc.
-% 		[ ] Update conclusion w.r.t. final model loads/clusters, etc, and missing data.
-% 		[ ] Update abstract w.r.t. final model loads/clusters.
-% 		[ ] Upload PDF to Galah survey website
-%		[ ] Send email to Galah team for comment
-
-
 \received{2019}
 \revised{2019}
 \accepted{2019}
@@ -114,13 +103,56 @@
 			 Monash University, 
 			 Wellington Rd, Clayton 3800, Victoria, Australia}
 
-\author[0000-0002-0583-5918]{David Dowe}
+\author[0000-0002-0583-5918]{David L. Dowe}
 \affiliation{Faculty of Information Technology, 
 			 Monash University, 
 			 Wellington Rd, Clayton 3800, Victoria, Australia}
 
-\author{the GALAH team}
+\author[0000-0001-7516-4016]{Joss Bland-Hawthorn}
+\affiliation{Sydney Institute for Astronomy, School of Physics,
+			 A28, The University of Sydney, NSW 2006, Australia}
+\affiliation{Center of Excellence for Astrophysics in Three Dimensions (ASTRO-3D),
+			 Australia}
+\affiliation{Miller Professor, Miller Institute, 
+			 UC Berkeley, 
+			 Berkeley, CA 94720, USA}
 
+\author[0000-0002-4031-8553]{Sven Buder}
+\affiliation{Research School of Astronomy and Astrophysics,
+			 Australian National University,
+			 Canberra, ACT 2611, Australia}
+
+%\author{Janez Kos}
+%\affiliation{Sydney Institute for Astronomy, School of Physics,
+%			 A28, The University of Sydney, NSW 2006, Australia}
+			
+\author[0000-0003-3081-9319]{Geraint F. Lewis}
+\affiliation{Sydney Institute for Astronomy, School of Physics,
+			 A28, The University of Sydney, NSW 2006, Australia}
+
+\author[0000-0002-3430-4163]{Sarah L. Martell}
+\affiliation{School of Physics,
+			 University of New South Wales, 
+			 Sydney, NSW 2052, Australia}
+			 
+			 
+\author[0000-0001-5344-8069]{Thomas Nordlander}			 
+\affiliation{Research School of Astronomy and Astrophysics,
+			 Australian National University,
+			 Canberra, ACT 2611, Australia}
+\affiliation{Center of Excellence for Astrophysics in Three Dimensions (ASTRO-3D), 
+			 Australia}
+			 
+\author[0000-0002-8165-2507]{Jeffrey D. Simpson}
+\affiliation{School of Physics,
+			 University of New South Wales, 
+			 Sydney, NSW 2052, Australia}
+						 
+\author[0000-0003-1124-8477]{Daniel B. Zucker}
+\affiliation{Department of Physics and Astronomy,
+			 Macquarie University, 
+			 Sydney, NSW 2109, Australia}
+			 
 
 \begin{abstract}
 Chemical tagging seeks to identify unique star formation sites from
@@ -131,7 +163,7 @@ many elements can be produced by more than one nucleosynthetic process.
 In this work we introduce a data-driven model of nucleosynthesis 
 where a set of latent factors (e.g., nucleosynthetic yields) contribute
 to all stars with different scores, and clustering (e.g., chemical tagging) 
-is modelled by a mixture of multivariate gaussians
+is modelled by a mixture of multivariate Gaussians
 in a lower-dimensional latent space.
 We use an exact method to simultaneously estimate the factor scores for
 each star, the partial assignment of each star
@@ -175,7 +207,7 @@ testing the limits and utility of chemical tagging. Although biases arise when
 only considering star clusters that are still gravitationally bound, the chemical
 homogeneity of open clusters provides an empirical measure of how similar stars
 would need to be before they could be tagged as belonging to the same
-star formation site \citep{Mitschang:2014}. However, there are analysis
+star formation site \citep{Bland-Hawthorn:2010b,Bland-Hawthorn:2010a,Mitschang:2014}. However, there are analysis
 issues in understanding how precisely those chemical abundances can be measured
 \citep{Bovy:2016}, and how chemically similar stars can be that did not form 
 together \citep[doppleg\"angers;][]{Ness:2018}.
@@ -194,15 +226,15 @@ abundances that saturate the Cram\'er-Rao bound \citep{Cramer:1946,Rao:1945}.
 Chemical tagging experiments require a catalogue of precise chemical abundance
 measurements for a large number of stars,
 where those chemical abundances trace different nucleosynthetic pathways.
-This is the primary goal of the \Galah\ survey \citep{DeSilva:2015,Martell:2017,Buder:2018},
+This is the primary goal of the Galactic Archaeology with \project{HERMES} (\Galah) survey \citep{DeSilva:2015,Martell:2017,Buder:2018},
 a stellar spectroscopic survey that uses the High Efficiency and Resolution 
-Multi-Element Spectrograph \citep[\project{HERMES};][]{Sheinis:2015} on the Australian 
-Astronomical Telescope (AAT).  \Galah\ will observe up to $10^6$ stars in the 
-Milky Way, and measure up to 30 chemical abundances for each star. This includes
+Multi-Element Spectrograph \citep[\project{HERMES};][]{Sheinis:2015} on the 3.9~m Anglo-Australian 
+Telescope (AAT).  \Galah\ will observe up to $10^6$ stars in the 
+Milky Way, and measure up to 30 chemical abundances for each star \citep{Bland-Hawthorn:2016}. This includes
 light odd-Z elements (e.g., Na, K), elements produced through
 alpha-particle capture (e.g., Mg, Ca, Ti), and elements produced
 through the slow (e.g., Ba) and rapid neutron-capture process
-(e.g., Eu). No other spectroscopic survey provides an equivalent set of
+(e.g., Eu). No other current or planned spectroscopic survey provides an equivalent set of
 chemical abundances for a comparable number of stars.
 
 %These data provide an unparalleled view on the production
@@ -271,14 +303,15 @@ the model as described. We conclude in Section~\ref{sec:conclusions}.
 
 \section{Methods} \label{sec:methods}
 
-Factor analysis is a common statistical approach for describing correlated 
+Latent factor analysis is a common statistical approach for describing correlated 
 observations with a lower number of latent variables \citep[e.g.,][]{Thompson:2004}.
 Related techniques include principal component analysis \citep{Hotelling:1933} and its
 variants \citep{Tipping;Bishop:1999}, singular value decomposition \citep{Golub:1970}, and other
 matrix factorization methods. While factor analysis on its own is a useful
 dimensionality reduction tool to identify latent factors that contribute to
 the chemical abundances of stars \citep[e.g.,][]{Ting:2012,Price-Jones:2018}, factor
-analysis cannot describe clustering in the data (or latent) space.
+analysis cannot describe clustering in the data (or latent) space. As a result,
+some works have performed clustering and then required different latent factors for each (totally assigned) component \citep[e.g.,][]{EdwardsDowe1998}.
 Similarly, clustering techniques applied to chemical abundances to date 
 \citep[e.g.,][]{Hogg:2016} do not account for the lower effective dimensionality in
 elemental abundances.
@@ -300,11 +333,12 @@ for each star. We assume a generative model for the data
 \noindent{}where $\factorloads$ is a $\NumLatentFactors \times \NumDimensions$ 
 matrix of factor loads that is common to all data points, $\NumLatentFactors$ is
 the number of latent factors, and the factor scores 
-for the $\numdata$th data point
+for the $\numdata^\mathrm{th}$ data point
 \begin{equation}
 	\factorscores_\numdata \sim \mathcal{N}(\vec\xi_\numcomponents, \vec\Omega_\numcomponents)
 \end{equation}
-\noindent{}are drawn from\footnote{For clarifying nomenclature across disciplines, the terminology $z \sim \mathcal{N}(0, 1)$ indicates that the $z$ variable \emph{is drawn from} a standard normal distribution.} the $\numcomponents$th multivariate normal distribution.
+\noindent{}are drawn from\footnote{For clarifying nomenclature across disciplines, the terminology $z \sim \mathcal{N}(0, 1)$ indicates that the $z$ variable \emph{is drawn from} a standard normal distribution.} the $\numcomponents^\mathrm{th}$ multivariate
+normal distribution, where each $\numcomponents^\mathrm{th}$ component has a $\NumLatentFactors$-dimensional mean and a dense $\NumLatentFactors \times \NumLatentFactors$ covariance matrix.
 The mean vector $\vec\mu$ describes the mean datum in each dimension.
 The factor scores for all data points $\factorscores$ is then a 
 $\NumData \times \NumLatentFactors$ matrix, where each data point has a partial
@@ -315,11 +349,13 @@ vector of variances in each $\NumDimensions$ abundance dimensions.
 In this model each data point can be represented as being drawn
 from a mixture of multivariate normal components, except the components
 are \emph{clustered in the latent space} $\factorscores$ and projected
-into the data space by the factor loads $\factorloads$. 
+into the data space by the factor loads $\factorloads$. In a sense we
+are using latent factor analysis as a form of dimensionality reduction and
+simultaneously performing clustering in latent space.
 
 
 We assume that the latent space is lower dimensionality than the
-data space (e.g., $\NumLatentFactors < \NumDimensions$).
+data space (i.e., $\NumLatentFactors < \NumDimensions$).
 Within the context of stellar abundances, the factor loads
 $\factorloads$ can be thought of as the \emph{mean} yields
 of nucleosynthetic
@@ -375,7 +411,7 @@ can be simultaneously estimated in a self-consistent way with
 a single scalar-justified objective function.
 
 Without loss of generality the density of the mean-subtracted 
-data $\vecdataunscaled - \vec\mu$ (which we hereafter will refer to simply as $\vecdata$) can be described as
+data $\vecdataunscaled - \vec\mu$ (which we hereafter will refer to simply as $\vecdata$) can be described as \citep[Sec. 5.2.9, p236;][]{Wallace:2005}
 \begin{equation}
 	f(\vecdata; \vec\Psi) = \sum_{\numcomponents=1}^{\NumComponents}\weight_\numcomponents\phi(\vecdata;\factorloads\scoremeans_\numcomponents, \factorloads\scorecovs_\numcomponents\factorloads\transpose + \diag{\specificvariance})
 	%\eye\specificvariance
@@ -384,12 +420,12 @@ data $\vecdataunscaled - \vec\mu$ (which we hereafter will refer to simply as $\
 clustered in the latent (factor score) space. Here the parameter
 vector
 $\vec\Psi$ includes $\{\factorloads,\vec\pi,\scoremeans,\scorecovs,\specificvariance\}$, and $\phi(\vecdata; \vec\theta)$
-describes the density of a multivariate gaussian distribution,
-and $\weight_\numcomponents$ describes the relative weighting of the $\numcomponents$th
-component in latent space and $\sum\vec\weight^K = 1$.
+describes the density of a multivariate Gaussian distribution,
+and $\weight_\numcomponents$ describes the relative weighting of the $\numcomponents^\mathrm{th}$
+component in latent space and $\sum\vec\weight_{\numcomponents} = 1$.
 The log likelihood is then given by
 \begin{equation}
-	\log\mathcal{L}(\vecdata|\vec\Psi) = \sum_{\numcomponents=1}^{\NumComponents}\log{f(\vecdata;\vec\Psi)} \quad . \label{eq:log-likelihood}
+	\log\mathcal{L}(\vecdata|\vec\Psi) = \sum_{\numdata=1}^{\NumData}\log{f(\vecdata;\vec\Psi)} \quad . \label{eq:log-likelihood}
 \end{equation}
 
 
@@ -408,18 +444,21 @@ Here we describe how the model parameters are initialised.\footnote{This describ
 To initialise the factor loads $\factorloads$ we start by randomly drawing a $\NumDimensions \times \NumDimensions$ matrix from a Haar distribution \citep{Haar:1933},
 which is uniform on the special orthogonal group $\textrm{SO}(n)$ and therefore guaranteed to return an orthogonal
 matrix with a determinant of unity \citep{Stewart:1980}.
-We denote the $\NumLatentFactors \times \NumDimensions$ left-most region of this
-matrix to be $\mathbf{H}$, and by taking $\factorloads_\ast$ to be the Cholesky decomposition of $\mathbf{H}\transpose \mathbf{H}$, we initialise the factor loads as
-\begin{eqnarray}
- 	\factorloads = \mathbf{H}\left(\left(\factorloads_\ast\right)^{-1}\eye\right)
-\end{eqnarray}
-\noindent{}which ensures that $\factorloads$ is a $\NumLatentFactors \times \NumDimensions$
-matrix of mutually orthogonal vectors.
+We denote the $\NumLatentFactors \times \NumDimensions$ left-most region\footnote{The region choice is arbitrary. All that is required is that the randomly-generated matrix have mutually orthogonal vectors.}
+ of this
+matrix to be our initial guess of $\factorloads$, which provides a set of mutually
+orthogonal vectors.
+%$\mathbf{H}$, and by taking $\factorloads_\ast$ to be the Cholesky decomposition of $\mathbf{H}\transpose \mathbf{H}$, we initialise the factor loads as
+%\begin{eqnarray}
+% 	\factorloads = \mathbf{H}\left(\left(\factorloads_\ast\right)^{-1}\eye\right)
+%\end{eqnarray}
+%\noindent{}which ensures that $\factorloads$ is a $\NumLatentFactors \times \NumDimensions$
+%#matrix of mutually orthogonal vectors.
 %and that it is a valid rotation matrix
 %$\factorloads\transpose \factorloads = \eye$.
 We then initially assign each data point as belonging to one of the
 $\NumComponents$ components using the \texttt{k-means++} algorithm \citep{Arthur:2007}
-in the pseudo-latent space $\vecdata\factorloads$. Given the initial
+in the latent space. Given the initial
 factor loads and assignments, we then estimate the relative weights
 $\vec\pi$, the mean factor scores of each component $\scoremeans$, and
 the covariance matrix of factor scores of each component $\scorecovs$.
@@ -447,14 +486,13 @@ initialise from many points to avoid local minima.
 
 We use the expectation-maximization algorithm to estimate the model parameters
 \citep{Dempster:1977}. With each expectation step we evaluate the log likelihood 
-given the model parameters $\vec\Psi$ and we calculate the $\NumData \times \NumComponents$ responsibility 
+given the model parameters\footnote{When evaluating the log likelihood we use the precision (sparse inverse) matrix of the Cholesky decomposition of the covariance matrix for computational efficiency and stability.} $\vec\Psi$, the message length, and the $\NumData \times \NumComponents$ responsibility 
 matrix $\vec\tau$ whose entries are the posterior probability that the 
 $\numdata$th data point is associated to the $\numcomponents$th component, given 
 the data $\vecdata$ and the current estimate of the parameter vector $\vec\Psi$:
 \begin{equation}
 	\tau_{\numdata\numcomponents} = \frac{\weight_\numcomponents\phi(\vecdata_\numdata;\factorloads\scoremeans_\numcomponents, \factorloads\scorecovs_\numcomponents\factorloads\transpose + \diag{\specificvariance})}{\sum_{g=1}^{G}\weight_g\phi(\vecdata_\numdata;\factorloads\scoremeans_g, \factorloads\scorecovs_g\factorloads\transpose + \diag{\specificvariance})} \quad .
 \end{equation}
-
 
 At the maximization step we update our estimates of the parameters $\vec\Psi$,
 conditioned on the data $\vecdata$ and the responsibility matrix $\vec\tau$.
@@ -465,7 +503,7 @@ In doing so this guarantees that every updated
 estimate of the model parameters is guaranteed to increase the log likelihood.
 Although there are no guarantees against converging on local minima, in 
 practice it is sufficient to run expectation-maximization from multiple
-initialisations (as we do) in order to ensure that the global minima is reached.
+initialisations (as we do) in order to ensure that the global minimum is reached.
 At the maximization step we first update our estimate of the relative weights 
 $\vec\weight\nextstep$ given the responsibility matrix $\vec\tau$
 \begin{equation}
@@ -480,9 +518,9 @@ $\scoremeans\nextstep$ for each component are then given by
 \end{eqnarray}
 \noindent{}where:
 \begin{eqnarray}
-	\vec{W} &=& (\scorecovs_\numcomponents\thisstep)^{-1}\eye \\
+	\vec{W} &=& (\scorecovs_\numcomponents\thisstep)^{-1} \\
 	\vec{V} &=& \left(\specificvariance\thisstep\right)^{-1} \\
-	\vec{C} &=& (\vec{W} + (\factorloads\thisstep)\transpose\vec{V}\factorloads\thisstep)^{-1}\eye \\
+	\vec{C} &=& (\vec{W} + (\factorloads\thisstep)\transpose\vec{V}\factorloads\thisstep)^{-1} \\
 	\vec{G} &=& \left[\vec{V} - \vec{V}\factorloads\thisstep\vec{C}\left(\vec{V}\factorloads\thisstep\right)\transpose\right]\factorloads\thisstep\scorecovs_k\thisstep \quad .
 \end{eqnarray}
 
@@ -515,7 +553,7 @@ by
 	\specificvariance\nextstep = \frac{1}{\NumData}\left[\sum^{\NumComponents}_{\numcomponents=1}\vec\tau_\numcomponents\transpose\left(\vecdata\odot\vecdata\right) - \sum_{j=1}^{J}\left(\factorloads\nextstep\factorloads_\textrm{b}\right)\odot\factorloads\nextstep\right]
 \end{equation}
 
-\noindent{}where $\odot$ denotes is the entry-wise (Hadamard) product. 
+\noindent{}where $\odot$ denotes is the entry-wise product. 
 %We repeat
 %the expectation-maximization cycle for up to 10,000 steps or until the log likelihood
 %improved by less than $10^{-5}$ between successive iterations. 
@@ -548,7 +586,7 @@ In this work we will assume that any missing data measurements are
 missing at random. The missing data points can then be treated as unknown
 parameters that must be solved for (and updated) at each iteration. Initially
 we impute zeros for missing data entries in $\vec\data$, and at each iteration we update
-these imputed valuee with our estimate of what the missing data values
+these imputed value with our estimate of what the missing data values
 are given the current model parameters. This ensures that the log-likelihood increases
 with each iteration. Similarly, with each update we inflate
 our estimates of the specific variances based on the fraction of missing
@@ -580,15 +618,22 @@ complexity that is afforded by those additional latent factors and components.
 
 
 One criterion commonly employed for evaluating a class of models is the 
-Bayesian Information Criterion \citep[BIC;][]{Schwarz:1978}, 
+Bayesian Information Criterion \citep[BIC;][]{Schwarz:1978}
 \begin{equation}
-	\textrm{BIC} = Q\log{N} - 2\log\mathcal{L}\left(\data|\vec\Psi\right) \quad , \label{eq:bic}
+	\textrm{BIC} = Q\log{N} - 2\log\mathcal{L}\left(\data|\vec\Psi\right)
+	 \label{eq:bic}
 \end{equation} 
-\noindent{}where $Q$ is the number of parameters in this model:
+\noindent{}where $Q$ is the number of parameters in this model
 \begin{equation}
-	Q = \frac{\NumLatentFactors}{2}\left[2\left(\NumDimensions - \NumLatentFactors\right) + \NumComponents\left(3 + \NumLatentFactors\right)\right] + \NumComponents + \NumDimensions - 1 \quad .
+	Q = \frac{\NumLatentFactors}{2}\left[2\left(\NumDimensions - \NumLatentFactors\right) + \NumComponents\left(3 + \NumLatentFactors\right)\right] + \NumComponents + \NumDimensions - 1
 \end{equation}
-\noindent{}While the BIC does include a penalisation term for the number of
+\noindent{}which includes $\NumComponents - 1$ weights (as $\sum\weight_\numcomponents = 1$), $\NumDimensions$ specific variances, the $\NumComponents\NumLatentFactors - \NumLatentFactors^2$ free parameters needed to uniquely define the mutually orthogonal factor loads matrix $\factorloads$ \citep{Baek:2010}, $\NumComponents \times \NumLatentFactors$ parameters for the mean scores $\scoremeans$, and $\frac{\NumComponents\NumLatentFactors}{2}\left(\NumLatentFactors + 1\right)$ parameters to encode the $\NumComponents$ full ($\NumLatentFactors \times \NumLatentFactors$) covariance matrices $\scorecovs$.
+% weights: K - 1 model parameters.
+% psi: D model parameters
+% A: J * D - J^2 model parameters (Baek et al. 2010)
+% xi: J * K model parameters
+% omega: K * J*(J+1)/2
+While the BIC does include a penalisation term for the number of
 parameters (which scales with $\log{N}$), it does not describe for the
 increased flexibility that is afforded by the addition of those parameters.
 For example, adding one parameter
@@ -614,12 +659,11 @@ the first part of the message, and the second part of the message describes
 its explanatory power. The \emph{length} of each message part is quantified
 (or estimated) using information theory, allowing for a fair evaluation between
 different models of varying complexity or explanatory power. MML has been 
-shown to perform well on a variety of empirical analyses (see, e.g., 
-\cite{viswanathan1999finding,fitzgibbon2004minimum}, with references to 
-further examples in \cite{Wallace:2005,dowe2007bayes,Dowe2008a,Dowe2011a}).
+shown to perform well on a variety of empirical analyses 
+\citep[see, e.g.,][]{WallaceDowe1994b,viswanathan1999finding,EdwardsDowe1998,WallaceDowe2000,fitzgibbon2004minimum,Wallace:2005,dowe2007bayes,Dowe2008a,Dowe2011a}.
 Arguments about the statistical consistency (i.e.,~as the number of data 
 points increases the distributions of the estimates become increasingly 
-concentrated near the true value) of MML are given in \cite{DoweWallace1997a,Dowe2011a}.
+concentrated near the true value) of MML are given in \citet{DoweWallace1997a,Dowe2011a}.
 The MML principle requires that we explicitly specify our prior beliefs on the
 model parameters, providing a Bayesian optimisation approach which can be
 applied across entire classes of models.
@@ -638,9 +682,10 @@ whereas rarer events convey a much higher information content.
 
 
 In practice calculating the message length can be a non-trivial task, 
-especially for models that are reasonably complex. This makes the strict MML
-principle intractable (or uncomputable) in many cases and necessitates
-approximations to the message length. Using a Taylor expansion, a generalised
+especially for models that are reasonably complex. This can make the strict MML
+principle intractable in many cases and necessitates
+approximations to the message length
+\citep[however see][]{Wallace:1987,WallaceDowe1999a,Wallace:2005}. Using a Taylor expansion, a generalised
 scheme can be calculated to estimate the parameter vector $\vec\Psi$ that
 minimises the message length ${I}(\vec\Psi,\vecdata)$ \citep{Wallace:1987},
 \begin{equation}
@@ -648,7 +693,8 @@ minimises the message length ${I}(\vec\Psi,\vecdata)$ \citep{Wallace:1987},
 \end{equation}
 \noindent{}where $\log\likelihood(\vecdata|\vec\Psi)$ is the familiar
 log likelihood, $p(\vec\Psi)$ is the joint prior density on $\vec\Psi$,
-$\mathcal{F}(\vec\Psi)$ is the negative second derivative of the log likelihood,
+$\mathcal{F}(\vec\Psi)$ is the matrix whose entries are the expected second order
+partial derivatives of the log likelihood,
 commonly referred to as the expected Fisher information matrix,
 \begin{equation}
 	\mathcal{F}(\vec\Psi) = -\textrm{E}\left[\frac{\partial^2}{\partial\vec\Psi^2}\log\likelihood(\vecdata|\vec\Psi)\right]
@@ -657,7 +703,7 @@ commonly referred to as the expected Fisher information matrix,
 Continuous parameters can only be stated to finite precision, which leads
 to the $\frac{Q}{2}\log\kappa_Q$ term that gives a measure of the volume of the region of
 uncertainty in which the parameters $\vec\Psi$ are centred. The $\log\kappa_Q$
-term is
+term can be reasonably approximately by
 \begin{equation}
 	\log\kappa_Q = -\log{2\pi} + \frac{1}{Q}\log{Q\pi} - \gamma - 1
 \end{equation}
@@ -718,10 +764,11 @@ where the bounds are large enough outside the range of observable values such
 that those priors are proper (integrable) -- a necessary condition for the MML principle -- 
 and only add constant terms to the message length, which can be ignored. We assume 
 a conjugate inverted Wishart prior for the component covariance matrices
-$\scorecovs$ \citep[Section 5.2.3;][]{Knorr-Held:2000},
+$\scorecovs$ \citep{WallaceDowe1994b,WallaceDowe2000,Knorr-Held:2000},
 \begin{equation}
 	p(\scoremeans_\numcomponents,\scorecovs_\numcomponents) \propto |\scorecovs_\numcomponents|^{\frac{1}{2}(\NumLatentFactors + 1)} \quad .
 \end{equation}
+
 We approximate the determinate of the Fisher information of a multivariate normal $|\mathcal{F}(\scoremeans,\scorecovs)|$
 as $|\mathcal{F}(\scoremeans)||\mathcal{F}(\scorecovs)|$ \citep{Oliver:1996,Figueiredo:2002} where
 \begin{equation}
@@ -744,7 +791,7 @@ I(\scoremeans,\scorecovs) &=& \frac{1}{4}\NumLatentFactors(\NumLatentFactors+3)\
 
 Previous work on multiple latent factor analysis within the context of MML have
 addressed the indeterminacy between the factor loads and factor scores by
-placing a joint prior on the \emph{product} of factor loads and scores \citep{WallaceMLF}.
+placing a joint prior on the \emph{product} of factor loads and scores \citep{WallaceMLF,EdwardsDowe1998,Wallace:2005}.
 Adopting the same prior density in our model is not practical because 
 it would require the priors $p(\scoremeans|\vec\tau,\vec\weight$) and $p(\scorecovs|\vec\tau,\vec\weight$).
 That is, we would require a prior density on both the means $\scoremeans$
@@ -777,16 +824,15 @@ Wishart joint prior density gives highest support for mutually orthogonal vector
 %\end{widetext}
 
 %The Fisher information for $\factorloads$ \todo{needs to be double checked.}
+\begin{widetext}
 \noindent{}Thus the message length to encode $\factorloads$ is given by
 \begin{eqnarray}
-	I(\factorloads) &=& -\log\left(\frac{p(\factorloads)}{\sqrt{|\mathcal{F}(\factorloads)|}}\right) \nonumber \\
-I(\factorloads)	&=& \frac{1}{2}\textrm{Tr}(\textrm{Cov}(\factorloads\transpose)^{-1}\factorloads\transpose\factorloads) - \frac{1}{2}(\NumDimensions - \NumLatentFactors - 1)\log{|\factorloads\transpose\factorloads|} \nonumber \\
-	&& \cdots \,\, + \frac{1}{2}\NumDimensions\NumLatentFactors\log{2} + \frac{1}{2}\NumDimensions\log{|\textrm{Cov(\factorloads)}|} - \Gamma\left(\frac{\NumDimensions}{2}\right) \nonumber \\ \label{eq:prior_L}%\nonumber \\
+%	I(\factorloads) &=& -\log\left(\frac{p(\factorloads)}{\sqrt{|\mathcal{F}(\factorloads)|}}\right) \nonumber \\
+I(\factorloads)	&=& \frac{1}{2}\textrm{Tr}(\textrm{Cov}(\factorloads\transpose)^{-1}\factorloads\transpose\factorloads) - \frac{1}{2}(\NumDimensions - \NumLatentFactors - 1)\log{|\factorloads\transpose\factorloads|} + \frac{1}{2}\NumDimensions\NumLatentFactors\log{2} + \frac{1}{2}\NumDimensions\log{|\textrm{Cov(\factorloads)}|} - \Gamma\left(\frac{\NumDimensions}{2}\right) \quad . \label{eq:prior_L}%\nonumber \\
 %	&& \cdots \todo{+\frac{1}{2}\log{|\mathcal{F}(\factorloads)|}} \quad . \label{eq:prior_L}
 \end{eqnarray}
 
-Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{eq:prior_xi_omega}, and \ref{eq:prior_L} with equation \ref{eq:mml} leads to the full message length:\clearpage
-\begin{widetext}
+\noindent{}Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{eq:prior_xi_omega}, and \ref{eq:prior_L} with equation \ref{eq:mml} leads to the full message length:
 \begin{eqnarray}
 	I(\vec\Psi, \vec\data) &=& -\log\likelihood(\vec\data|\vec\Psi)
  +\frac{1}{4}\left(\NumLatentFactors + 4\right)\left(\NumLatentFactors - 1\right)\sum_{\numcomponents=1}^\NumComponents\log\weight_\numcomponents + \left(\NumComponents - \frac{1}{2}\right)\log{\NumData}
@@ -820,9 +866,9 @@ Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{
 			 the BIC (Eq.~\ref{eq:bic}) for those 
 			 combinations, and the lower panel shows the 
 			 message length. The white marker indicates the
-			 lowest value in each panel, showing the
-			 preferred number of latent factors and components.
-			 The black marker indicates the true value.}
+			 lowest value in each panel.
+			 The black marker indicates the true value. 
+			 In the top panel a line connects these markers to guide the eye.}
     \label{fig:experiment-1-gridsearch}
 \end{figure}
 
@@ -892,12 +938,12 @@ and   $\NumComponents_\textrm{max} = 40$ (e.g., twice the true values of $\NumLa
 
 We recorded the \emph{negative} log likelihood, the BIC, and the message length\footnote{Omitting constant terms such that negative message lengths are allowed.}  for each permutation of $\NumLatentFactors$ and $\NumComponents$.
 These metrics are shown in Figure~\ref{fig:experiment-1-gridsearch}.
-Unsurprisingly the negative log likelihood increases with increasing numbers of latent
+Unsurprisingly the negative log likelihood decreases with increasing numbers of latent
 factors $\NumLatentFactors$ and increasing numbers of components $\NumComponents$.
 The lowest BIC value and message length is found at $\NumLatentFactors = 5$
 and $\NumComponents = 20$, identical to the true values.
 It is clear from Figure~\ref{fig:experiment-1-gridsearch} that a combination of latent factors
-and clustering in the latent space provides a better description of the (generated) data than a gaussian mixture model without latent factors.
+and clustering in the latent space provides a better description of the (generated) data than a Gaussian mixture model without latent factors.
 Adding components to the model does improves the log likelihood, even with a single latent factor,
 but the addition of just \emph{one latent factor} improves the log likelihood more so than adding
 \emph{twenty components}. Not much more can be said for this example because the true data generating process 
@@ -961,7 +1007,6 @@ In Figure~\ref{fig:exp1-compare} we show the estimated factor loads $\factorload
 factor scores $\factorscores$, and specific variances $\specificvariance$ compared
 to the true values. The agreement is excellent in all model parameters.
 
-\vspace{2em}
 
  
 
@@ -1109,6 +1154,8 @@ the assumptions of our model (e.g., we assume mutually orthogonal latent factors
 \end{comment}
 
 
+
+
 \subsection{A toy model with data missing at random}
 \label{sec:toy-model-missing-data}
 
@@ -1124,7 +1171,7 @@ model as per Section~\ref{sec:exp-1}.
     \caption{The estimated factor loads $\factorloads$ (left), factor scores $\factorscores$ (middle),
     		 and specific variances $\specificvariance$ (right) compared to the 
 		 	 true data generating values
-		 	 for Experiment~2 (Section~\ref{sec:toy-model-missing-data}. Here 40\% of the data are missing at random.
+		 	 for Experiment~2 (Section~\ref{sec:toy-model-missing-data}). Here 40\% of the data are missing at random.
 			 The agreement remains excellent,
 			 despite the large fraction of missing data entries.}
     \label{fig:exp1-missing-data}
@@ -1258,7 +1305,7 @@ The results of this grid search are shown in Figure~\ref{fig:exp3-gridsearch},
 where we show the negative log likelihood, the BIC, and message length found for each permutation.
 The behaviour of the BIC and the message length are very different here, unlike what was observed
 in our toy model. Here the BIC behaviour appears similar to the negative log likelihood in that the BIC
-prefers higher components and latent factors than the extent of the grid (e.g., $J > 7$ and $K > 5$).
+prefers higher components and latent factors than the extent of the grid (e.g., $J > 7$ and $K > 5$). Indeed, if we were to trial higher values of $J$ and $K$ then the negative log likelihood would continue to increase.
 The model with five latent factors and three components ($J = 5$, $K = 3$) is found to have the shortest message length, which we take as our preferred model for these data.
 
 
@@ -1276,14 +1323,14 @@ The model with five latent factors and three components ($J = 5$, $K = 3$) is fo
 
 \begin{figure*}
 	\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-latent-space.pdf}
-	\caption{The factor scores $\factorscores$ estimated in Experiment~3 (Section~\ref{sec:exp4} using $N =$ 1,072 stars in the \Galah\ data \citep{Buder:2018} that have 18 abundance measurements. Here each star is coloured by its inferred component.}
+	\caption{The factor scores $\factorscores$ estimated in Experiment~3 (Section~\ref{sec:exp4} using $N =$ 1,072 stars in the \Galah\ data \citep{Buder:2018} that have 18 abundance measurements. Here each star is coloured by its inferred $K$th component.}
     \label{fig:exp3-latent-space}
 \end{figure*}
 
 
 \begin{figure*}
 	\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-data-space.pdf}
-	\caption{Detailed chemical abundances from the $N =$ 1,072 stars in \Galah\ \citep{Buder:2018} that have 18 chemical abundances (Section~\ref{sec:exp4}). Each star is coloured by its inferred component from the lower-dimensional latent space.}
+	\caption{Detailed chemical abundances from the $N =$ 1,072 stars in \Galah\ \citep{Buder:2018} that have 18 chemical abundances (Section~\ref{sec:exp4}). Each star is coloured by its $K$th inferred component from the lower-dimensional latent space, with the same colouring as per Figure~\ref{fig:exp3-latent-space}.}
     \label{fig:exp3-data-space}
 \end{figure*}
 
@@ -1352,7 +1399,8 @@ and finally using all 99,174 stars that met the criteria of \texttt{flag\_cannon
 \texttt{snr\_c1 > 40} to give a total sample size of $N =$ 100,246 stars.
 
 For sample sizes up to $N \sim $2,000 we found that five latent factors were
-preferred, and these factors shared common features (Figure~\ref{fig:exp10-comparison-loads}). This illustrates that the
+preferred, and these factors shared common features (Figure~\ref{fig:exp10-comparison}).
+This illustrates that the
 first\footnote{`First' has no concept here in terms of factor load ordering, but
 for the purposes of comparing inferred loads from different data sets we have ordered
 the loads to be as close to those inferred in Section~\ref{sec:exp4}.} set of inferred factor
@@ -1361,7 +1409,7 @@ When the sample size reaches $N = $11,072 we find another three latent factors a
 required to best explain the data.
 
 
-When $N \sim$ 100,000, the preferred number of latent factors rises to twelve. Of note among these factors is $\factorloads_9$, where
+When $N \sim$ 100,000, the preferred number of latent factors rises to twelve ($J = 12$). Of note among these factors is $\factorloads_9$, where
 no `target load' was prescribed\footnote{Although no `target load' was prescribed here, this statement should be interpreted with caution because the mutual orthogonality constraint exists and the remaining factors do have target loads.}, and the non-zero entries mimic what might be expected from a 
 light s-process production. Similarly, $\factorloads_{10}$ has near zero contributions
 everywhere except among the light elements Al, K, Ca, and Sc. 
@@ -1382,7 +1430,7 @@ With this data set we find that $K = 16$ components are preferred in latent spac
 % Something about the clustering in the large example.
 
 
-
+\vspace{1em}
 \section{Discussion} \label{sec:discussion}
 
 %Literature studies testing the limitations chemical tagging have shown
@@ -1441,7 +1489,7 @@ If our model could confidently and
 reliably associate the production of K with other elements or sites then it could help explain the peculiar abundances of stars enhanced in
 K and depleted in Mg \citep{Mucciarelli:2012,Cohen:2012} -- a chemical
 abundance pattern that currently lacks explanation \citep{Iliadis:2016,Kemp:2018}.
-In the \citep{Cohen:2012} sample their high [K/Fe] stars also tend
+In the \citet{Cohen:2012} sample their high [K/Fe] stars also tend
 to be high in heavier elements, but there
 are also numerous abundance correlations present.
 However, is the K contribution that we infer physically realistic,
@@ -1451,8 +1499,12 @@ part why caution is warranted when trying to interpret latent factor models.
 In this situation it is worth commenting that K has the largest specific
 scatter (Figure~\ref{fig:exp3-specific-scatter}), suggesting that the contributions
 of K are perhaps not as well described by the latent factor model as other
-elements. Still, the specific model scatter is far less than the observed scatter,
-indicative that the model does have some predictive power.
+elements. This could in part be due to the non-trivial and significant effects
+that the assumption of local thermodynamic equilibrium (LTE) has on our inferred K
+abundances. These non-LTE effects are of order $0.5$~dex and will be accounted for in the upcoming \Galah\ data release (S. Buder, private communication).
+
+%Still, the specific model scatter is far less than the observed scatter,
+%indicative that the model does have some predictive power.
 
 
 A similar argument could be made for Sc, where $\mathbf{L}_1$ -- a factor load we
