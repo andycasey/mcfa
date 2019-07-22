@@ -28,3 +28,4 @@ sandbox_*.py
 
 *.cached
 *.stashed
+stash/

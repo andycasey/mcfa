@@ -323,7 +323,6 @@ class MCFA(object):
         J, K = self.n_latent_factors, self.n_components
         return int((K - 1) + D + J*(D + K) + (K*J*(J+1))/2 - J**2)
 
-
     def expectation(self, X, pi, A, xi, omega, psi, **kwargs):
         r"""
         Compute the conditional expectation of the complete-data log-likelihood
