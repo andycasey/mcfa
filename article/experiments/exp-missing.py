@@ -109,19 +109,19 @@ for missing_data_fraction in (0, 0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 0.9)
     xlabels = [
         r"$\mathbf{L}_\textrm{true}$",
         r"$\mathbf{S}_\textrm{true}$",
-        r"$\mathbf{\Psi}_\textrm{true}$"
+        r"$\mathbf{D}_\textrm{true}$"
     ]
 
     ylabels = [
         r"$\mathbf{L}_\textrm{est}$",
         r"$\mathbf{S}_\textrm{est}$",
-        r"$\mathbf{\Psi}_\textrm{est}$"
+        r"$\mathbf{D}_\textrm{est}$"
     ]
 
     delta_labels = [
         r"$\Delta\mathbf{L}$",
         r"$\Delta\mathbf{S}$",
-        r"$\Delta\mathbf{\Psi}$"
+        r"$\Delta\mathbf{D}$"
     ]
 
     idx = 0

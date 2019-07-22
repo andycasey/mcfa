@@ -19,6 +19,7 @@ from mcfa import (mcfa, grid_search, mpl_utils, utils)
 matplotlib.style.use(mpl_utils.mpl_style)
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
+here = os.path.dirname(__file__)
 
 n_features = 30
 n_components = 10
@@ -164,19 +165,19 @@ for missing_data_fraction in (0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.4
     xlabels = [
         r"$\mathbf{L}_\textrm{true}$",
         r"$\mathbf{S}_\textrm{true}$",
-        r"$\mathbf{\Psi}_\textrm{true}$"
+        r"$\mathbf{D}_\textrm{true}$"
     ]
 
     ylabels = [
         r"$\mathbf{L}_\textrm{est}$",
         r"$\mathbf{S}_\textrm{est}$",
-        r"$\mathbf{\Psi}_\textrm{est}$"
+        r"$\mathbf{D}_\textrm{est}$"
     ]
 
     delta_labels = [
         r"$\Delta\mathbf{L}$",
         r"$\Delta\mathbf{S}$",
-        r"$\Delta\mathbf{\Psi}$"
+        r"$\Delta\mathbf{D}$"
     ]
 
     residual_ax_y_limits = [
@@ -249,5 +250,5 @@ for missing_data_fraction in (0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.4
 
     fig.tight_layout()
 
-    fig.savefig(f"exp-missing-data-not-at-random-inflated-{100*missing_data_fraction:.0f}percent.png")
+    fig.savefig(os.path.join(here, f"exp-missing-data-not-at-random-inflated-{100*missing_data_fraction:.0f}percent.png"))
     #fig.savefig(f"exp-missing-data-not-at-random-inflated-{100*missing_data_fraction:.0f}percent.pdf", dpi=300)

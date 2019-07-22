@@ -28,23 +28,23 @@ matplotlib.style.use(mpl_utils.mpl_style)
 
 here = os.path.dirname(os.path.realpath(__file__))
 
-with open("config.yml") as fp:
+with open("8761b.yml") as fp:
     config = yaml.load(fp)
 
 print(f"Config: {config}")
 
 np.random.seed(config["random_seed"])
 
-prefix = os.path.basename(__file__)[:-3]
+prefix = os.path.basename(__file__)[:-3].split("-")[1]
 
 unique_hash = md5((f"{config}").encode("utf-8")).hexdigest()[:5]
 
-unique_config_path = f"{unique_hash}.yml"
-if os.path.exists(unique_config_path):
-    print(f"Warning: this configuration already exists: {unique_config_path}")
+#unique_config_path = f"{unique_hash}.yml"
+#if os.path.exists(unique_config_path):
+#    print(f"Warning: this configuration already exists: {unique_config_path}")
 
-with open(unique_config_path, "w") as fp:
-    yaml.dump(config, fp)
+#with open(unique_config_path, "w") as fp:
+#    yaml.dump(config, fp)
 
 with open(__file__, "r") as fp:
     code = fp.read()
@@ -308,7 +308,7 @@ fig_fac = mpl_utils.plot_factor_loads_and_contributions(model, X,
                                                         label_names=latex_label_names, colors=colors)
 savefig(fig_fac, "latent-factors-and-contributions")
 
-
+raise a
 
 # Plot clustering in data space and latent space.
 

@@ -267,9 +267,9 @@ ax.yaxis.set_major_locator(MaxNLocator(5))
 ax_residual.set_xticks([])
 
 
-ax.set_xlabel(r"$\mathbf{\Psi}_\textrm{true}$")
-ax.set_ylabel(r"$\mathbf{\Psi}_\textrm{est}$")
-ax_residual.set_ylabel(r"$\Delta\mathbf{\Psi}$")
+ax.set_xlabel(r"$\mathbf{D}_\textrm{true}$")
+ax.set_ylabel(r"$\mathbf{D}_\textrm{est}$")
+ax_residual.set_ylabel(r"$\Delta\mathbf{D}$")
 
 fig.tight_layout()
 
@@ -302,19 +302,19 @@ ys = [
 xlabels = [
     r"$\mathbf{L}_\textrm{true}$",
     r"$\mathbf{S}_\textrm{true}$",
-    r"$\mathbf{\Psi}_\textrm{true}$"
+    r"$\mathbf{D}_\textrm{true}$"
 ]
 
 ylabels = [
     r"$\mathbf{L}_\textrm{est}$",
     r"$\mathbf{S}_\textrm{est}$",
-    r"$\mathbf{\Psi}_\textrm{est}$"
+    r"$\mathbf{D}_\textrm{est}$"
 ]
 
 delta_labels = [
     r"$\Delta\mathbf{L}$",
     r"$\Delta\mathbf{S}$",
-    r"$\Delta\mathbf{\Psi}$"
+    r"$\Delta\mathbf{D}$"
 ]
 
 idx = 0
@@ -447,8 +447,8 @@ kwds = dict(converged=converged,
             cmap="Spectral_r",
             truth=(J_true, K_true))
 
-fig_ll = mpl_utils.plot_filled_contours(J_grid, K_grid, ll,
-                                        colorbar_label=r"$-\log\mathcal{L}(\boldsymbol{\mathbf{Y}}|\boldsymbol{\mathbf{\Psi}})$", 
+fig_ll = mpl_utils.plot_filled_contours(J_grid, K_grid, -ll,
+                                        colorbar_label=r"$-\log\mathcal{L}(\boldsymbol{\mathbf{Y}}|\boldsymbol{\mathbf{D}})$", 
                                         **kwds)
 fig_ll.axes[0].set_yticks([1, 5, 10, 15, 20])
 
@@ -459,7 +459,7 @@ fig_bic.axes[0].set_yticks([1, 5, 10, 15, 20])
 
 
 fig_mml = mpl_utils.plot_filled_contours(J_grid, K_grid, mml,
-                                         colorbar_label=r"$I\left(\boldsymbol{\mathbf{Y}}|\boldsymbol{\mathbf{\Psi}}\right)$", 
+                                         colorbar_label=r"$I\left(\boldsymbol{\mathbf{Y}}|\boldsymbol{\mathbf{D}}\right)$", 
                                          **kwds)
 fig_mml.axes[0].set_yticks([1, 5, 10, 15, 20])
 
