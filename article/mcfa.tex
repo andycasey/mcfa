@@ -54,6 +54,8 @@
 \newcommand{\likelihood}{\mathcal{L}}
 \newcommand{\ExperimentHash}{89dab}
 
+\newcommand{\ExpThreeNumAbundances}{17}
+
 
 \received{2019}
 \revised{2019}
@@ -141,6 +143,10 @@
 \affiliation{School of Physics,
 			 University of New South Wales, 
 			 Sydney, NSW 2052, Australia}
+
+\author[0000-0002-0920-809X]{Sanjib Sharma}						 
+\affiliation{Sydney Institute for Astronomy, School of Physics,
+			 A28, The University of Sydney, NSW 2006, Australia}						 
 						 
 \author[0000-0003-1124-8477]{Daniel B. Zucker}
 \affiliation{Department of Physics and Astronomy,
@@ -166,7 +172,7 @@ presence of missing data entries.
 We use an information-theoretic Bayesian principle to estimate the number of
 latent factors and clusters.
 Using the second \Galah\ data release we find that five latent factors are
-preferred to explain $N =$ 1,072 stars with 18 chemical abundances. 
+preferred to explain $N =$ 1,072 stars with \ExpThreeNumAbundances\ chemical abundances. 
 We identify the rapid- and slow-neutron capture 
 processes, as well as latent factors consistent with Fe-peak and 
 $\alpha$-element production, and another where only K and Zn dominate.
@@ -210,7 +216,7 @@ assumptions our ability to chemically tag the Milky Way would depend primarily
 on the precision with which we can measure those chemical abundances in stars. 
 Data-driven approaches to modelling stellar spectra are
 improving upon this precision \citep{Ness:2015,Ness:2018a,Ness:2018b,
-Casey:2016,Casey:2017,Ho:2017b,Ho:2017a,Leung;Bovy:2018}, but more work is
+Casey:2016,Casey:2017,Ho:2017b,Ho:2017a,Leung;Bovy:2018,Ting:2019}, but more work is
 needed: astronomers have not yet developed unbiased estimators of chemical
 abundances that saturate the Cram\'er-Rao bound \citep{Cramer:1946,Rao:1945}.
 
@@ -242,7 +248,7 @@ that could not have been predicted from other elemental abundances.
 Theory and observations agree that this cannot be true.
 Nucleosynthetic processes produce multiple elements in varying
 quantities, and the effective dimensionality of stellar abundance datasets has been shown
-to be lower than the actual number of abundance dimensions \citep{Ting:2012,Price-Jones:2018}.
+to be lower than the actual number of abundance dimensions \citep{Ting:2012,Price-Jones:2018,Milosavljevic:2018}.
 Any clustering approach that treats each new elemental abundance as an 
 independent axis of information will therefore conclude with biased inferences
 about the star formation history of our Galaxy. 
@@ -296,7 +302,7 @@ Related techniques include principal component analysis \citep{Hotelling:1933} a
 variants \citep{Tipping;Bishop:1999}, singular value decomposition \citep{Golub:1970}, and other
 matrix factorization methods. While factor analysis on its own is a useful
 dimensionality reduction tool to identify latent factors that contribute to
-the chemical abundances of stars \citep[e.g.,][]{Ting:2012,Price-Jones:2018}, factor
+the chemical abundances of stars \citep[e.g.,][]{Ting:2012,Price-Jones:2018,Milosavljevic:2018}, factor
 analysis cannot describe clustering in the data (or latent) space. As a result,
 some works have performed clustering and then required different latent factors for each (totally assigned) component \citep[e.g.,][]{EdwardsDowe1998}.
 Similarly, clustering techniques applied to chemical abundances to date 
@@ -808,7 +814,7 @@ We generated a data set with ${\NumData = 1}$00,000 data points, each with
 $\NumDimensions = 15$ dimensions. We adopted a latent dimensional space of 
 $\NumLatentFactors = 5$ factor loads such that the vector $\factorloads$ has
 shape $\NumDimensions \times \NumLatentFactors$,
-with $\NumComponents = 20$ clusters in the latent space. 
+with $\NumComponents = 10$ clusters in the latent space. 
 We generated the random factor loads in the same way that we initialise the optimisation (Section~\ref{sec:initialisation}). The relative weights $\vec\weight$
 are drawn from a multinomial distribution and the means of the clusters
 in factor scores $\scoremeans$ are drawn from a standard normal
@@ -836,7 +842,7 @@ We treat the generated data set as if the number of latent factors
 and components are not known. Starting with $\NumLatentFactors = 1$
 and $\NumComponents = 1$, we trialled each permutation of $\NumLatentFactors$ and $\NumComponents$
 until $\NumLatentFactors_\textrm{max} = 10$
-and   $\NumComponents_\textrm{max} = 40$ (e.g., twice the true values of $\NumLatentFactors_\textrm{true}$ and $\NumComponents_\textrm{true}$).
+and   $\NumComponents_\textrm{max} = 20$ (e.g., twice the true values of $\NumLatentFactors_\textrm{true}$ and $\NumComponents_\textrm{true}$).
 
 
 We recorded the \emph{negative} log likelihood, the BIC, and the message length\footnote{Omitting constant terms such that negative message lengths are allowed.}  for each permutation of $\NumLatentFactors$ and $\NumComponents$.
@@ -844,7 +850,7 @@ These metrics are shown in Figure~\ref{fig:experiment-1-gridsearch}.
 Unsurprisingly the negative log likelihood decreases with increasing numbers of latent
 factors $\NumLatentFactors$ and increasing numbers of components $\NumComponents$.
 The lowest BIC value and message length is found at $\NumLatentFactors = 5$
-and $\NumComponents = 20$, identical to the true values.
+and $\NumComponents = 10$, identical to the true values.
 It is clear from Figure~\ref{fig:experiment-1-gridsearch} that a combination of latent factors
 and clustering in the latent space provides a better description of the (generated) data than a Gaussian mixture model without latent factors.
 Adding components to the model does improves the log likelihood, even with a single latent factor,
@@ -893,7 +899,7 @@ values, but they only differ by an orthogonal rotation. We discuss the impact of
 
 
 We took the model with the preferred number of latent factors and components found
-from a grid search ($\NumComponents = 20$, $\NumLatentFactors = 5$; which are also
+from a grid search ($\NumComponents = 10$, $\NumLatentFactors = 5$; which are also
 the true values) and applied an orthogonal rotation to the latent space to be as
 close as possible to the true values. The rotation matrix $\mathbf{R}$ was found
 by solving for $\NumLatentFactors$ unknown angle parameters, each of which is used
@@ -929,7 +935,7 @@ model as per Section~\ref{sec:exp-1}.
 		 	 true data generating values
 		 	 for Experiment~2 (Section~\ref{sec:toy-model-missing-data}). Here 40\% of the data are missing at random.
 			 The agreement remains excellent,
-			 despite the large fraction of missing data entries.}
+			 despite the large fraction of missing data entries. Note that the scales on the top panels are 2-10 times larger than those in Figure~\ref{fig:exp1-compare}.}
     \label{fig:exp1-missing-data}
 \end{figure*}
 
@@ -987,7 +993,7 @@ lifetime.
 \begin{figure*}
 	\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-latent-factors-and-contributions-with-targets.pdf}
 	\caption{Latent factors inferred from 1,072 stars in \Galah\
-			 \citep[][thick lines]{Buder:2018} with 17 abundance measurements. Left panels show the absolute entries for each
+			 \citep[][thick lines]{Buder:2018} with \ExpThreeNumAbundances\ abundance measurements. Left panels show the absolute entries for each
 			 factor load, where the thin lines indicate the target latent factors (see Section~\ref{sec:exp4}). On the right we show the absolute fractional contributions
 			 to each element, ordered by the loads that contribute most.}
     \label{fig:exp3-factor-loads}
@@ -1033,14 +1039,14 @@ The model with five latent factors and three components ($J = 5$, $K = 3$) is fo
 
 \begin{figure*}
 	\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-latent-space.pdf}
-	\caption{The factor scores $\factorscores$ estimated in Experiment~3 (Section~\ref{sec:exp4} using $N =$ 1,072 stars in the \Galah\ data \citep{Buder:2018} that have 18 abundance measurements. Here each star is coloured by its inferred $K$th component.}
+	\caption{The factor scores $\factorscores$ estimated in Experiment~3 (Section~\ref{sec:exp4} using $N =$ 1,072 stars in the \Galah\ data \citep{Buder:2018} that have \ExpThreeNumAbundances\ abundance measurements. Here each star is coloured by its inferred $K$th component.}
     \label{fig:exp3-latent-space}
 \end{figure*}
 
 
 \begin{figure*}
 	\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-data-space.pdf}
-	\caption{Detailed chemical abundances from the $N =$ 1,072 stars in \Galah\ \citep{Buder:2018} that have 18 chemical abundances (Section~\ref{sec:exp4}). Each star is coloured by its $K$th inferred component from the lower-dimensional latent space, with the same colouring as per Figure~\ref{fig:exp3-latent-space}.}
+	\caption{Detailed chemical abundances from the $N =$ 1,072 stars in \Galah\ \citep{Buder:2018} that have \ExpThreeNumAbundances\ chemical abundances (Section~\ref{sec:exp4}). Each star is coloured by its $K$th inferred component from the lower-dimensional latent space, with the same colouring as per Figure~\ref{fig:exp3-latent-space}.}
     \label{fig:exp3-data-space}
 \end{figure*}
 
@@ -1126,7 +1132,7 @@ With this data set we find that $K = 16$ components are preferred in latent spac
 	\includegraphics[width=0.95\textwidth]{experiments/exp10-comparison.pdf}
 	\caption{Latent factors found in Section~\ref{sec:exp10} using different subsets
 	         of \Galah\ data \citep{Buder:2018}. The thin solid line shows the result from
-	         Section~\ref{sec:exp4} with $N=1,072$ stars with 18 abundances and no
+	         Section~\ref{sec:exp4} with $N=1,072$ stars with \ExpThreeNumAbundances\ abundances and no
 	         missing data. Increasing thickness indicates larger samples, up to the solid thick line with $N \sim$ 100,000 stars, where twelve latent factors are preferred.}
     \label{fig:exp10-comparison}
 \end{figure*}
@@ -1233,7 +1239,22 @@ the requirement that all factors remain mutually orthogonal, but one can imagine
 some (or perhaps many) elements have entries where the fifth latent factor can have
 near-zero or zero entries. Even if the mean nucleosynthetic yields are mutually
 orthogonal, there are scenarios that one can imagine where there is a limited amount
-we can say with confidence about that new nucleosynthetic process.
+we can say with confidence about that new nucleosynthetic process \citep[see also][]{Milosavljevic:2018}.
+
+
+There are similar limitations that arise due to our assumption about the clustering in latent space.
+There is no justified reason why the factor scores should be well-described by multivariate normal
+distributions. If the \emph{true} underlying scores were not distributed as multivariate normals
+then one can imagine similar outcomes when directly fitting data with a mixture of gaussian distributions:
+additional components are required to describe complex (non-gaussian) shapes in data space. 
+This situation of model mismatch is more extreme when fitting only data rather than the model
+described here because some of the data complexity will be described by the orthogonal latent
+factors. However, qualitatively the picture is the same: when the \emph{true} underlying distribution
+in factor scores are not described by multivariate normals, additional components will likely be
+introduced in order to describe non-gaussian features.
+
+
+
 
 Notwithstanding these issues, we have shown that a latent factor model which allows for clustering in latent space can adequately
 describe chemical abundance data. 
@@ -1247,7 +1268,7 @@ valid rotation -- could have made no astrophysical sense whatsoever. For this re
 is encouraging that there is some interpretability in the latent factors. Indeed, in the elements where we find surprising associations (e.g., Sc and K), these are elements where galactic chemical evolution models are most discrepant from observations, even after accounting for systematic errors in abundance measurements (e.g., violations to the assumption of local thermodynamic equilibrium).
 
 In the subset of \Galah\ data with complete abundances we find that three components are
-preferred. These components can be described as those with (1) low- and (2) high-[$\alpha$/Fe] abundance ratios, and another (3) primarily differing in K, Ba, Zn, and V abundances at a given [Fe/H] and [$\alpha$/Fe] abundance ratio. When we include $\sim$100,000 stars with up to 18 abundances, and assume the incomplete abundances are missing at random, we find that 16 components in latent space are preferred to explain the data. By construction these  components
+preferred. These components can be described as those with (1) low- and (2) high-[$\alpha$/Fe] abundance ratios, and another (3) primarily differing in K, Ba, Zn, and V abundances at a given [Fe/H] and [$\alpha$/Fe] abundance ratio. When we include $\sim$100,000 stars with up to \ExpThreeNumAbundances\ abundances, and assume the incomplete abundances are missing at random, we find that 16 components in latent space are preferred to explain the data. By construction these  components
 are structured in their chemical abundances because of the projection from the latent
 space, and by extension of each component having similar chemistry, each component
 occupies realistic locations in a Hertzsprung-Russell diagram. When we

@@ -20,6 +20,35 @@ exp2:
     max_n_components: 3
     max_n_latent_factors: 7
     n_inits: 25
+exp13:
+  elements:
+  - Na
+  - Fe
+  - Sc
+  - Ti
+  - Zn
+  - Mn
+  - Y
+  - Ca
+  - Ni
+  - Si
+  - K
+  - Ba
+  - Cu
+  - Al
+  - La
+  - Eu
+  galah_cuts:
+    snr_c1:
+    - 100
+    - 10000
+  gridsearch:
+    max_n_components: 5
+    max_n_latent_factors: 7
+    n_inits: 25
+  ignore_elements:
+  - O
+  - Cr
 exp3:
   elements:
   - Na
