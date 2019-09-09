@@ -1,0 +1,207 @@
+DONE
+
+1, 2, 3, 5, 7, 8, 10, 11
+
+EASY ITEMS:
+
+4, 6, 9, 12, 13, 14
+
+#4 - Diagram showing how things work.
+#6 - Do toy model with 1,000 stars and see what's found.
+    -> Running. 
+#9 ->
+#12 ->
+#13 - update Figure 8 to show all abundances.
+    -> To be fixed when experiments are re-run.
+
+#14 - Check whether using giant stars in 1,072 sample. If so, remove V.
+    -> Running
+
+
+REVIEWER'S SUMMARY:
+
+This paper presents a new data-driven model of nucleosynthesis which allows the authors to simultaneously 'tag' stars using their chemistry and quantify the contributions of nucleosynthetic events to each stars. The authors achieve this by building a model using a mixture of common factor analyzer (which is a variant of latent factor analysis). The model is essentially built form a set of latent factors (which can be thought of as mean nucleosynthetic yields from specific events), which contribute different amounts (score) to each star. The model also includes clustering lower dimensional latent space as families of elements (e.g. Mg, Si, Ca) can be produced from the same nucleosynthetic event.
+
+The authors first apply their method to a toy model of N=100,000 data points drawn from 20 clusters in a 5-D latent space. The show that their method works. They also show that it continue to work with ~40% of missing data. Once they show it works, they then move on to fitting their model using N=1,072 stars in the GALAH survey which have a full set of 17 elemental abundances. Finally, they build up to a sample of N=100,246 stars within the GALAH survey, where there is missing data. The have a good discussion in Section 4, where they not only talk about how to interpret their result but caution the pitfalls of the method. 
+
+The paper is well written and is, in my opinion, certainly worth publication. However, there are some concerns I have which I list below. Hopefully these comments can serve as constructive criticism of the authors work. 
+
+
+1.  REVIEWER:
+
+    Abstract:
+    The authors mention they use the 1,072 stars GALAH dataset with 18 chemical abundances yet in section 3.2 (where they discuss the dataset) they actually only list 17 elements. In addition only 17 elements are also shown in Fig. 5, 6, 9. That is to say are there 18 or 17 elements that the authors consider? 
+
+    RESPONSE:
+
+    Good catch. There are 17 elements. Corrected throughout.
+
+
+2. REVIEWER:
+
+    Section 1, end Paragraph 2:
+    The authors cite data-driven or other machine learning approaches for modeling stellar spectra but miss that of Ting et al. 2018 (The Payne) 
+
+    RESPONSE:
+
+    Citation added.
+
+
+3. REVIEWER:
+
+    Section 1 Paragraph 4:
+    The authors discuss abundance dimensionality in the context of reducing the set of D-abundance to a representative set of abundance dimensions which may group by nucleosynthetic families. It would be good for the authors to also consider discussing the work from Milosavljevic et al., 2018 (arXiv:1809.02660). While the methods and data are different, those authors also attempt to build a data-driven method for understanding nucleosynthetic archetypes in chemical abundance data and is relevant for the introduction and discussion. 
+
+    RESPONSE:
+
+    Agreed. We have added references to Milosavljevic et al. (2018) in the introduction, methods, and discussion.
+
+
+4.  REVIEWER:
+
+    Section 2 : 
+    It would be highly beneficial for section 2 to potentially have a schematic (figure) of the method the authors outline. Especially in terms of the structure of how the code might be set up. 
+
+    RESPONSE:
+
+
+
+5.  REVIEWER:
+
+    Section 2: Paragraph 2:
+    The authors state "... but the scoring (or extent) of those factors is different for each data point, and the data can be modelled as a mixture of multivariate normal distributions in the latent space (factor scores)."
+
+    Can the authors comment on what would happen if the "true" underlying distribution of in latent space is not in fact Gaussian?
+
+    RESPONSE:
+
+    We have added a paragraph that addresses this point in Section 4 (Discussion). That paragraph reads:
+
+        There are similar limitations that arise due to our assumption about the clustering in latent space.
+        There is no justified reason why the factor scores should be well-described by multivariate normal
+        distributions. If the \emph{true} underlying scores were not distributed as multivariate normals
+        then one can imagine similar outcomes when directly fitting data with a mixture of gaussian distributions:
+        additional components are required to describe complex (non-gaussian) shapes in data space. 
+        This situation of model mismatch is more extreme when fitting only data rather than the model
+        described here because some of the data complexity will be described by the orthogonal latent
+        factors. However, qualitatively the picture is the same: when the \emph{true} underlying distribution
+        in factor scores are not described by multivariate normals, additional components will likely be
+        introduced in order to describe non-gaussian features.
+
+
+
+6.  REVIEWER:
+
+    Section 2:
+    The authors state : "... there is a lower dimensional latent space in which the data are clustered, and that clustering is projected into real space by common factor loads" 
+    The authors also mention that factor loads can be thought of as the mean yields of a nucleosynthetic event. 
+
+    Though we also know that not all Type Ia or Type II nucleosynthetic events can be thought of as the same (i.e. the nucleosynthetic events may not actually be clustered at all). Thus does one expect, given a predicted set yields, that there should be clustering in this latent space? 
+
+    RESPONSE:
+
+
+7.  REVIEWER:
+
+    Section 2.2, Footnote 5:
+    The authors are discussing a statistical inconsistency , but note this inconsistency only
+    becomes serious with small N. Can they quantify here was is defined as small N. Is it 10s, 100s, 1000s of stars? Particularly important because they only use ~1000 stars in a later section. 
+
+    RESPONSE:
+
+    We have amended the footnote to note that here N ~ 30 or fewer.
+
+
+8.  REVIEWER:
+
+    Section 2.2 : 
+    The authors note one of the underlying assumptions of the work is that the data are noiseless. This is, of course, not the case when using the GALAH observations. Therefore, I was surprised in Section 3.3 where the authors use a signal-to-noise ratio (SNR) cut of SNR > 40. For many high-resolution abundance studies SNR > 60 or even as high as 100 are preferred for precise abundances. What motivates the selection of SNR > 40 and more importantly what happens if the authors consider high SNR cuts. This is especially important as they assume the data are noiseless. 
+
+
+    RESPONSE:
+
+    Good point. A spectroscopist might state that you can consider the abundances to be approximately noiseless for
+    anything with S/N > 100. Another might say S/N > 500. Another will say > 50. 
+    All of these choices are, of course, arbitrary.
+
+    In this work we are introducing a new method that may be suitable for chemical tagging and understanding
+    nucleosynthetic yields throughout the Galaxy. Exact numbers vary, but for chemical tagging to be successful it is generally accepted that large numbers of stars (and measured abundances) are necessary. For this reason we wanted to chose S/N (and other constraints) that would leave us with a large enough sample (~100k) such that we can demonstrate the
+    computational efficiency of our method, and leave us with a sample where we could reasonably justify noiseless abundances.
+
+    If we consider higher S/N cuts then the sample size reduces. As a consequence, fewer latent factors and components are required to explain those data. Of the factors that are found, they are quantitatively similar to those that are found from using the larger sample of stars. In short: the results stay the same, but using a larger sample of stars means we recover more factors.
+
+    Indeed, one of the reasons we started with small numbers of stars (of high quality) and increased to a larger sample was to demonstrate that similar latent factors are found (Figure 9).
+
+    As a general note: We have updated our code to allow for observational errors, but in its current
+    implementation this greatly increases the computational cost (by orders of magnitude). We are
+    investigating ways that this can be improved, but this is outside the scope of this paper.
+
+
+
+9.  REVIEWER:
+
+    Section 3.1 :
+    The authors build a toy model in which they sample 100,000 'stars' using 20 clusters in a 5-D factor load space. The toy model seems to work (as per Fig.1). However when they move on to real data in section 3.3 they first only use a sample size of 1,000 (1% the sample size in the toy model) stars. It would be good for the authors to recompute their toy model sampling N=100,000 and N=1,000 'stars' and add this to Figure 1 to better illustrate the effect of lowering the sample size. 
+
+    RESPONSE:
+
+
+10. REVIEWER:
+
+    Figure 1 :
+    The text notes that the toy model has 5 factor loads (i.e. J=5) with 20 clusters (i.e. K=20). However, in Figure 1, the 'true value' in K vs J (i.e. their black point in Fig 1) seems to be at J=5 and K= 10. This is contrary to K=20 as described in the text. Can the authors state why the true value of K in Fig. 1 does not match the value from the text? 
+
+    RESPONSE:
+
+    We had previously used J = 10 and K = 20 as the true values for the toy experiment. We failed to update the text to show that J = 5 and K = 10 are the true values. We have corrected this.
+
+
+11. REVIEWER:
+
+    Figure 3 : 
+    To properly assess the impact of 40% vs 0 % (randomly) missing data, it would be good if the scales in each of the 3 panels matched between Fig 2 and Fig 3. For example, currently the left panel of Fig 2 has scales from -0.025 < deltaL < +0.025 while in Fig 3, these scales are a factor of 10 larger (-0.2 < deltaL < +0.25). Either the same scale should be used or the authors should clarify in the text that the scales are different. 
+
+    RESPONSE:
+
+    The scales are 2-10 times larger in Figure 3 than Figure 2. Context is lost when we scale Figure 2 to have the same range as Figure 3.
+
+    We have added to the caption in Figure 3:
+
+    "Note that the scales on the top panels are 2-10 times larger than those in Figure~\ref{fig:exp1-compare}."
+
+
+12. REVIEWER:
+
+    Section 3.2 : 
+    The authors specify target latent factors in Section 3.2. The fourth latent factor has been identify as alpha tracers which include Si, Ca, and Ti. However, Ti is not apart of the alpha elements from a nucleosynthetic lens (e.g. see most recently Curtis S.,et al., 2019,ApJ, 870,2) for a discussion on this). Ti is more of an Fe-peak element rather than an alpha element. I would suggest removing Ti and adding it to the Fe-peak elements.
+
+    Additionally, Sc, V, and Cu represent odd-Z (typically not the same as Fe-peak) elements. 
+
+    Since interpretation of the results rely somewhat on the target latent factors, it would be good to physically motivate the choices of the target latent factors. 
+
+    RESPONSE:
+
+
+13. REVIEWER:
+
+    Fig. 8:
+    It would be good to show all 17 elements rather than only the 15 elements shown by the authors. 
+
+    RESPONSE:
+
+
+
+
+14. REVIEWER:
+
+    Fig 8 :
+    The authors use Vanadium in their analysis. From Buder et al. 2018 (see their Fig. 23), the [V/Fe] behaves very differently when comparing dwarfs and giant stars. The [V/Fe] in this paper (Fig. 8) to me most resembles the [V/Fe] vs [Fe/H] for the giant stars in GALAH and not the dwarfs. 
+
+    However, Buder et al. 2018 states "For V, we see a significant disagreement with both the dwarf abundances and APOGEE DR14. We report this element anyway, because of the useful abundances in dwarfs, but advise not to use of [V/Fe] in giants."
+
+    Are the authors largely using giant stars in the 1,072 stars from GALAH or is this sample dominated by dwarfs? If they there are any giant stars within these 1,072 stars the authors should disregard the V abundances as per Buder et al. 2018.
+
+    RESPONSE:
+
+
+
