@@ -363,8 +363,8 @@ class MCFA(object):
             component in the mixture.
         """
 
-        ll, tau = _expectation(X, pi, A, xi, omega, psi, 
-                               verbose=self.verbose, **kwargs)
+        ll, tau = _expectation(X, pi, A, xi, omega, psi, verbose=self.verbose,
+                               covariance_regularization=self.covariance_regularization, **kwargs)
         self.log_likelihoods_.append(ll)
 
         return (ll, tau)
@@ -439,7 +439,10 @@ class MCFA(object):
             the current cost relative to the previous cost.
         """
 
-        assert np.isfinite(current)
+        #assert np.isfinite(current)
+        if not np.isfinite(current):
+            logger.warn("Non-finite log-likelihood.")
+
         if previous > current:
             logger.warn(f"Log-likelihood *decreased* by {previous-current:.2e}")
 
@@ -583,7 +586,6 @@ class MCFA(object):
         :param X:
             The data, :math:`X`, which is expected to be an array of shape
             [n_samples, n_features].
-        # TODO: What should we return, exactly?
         """
         return _factor_scores(X, *self.theta_)
 
@@ -941,7 +943,7 @@ def _initial_components_by_kmeans_pp(X, A, n_components, random_state):
 
 
 
-def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
+def _expectation(X, pi, A, xi, omega, psi, verbose=1, covariance_regularization=0, full_output=False):
     r"""
     Compute the conditional expectation of the complete-data log-likelihood
     given the observed data :math:`X` and the given model parameters.
@@ -988,11 +990,12 @@ def _expectation(X, pi, A, xi, omega, psi, verbose=1, full_output=False):
     K = pi.size
 
     I_D = np.eye(D)
-    I_psi = I_D * psi
+    effective_psi = psi + covariance_regularization
+    I_psi = I_D * effective_psi
     U = (np.diag(1.0/psi) @ A).T
 
     log_prob = np.zeros((N, K))
-    log_prob_constants = -0.5 * (np.sum(np.log(psi)) + D * np.log(2*np.pi))
+    log_prob_constants = -0.5 * (np.sum(np.log(effective_psi)) + D * np.log(2*np.pi))
 
     for i, (xi_, omega_) in enumerate(zip(xi.T, omega.T)):
 
@@ -1143,6 +1146,10 @@ def _maximization(X, tau, pi, A, xi, omega, psi,
         psi = _inflate_psi(psi, missing)
     
     pi = ti / N
+
+    if np.any(psi < covariance_regularization):
+        #logger.warn(f"Setting minimum psi as {covariance_regularization:.1e} for stability")
+        psi = np.clip(psi, covariance_regularization, np.inf)
 
     return (pi, A, xi, omega, psi)
 
