@@ -8,6 +8,5 @@ MCFA
 
 .. autoclass:: mcfa.mcfa.MCFA
    :members:
-   :private-members:
 
 
