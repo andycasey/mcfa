@@ -4,7 +4,7 @@ RESPONSE SUMMARY:
  1. Done!
  2. Done!
  3. Done!
- 4. Need to make a schematic diagram and write response.
+ 4. Response written. Just include schematic diagram.
  5. Done!
  6. Done!
  7. Done!
@@ -65,6 +65,9 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
 
     RESPONSE:
 
+    We have included a schematic to try to help visualise the method.
+
+    We have also added an Appendix that references the online documentation, and includes a code example. This code will generate fake data, fit those data, and produce some figures. 
 
 
 5.  REVIEWER:
