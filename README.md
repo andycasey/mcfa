@@ -11,4 +11,7 @@
   <a href="https://github.com/andycasey/mcfa/raw/master-pdf/ms.pdf">
     <img src="https://img.shields.io/badge/read-the_paper-blue.svg?style=flat"/>
   </a>
+  <a href="https://mcfa.rtfd.io">
+    <img src="https://img.shields.io/badge/read-the_docs-orange.svg?style=flat"/>
+  </a>
 </p>
