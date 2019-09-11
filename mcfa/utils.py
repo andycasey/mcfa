@@ -7,7 +7,7 @@ def whiten(X, axis=0):
 
 
 def generate_data(n_samples, n_features, n_latent_factors, n_components,
-                  omega_scale, noise_scale, random_seed=0, force=None):
+                  omega_scale=1, noise_scale=1, random_seed=0, force=None):
 
     rng = np.random.RandomState(random_seed)
 

@@ -174,8 +174,8 @@ class MCFA(object):
 
         Y = np.atleast_2d(X).copy()
 
-        if not np.all(np.isfinite(Y)):
-            logger.warn("Non-finite data points will be treated as missing data at random.")
+        #if not np.all(np.isfinite(Y)):
+        #    logger.warn("Non-finite data points will be treated as missing data at random.")
     
         N, D = Y.shape
         if D > N:
@@ -363,8 +363,10 @@ class MCFA(object):
             component in the mixture.
         """
 
-        ll, tau = _expectation(X, pi, A, xi, omega, psi, verbose=self.verbose,
-                               covariance_regularization=self.covariance_regularization, **kwargs)
+        kw = dict(verbose=self.verbose,
+                  covariance_regularization=self.covariance_regularization)
+        
+        ll, tau = _expectation(X, pi, A, xi, omega, psi, **{**kw, **kwargs})
         self.log_likelihoods_.append(ll)
 
         return (ll, tau)
@@ -415,11 +417,11 @@ class MCFA(object):
             and the variance in each dimension :math:`\psi`.
         """
 
-        return _maximization(X, tau, pi, A, xi, omega, psi, 
-                             X2=self._check_precomputed_X2(X, **kwargs),
-                             covariance_regularization=self.covariance_regularization,
-                             **kwargs)
+        kw = dict(X2=self._check_precomputed_X2(X, **kwargs),
+                  covariance_regularization=self.covariance_regularization)
 
+        return _maximization(X, tau, pi, A, xi, omega, psi, **{**kw, **kwargs})
+        
 
     def _check_convergence(self, previous, current):
         r"""
@@ -439,14 +441,11 @@ class MCFA(object):
             the current cost relative to the previous cost.
         """
 
-        #assert np.isfinite(current)
         if not np.isfinite(current):
-            logger.warn("Non-finite log-likelihood.")
+            logger.warn("Non-finite log likelihood.")
 
         if previous > current:
-            logger.warn(f"Log-likelihood *decreased* by {previous-current:.2e}")
-
-        #assert current > previous # depends on objective function
+            logger.warn(f"Log likelihood *decreased* by {previous-current:.2e}")
 
         ratio = abs((current - previous)/current)
         converged = (self.tol >= ratio) and previous < current
@@ -491,7 +490,7 @@ class MCFA(object):
             initial_lls.append(ll)
             initial_params.append([theta, tau])
 
-            print(f"SEED: {seed} {ll:.1e}")
+            logger.debug(f"Random seed: {seed} and initial log likelihood {ll:.3e}")
 
 
         # Get best.
@@ -499,7 +498,7 @@ class MCFA(object):
         prev_ll = initial_lls[idx]
         theta, tau = initial_params[idx]
 
-        print(f"PTP: {np.ptp(initial_lls)}")
+        logger.debug(f"Peak-to-peak of initial log likelihoods: {np.ptp(initial_lls)}")
 
         # TODO: start n_iter counter from previous value if we are starting from
         #       a previously optimised value.

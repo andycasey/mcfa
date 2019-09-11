@@ -7,7 +7,7 @@ from .mcfa import MCFA
 
 logger = logging.getLogger(__name__)
 
-def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=1,
+def grid_search(trial_n_latent_factors, trial_n_components, X, N_inits=25,
                 suppress_exceptions=True, mcfa_kwds=None, pseudo_bic_kwds=None):
 
     Js = np.array(trial_n_latent_factors)

@@ -1,4 +1,4 @@
-LATEX       = openout_any=a pdflatex
+LATEX       = openout_any=a pdflatex -shell-escape
 BIBTEX      = bibtex
 all: mcfa.pdf
 

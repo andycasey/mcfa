@@ -1,21 +1,22 @@
-DONE
 
-1, 2, 3, 5, 7, 8, 10, 11
+RESPONSE SUMMARY:
 
-EASY ITEMS:
+ 1. Done!
+ 2. Done!
+ 3. Done!
+ 4. Need to make a schematic diagram and write response.
+ 5. Done!
+ 6. Done!
+ 7. Done!
+ 8. Need to justify S/N choice --> text will depend on #12.
+ 9. Need to add text about N ~ 1000 stars in the toy model (awaiting figure to finish)
+10. Done!
+11. Done!
+12. Waiting for eval-5.py to finish, then consider re-running with S/N > 40.
+13. Done!
+14. Done!
 
-4, 6, 9, 12, 13, 14
 
-#4 - Diagram showing how things work.
-#6 - Do toy model with 1,000 stars and see what's found.
-    -> Running. 
-#9 ->
-#12 ->
-#13 - update Figure 8 to show all abundances.
-    -> To be fixed when experiments are re-run.
-
-#14 - Check whether using giant stars in 1,072 sample. If so, remove V.
-    -> Running
 
 
 REVIEWER'S SUMMARY:
@@ -34,7 +35,7 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
 
     RESPONSE:
 
-    Good catch. There are 17 elements. Corrected throughout.
+    There were, and are now, 17 elements. We have dropped V (as per #14) and added Mg. Updated text throughout.
 
 
 2. REVIEWER:
@@ -54,7 +55,7 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
 
     RESPONSE:
 
-    Agreed. We have added references to Milosavljevic et al. (2018) in the introduction, methods, and discussion.
+    We have added references to Milosavljevic et al. (2018) in the introduction, methods, and discussion.
 
 
 4.  REVIEWER:
@@ -81,7 +82,7 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
         There is no justified reason why the factor scores should be well-described by multivariate normal
         distributions. If the \emph{true} underlying scores were not distributed as multivariate normals
         then one can imagine similar outcomes when directly fitting data with a mixture of gaussian distributions:
-        additional components are required to describe complex (non-gaussian) shapes in data space. 
+        additional components would be required to describe complex (non-gaussian) shapes in data space. 
         This situation of model mismatch is more extreme when fitting only data rather than the model
         described here because some of the data complexity will be described by the orthogonal latent
         factors. However, qualitatively the picture is the same: when the \emph{true} underlying distribution
@@ -99,6 +100,11 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
     Though we also know that not all Type Ia or Type II nucleosynthetic events can be thought of as the same (i.e. the nucleosynthetic events may not actually be clustered at all). Thus does one expect, given a predicted set yields, that there should be clustering in this latent space? 
 
     RESPONSE:
+
+    Conditioned on our other assumptions explicitly described in the manuscript, we would expect there to be 
+    clustering in latent space unless the yields produced by every nucleosynthetic mechanism (including Type Ia supernovae, Type II supernovae, AGB stars, etc) are entirely stochastic.  
+
+    Even if Type Ia and Type II supernovae differ in the yields per event, there will still be some mean yield from each type of event and some intrinsic scatter around that mean. The differing means and intrinsic scatter would appear as clustering in latent space. If the intrinsic scatter among each type of event were so large that event types could not be distinguished then we would recover only one (broad) component in latent space.
 
 
 7.  REVIEWER:
@@ -137,6 +143,8 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
     investigating ways that this can be improved, but this is outside the scope of this paper.
 
 
+    %%% ARC also note this is S/N > 40 in blue. what does that correspond to elsewhere?
+
 
 9.  REVIEWER:
 
@@ -144,6 +152,10 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
     The authors build a toy model in which they sample 100,000 'stars' using 20 clusters in a 5-D factor load space. The toy model seems to work (as per Fig.1). However when they move on to real data in section 3.3 they first only use a sample size of 1,000 (1% the sample size in the toy model) stars. It would be good for the authors to recompute their toy model sampling N=100,000 and N=1,000 'stars' and add this to Figure 1 to better illustrate the effect of lowering the sample size. 
 
     RESPONSE:
+
+    We have updated Figure 1 to show the grid search using N = 100,000 'stars' and N = 1,000 'stars'. We have also updated the text (see PDF changes).
+
+    % ARC comment on changes
 
 
 10. REVIEWER:
@@ -163,11 +175,9 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
 
     RESPONSE:
 
-    The scales are 2-10 times larger in Figure 3 than Figure 2. Context is lost when we scale Figure 2 to have the same range as Figure 3.
+    The scales are 2-10 times larger in Figure 3 than Figure 2. Context is lost when we scale Figure 2 to have the same range as Figure 3. Instead we have added to the caption in Figure 3:
 
-    We have added to the caption in Figure 3:
-
-    "Note that the scales on the top panels are 2-10 times larger than those in Figure~\ref{fig:exp1-compare}."
+        "Note that the scales on the top panels are 2-10 times larger than those in Figure~\ref{fig:exp1-compare}."
 
 
 12. REVIEWER:
@@ -182,6 +192,9 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
     RESPONSE:
 
 
+    %%% ARC UPDATE AS REQUESTED.
+
+
 13. REVIEWER:
 
     Fig. 8:
@@ -189,7 +202,7 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
 
     RESPONSE:
 
-
+    This was a bug in our plotting code. Figure 8 has been updated to include all 17 elements (16 as [X/Fe] on y-axis and [Fe/H] as common x-axis).
 
 
 14. REVIEWER:
@@ -203,5 +216,4 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
 
     RESPONSE:
 
-
-
+    The sample included many giant stars. We have removed V from the set of abundances used and updated the text accordingly.
