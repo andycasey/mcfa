@@ -182,7 +182,7 @@ fig_bic = mpl_utils.plot_filled_contours(Jg, Kg, bic,
 savefig(fig_bic, "gridsearch-bic")
 
 fig_mml = mpl_utils.plot_filled_contours(Jg, Kg, mml,
-                                         colorbar_label=r"$\textrm{MML}$",
+                                         colorbar_label=r"$I\left(\boldsymbol{\mathbf{Y}}|\boldsymbol{\mathbf{D}}\right)$", 
                                          **plot_filled_contours_kwds)
 savefig(fig_mml, "gridsearch-mml")
 

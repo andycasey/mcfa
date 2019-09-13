@@ -1,26 +1,99 @@
+mcfa_kwds:
+  init_components: kmeans++
+  init_factors: svd
+  max_iter: 10000
+  tol: 1e-6
+random_seed: 0
+
 adopted_metric: mml
 correct_A_astrophysical: true
-exp2:
-  elements:
-  - Fe
-  - Ca
-  - Ti
-  - Cr
-  - Sc
-  - Ni
-  - Mg
-  - Sr
-  - Al
-  - Mn
-  - Co
-  - Ba
+log_abundance: true
+subtract_mean: true
+use_galah_flags: true
+wrt_x_fe: false
+
+max_n_latent_factors_for_colormap: 8
+
+grouped_elements:
+- - Eu
+  - La
+- - Sr
   - Y
-  - Eu
-  gridsearch:
-    max_n_components: 3
-    max_n_latent_factors: 7
-    n_inits: 25
-exp13:
+  - Ba
+  - La
+- - Ni
+  - Co
+  - Fe
+  - Mn
+  - Cr
+  - Ti
+  - Zn
+- - Al
+  - Na
+  - K
+  - Sc
+  - V
+  - Cu
+- - Ca
+  - Mg
+  - Si
+
+eval-1:
+  data_kwds:
+    n_features: 15
+    n_components: 10
+    n_latent_factors: 5
+    n_samples: 100000
+    omega_scale: 1
+    noise_scale: 1
+    random_seed: 100
+
+  mcfa_kwds:
+    tol: 1e-5
+    max_iter: 10000
+    init_factors: svd
+    init_components: kmeans++
+    random_seed: 100
+
+eval-2:
+  data_kwds:
+    n_features: 15
+    n_components: 10
+    n_latent_factors: 5
+    n_samples: 5000
+    omega_scale: 1
+    noise_scale: 1
+    random_seed: 100
+
+  mcfa_kwds:
+    tol: 1e-5
+    max_iter: 1000
+    init_factors: svd
+    init_components: kmeans++
+    random_seed: 100
+
+eval-3:
+  data_kwds:
+    n_features: 15
+    n_components: 10
+    n_latent_factors: 5
+    n_samples: 100000
+    omega_scale: 1
+    noise_scale: 1
+    random_seed: 42
+
+  mcfa_kwds:
+    tol: 1e-5
+    max_iter: 10000
+    init_factors: svd
+    init_components: kmeans++
+    random_seed: 42
+    covariance_regularization: 1e-6
+
+  
+
+
+eval-4:
   elements:
   - Na
   - Fe
@@ -38,17 +111,52 @@ exp13:
   - Al
   - La
   - Eu
+  - Mg
   galah_cuts:
     snr_c1:
-    - 100
+    - 31
     - 10000
   gridsearch:
     max_n_components: 5
     max_n_latent_factors: 7
     n_inits: 25
-  ignore_elements:
-  - O
-  - Cr
+
+
+
+# Evaluation 5 is using increasing samples of GALAH stars with missing measurements.
+# These elements and GALAH cuts should be the same as Evaluation 4.
+eval-5:
+  elements:
+  - Na
+  - Fe
+  - Sc
+  - Ti
+  - Zn
+  - Mn
+  - Y
+  - Ca
+  - Ni
+  - Si
+  - K
+  - Ba
+  - Cu
+  - Al
+  - La
+  - Eu
+  - Mg
+  galah_cuts:
+    snr_c1:
+    - 31
+    - 10000
+  gridsearch:
+    n_inits: 25
+
+
+
+
+
+
+# Tried setting tol to 1e-6 as leaving
 exp3:
   elements:
   - Na
@@ -75,44 +183,29 @@ exp3:
     - 40
     - 10000
   gridsearch:
-    max_n_components: 5
-    max_n_latent_factors: 7
+    max_n_components: 3
+    max_n_latent_factors: 6
     n_inits: 25
   ignore_elements:
   - O
   - Cr
-grouped_elements:
-- - Eu
-  - La
-- - Sr
-  - Y
-  - Ba
-  - La
-- - Ni
-  - Cu
-  - V
-  - Co
+exp2:
+  elements:
   - Fe
-  - Mn
+  - Ca
+  - Ti
   - Cr
   - Sc
-  - Zn
-- - Ca
+  - Ni
   - Mg
-  - Si
-  - Ti
-- - Al
-  - Na
-  - K
-log_abundance: true
-max_n_latent_factors_for_colormap: 8
-mcfa_kwds:
-  init_components: kmeans++
-  init_factors: random
-  max_iter: 10000
-  tol: 1e-5
-# random_seed: 0 is ok
-random_seed: 0
-subtract_mean: true
-use_galah_flags: true
-wrt_x_fe: false
+  - Sr
+  - Al
+  - Mn
+  - Co
+  - Ba
+  - Y
+  - Eu
+  gridsearch:
+    max_n_components: 3
+    max_n_latent_factors: 7
+    n_inits: 25
