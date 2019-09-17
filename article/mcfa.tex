@@ -351,7 +351,7 @@ from a mixture of multivariate normal components, except the components
 are \emph{clustered in the latent space} $\factorscores$ and projected
 into the data space by the factor loads $\factorloads$. In a sense we
 are using latent factor analysis as a form of dimensionality reduction and
-simultaneously performing clustering in latent space.
+simultaneously performing clustering in latent space (Figure~\ref{fig:schematic}).
 
 
 We assume that the latent space is lower dimensionality than the
@@ -456,7 +456,6 @@ one can efficiently estimate the model parameters using the expectation-maximiza
 algorithm \citep{Dempster:1977}. 
 
 \vspace{1em}
-
 \subsection{Initialisation} \label{sec:initialisation}
 
 Here we describe how the model parameters are initialised.\footnote{This describes the default initialisation approach. Other approaches are available in the accompanying software.}
@@ -794,8 +793,8 @@ Wishart joint prior density gives highest support for mutually orthogonal vector
 	p(\factorloads) = \frac{|\factorloads\transpose\factorloads|^{\frac{1}{2}(\NumDimensions - \NumLatentFactors - 1)}}{2^{\frac{\NumDimensions\NumLatentFactors}{2}}|\vec{W}|^{\frac{\NumDimensions}{2}}\Gamma(\frac{\NumDimensions}{2})}\exp\left[-\frac{1}{2}\textrm{Tr}(\vec{W}^{-1}\factorloads\transpose\factorloads)\right] \quad .
 \end{equation}
 
-\noindent{}Thus the message length to encode $\factorloads$ is given by
 \begin{widetext}
+\noindent{}Thus the message length to encode $\factorloads$ is given by
 \begin{eqnarray}
 I(\factorloads)	&=& \frac{1}{2}\textrm{Tr}(\textrm{Cov}(\factorloads\transpose)^{-1}\factorloads\transpose\factorloads) - \frac{1}{2}(\NumDimensions - \NumLatentFactors - 1)\log{|\factorloads\transpose\factorloads|} + \frac{1}{2}\NumDimensions\NumLatentFactors\log{2} + \frac{1}{2}\NumDimensions\log{|\textrm{Cov(\factorloads)}|} - \Gamma\left(\frac{\NumDimensions}{2}\right) \quad . \label{eq:prior_L}
 \end{eqnarray}
@@ -809,16 +808,8 @@ Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{
   && \cdots -\frac{1}{2}\left(D-J-1\right)\log|\factorloads\transpose\factorloads| + \textrm{Tr}\left(\textrm{Cov}\left(\factorloads\transpose\right)^{-1}\factorloads\transpose\factorloads\right) - \left(\NumLatentFactors + \frac{3}{2}\right)\sum_{\numcomponents=1}^\NumComponents\log|\scorecovs_\numcomponents|  -\log\Gamma\left(\NumComponents\right) - \Gamma\left(\frac{\NumDimensions}{2}\right) \nonumber \\
 && \cdots +\frac{Q}{2}\log\kappa_q +\frac{1}{2}\left[\NumLatentFactors(\NumDimensions + 2) + \NumComponents(2-\NumData)\right]\log{2}  \quad . \label{eq:message-length}
  \end{eqnarray}
+ \newpage
 \end{widetext}
-
-%\hphantom{asdfasdf\\ asdf \\}
-%\vspace{5em}
-%\hphantom{asdfasdf\\ asdf \\}
-%\vspace{5em}
-
-%\newpage
-
-%\vspace{2em}
 
 %\begin{figure}
 %	\includegraphics[width=0.45\textwidth]{experiments/exp1-gridsearch-ll-contours.pdf}
@@ -838,8 +829,6 @@ Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{
 %			 In the top panel a line connects these markers to guide the eye.}
 %    \label{fig:experiment-1-gridsearch}
 %\end{figure}
-
-
 
 
 \section{Experiments} \label{sec:experiments}
@@ -910,8 +899,8 @@ and   $\NumComponents_\textrm{max} = 20$ (e.g., twice the true values of $\NumLa
 			 message length. The white marker indicates the
 			 lowest value in each panel. A line connects to the true value (black point) to guide the eye.}
     \label{fig:experiment-1-gridsearch}
+    \vspace{-10em}
 \end{figure*}
-\vspace{-50em}
 
 
 
@@ -920,7 +909,11 @@ These metrics are shown in Figure~\ref{fig:experiment-1-gridsearch}.
 Unsurprisingly the negative log likelihood decreases with increasing numbers of latent
 factors $\NumLatentFactors$ and increasing numbers of components $\NumComponents$.
 The lowest BIC value and message length is found at $\NumLatentFactors = 5$
-and $\NumComponents = 10$, identical to the true values.
+and $\NumComponents = 10$, identical to the true values. 
+
+We repeated this toy model experiment using a smaller sample size ($N = 5,000$) to be more representative of the sample sizes in later \Galah\ experiments (Section~\ref{sec:exp4}). The results of the grid search are also shown in Figure~\ref{fig:experiment-1-gridsearch}. Here BIC estimates the true number of latent factors correctly, but tends to underestimate the true number of clusters, more so than the message length. Although the difference between the true number of components and that given by the shortest message length is not large, this does serve to illustrate that in this example a larger number of data points are required to `resolve' the true number of components in latent space.
+
+
 It is clear from Figure~\ref{fig:experiment-1-gridsearch} that a combination of latent factors
 and clustering in the latent space provides a better description of the (generated) data than a Gaussian mixture model without latent factors.
 Adding components to the model does improves the log likelihood, even with a single latent factor,
@@ -964,15 +957,7 @@ values, but they only differ by an orthogonal rotation. We discuss the impact of
 
 
 
-\begin{figure*}
-	%\includegraphics[width=\textwidth]{experiments/exp1-compare-all.pdf}
-	\includegraphics[width=\textwidth]{experiments/eval-figs/eval-1-compare-all.pdf}
-	\caption{The estimated factor loads $\factorloads$ (left), factor scores $\factorscores$ (middle),
-    		 and specific variances $\specificvariance$ (right) compared to the 
-		 	 true data generating values
-		 	 for Experiment~1 (Section~\ref{sec:exp-1}). The agreement is excellent.}
-    \label{fig:exp1-compare}
-\end{figure*}
+
 
 
 We took the model with the preferred number of latent factors and components found
@@ -1006,18 +991,6 @@ of incomplete data. We considered missing data fractions from 1\% to
 the missing data points were missing at random, and initialised the
 model as per Section~\ref{sec:exp-1}.
 
-\begin{figure*}[t!]
-	%\includegraphics[width=\textwidth]{experiments/exp-missing-data-not-at-random-inflated-40percent.png}
-	\includegraphics[width=\textwidth]{experiments/eval-figs/eval-3-missing-data-40.pdf}
-	\caption{The estimated factor loads $\factorloads$ (left), factor scores $\factorscores$ (middle),
-    		 and specific variances $\specificvariance$ (right) compared to the 
-		 	 true data generating values
-		 	 for Experiment~2 (Section~\ref{sec:toy-model-missing-data}). Here 40\% of the data are missing at random.
-			 The agreement remains excellent,
-			 despite the large fraction of missing data entries. Note that the scales on the top panels are 2-10 times larger than those in Figure~\ref{fig:exp1-compare}.}
-    \label{fig:exp1-missing-data}
-\end{figure*}
-
 
 In Figure~\ref{fig:exp1-missing-data} we show the results of this
 experiment for our worst considered case, where 40\% of the data
@@ -1028,8 +1001,6 @@ specific variances are sufficient, in that the specific variance in each
 dimension is not systematically under-estimated from the true values, 
 despite that 40\% of the data entries are missing.
 
-
-\vspace{2em}
 
 \subsection{The \Galah\ survey}
 \label{sec:exp4}
@@ -1050,48 +1021,15 @@ photospheric abundances remain constant throughout a star's
 lifetime.
 
 
-
-
-\begin{figure}
-%	\includegraphics[width=0.45\textwidth]{experiments/exp3-\ExperimentHash-gridsearch-ll.pdf}
-	%\includegraphics[width=0.45\textwidth]{experiments/exp3-\ExperimentHash-gridsearch-bic.pdf}
-	%\includegraphics[width=0.45\textwidth]{experiments/exp3-\ExperimentHash-gridsearch-mml.pdf}
-
-	%TODO: Re-do this image and show the correct colorbar to be consistent with Fig 1
-	\includegraphics[width=0.45\textwidth]{experiments/eval-figs/eval-4-\EvaluationHash-gridsearch-mml.pdf}
-    \caption{The top panel shows the negative log likelihood 
-			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
-			 evaluated at each combination of latent factors 
-			 $\NumLatentFactors$ and number of clusters 
-			 $\NumComponents$ using \Galah\ data in
-			 Experiment~3.  The middle panel shows 
-			 the BIC for those combinations, and the lower panel shows the 
-			 message length. The white marker indicates the
-			 lowest value in each panel, showing the
-			 preferred number of latent factors and components.}
-    \label{fig:exp3-gridsearch}
-\end{figure}
-
-\begin{figure*}
-	%\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-latent-factors-and-contributions-with-targets.pdf}
-	\includegraphics[width=\textwidth]{experiments/eval-figs/eval-4-\EvaluationHash-latent-factors-and-contributions-with-targets.pdf}
-	\caption{Latent factors inferred from 1,072 stars in \Galah\
-			 \citep[][thick lines]{Buder:2018} with \ExpThreeNumAbundances\ abundance measurements. Left panels show the absolute entries for each
-			 factor load, where the thin lines indicate the target latent factors (see Section~\ref{sec:exp4}). On the right we show the absolute fractional contributions
-			 to each element, ordered by the loads that contribute most.}
-    \label{fig:exp3-factor-loads}
-\end{figure*}
-
-
-
 We first selected stars with \texttt{flag\_cannon = 0} to exclude
 stars where there is reason to suspect that the stellar parameters
 (e.g., $\teff$, $\logg$) are unreliable, and as a result the 
 detailed chemical abundances would be untrustworthy. We then took all
-stars with a signal-to-noise ratio exceeding 40 in the blue arm (\texttt{snr\_c1 > 40}), and
-stars with no erroneous flags in all of the following abundances: Na, Al, Si, K, Ca, Sc, Ti, V, Mn, Fe, Ni, Cu, Zn, Y, Ba, La, and Eu.
+stars with a signal-to-noise ratio exceeding 30 in the blue arm (\texttt{snr\_c1 > 30}), and
+stars with no erroneous flags in all of the following abundances: 
+Mg, Na, Al, Si, K, Ca, Sc, Ti, Mn, Fe, Ni, Cu, Zn, Y, Ba, La, and Eu.
 These elements were chosen because they trace multiple nucleosynthetic pathways, and they are more commonly reported in the \Galah\ data release, allowing for a larger number of stars with a complete abundance inventory.
-There are 1,072 stars that met these criteria. 
+There are 2,566 stars that met these criteria. 
 
 
 
@@ -1105,36 +1043,11 @@ where we show the negative log likelihood, the BIC, and message length found for
 The behaviour of the BIC and the message length are very different here, unlike what was observed
 in our toy model. Here the BIC behaviour appears similar to the negative log likelihood in that the BIC
 prefers higher components and latent factors than the extent of the grid (e.g., $J > 7$ and $K > 5$). Indeed, if we were to trial higher values of $J$ and $K$ then the negative log likelihood would continue to increase.
-The model with five latent factors and three components ($J = 5$, $K = 3$) is found to have the shortest message length, which we take as our preferred model for these data.
-
-
-
-\begin{figure}
-	%\includegraphics[width=0.45\textwidth]{experiments/exp3-\ExperimentHash-specific-scatter.pdf}
-	\includegraphics[width=0.45\textwidth]{experiments/eval-figs/eval-4-\EvaluationHash-specific-scatter.pdf}
-	\caption{Specific scatter (e.g., $\sqrt{\specificvariance}$) remaining in the \Galah\ data \citep{Buder:2018}
-			 after accounting for the contributions by all
-			 latent factors.}
-    \label{fig:exp3-specific-scatter}
-\end{figure}
+The model with five latent factors and three components ($J = 6$, $K = 3$) is found to have the shortest message length, which we take as our preferred model for these data.
 
 
 
 
-\begin{figure*}
-	%\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-latent-space.pdf}
-	\includegraphics[width=\textwidth]{experiments/eval-figs/eval-4-\EvaluationHash-latent-space.pdf}
-	\caption{The factor scores $\factorscores$ estimated in Experiment~3 (Section~\ref{sec:exp4} using $N =$ 1,072 stars in the \Galah\ data \citep{Buder:2018} that have \ExpThreeNumAbundances\ abundance measurements. Here each star is coloured by its inferred $K$th component.}
-    \label{fig:exp3-latent-space}
-\end{figure*}
-
-
-\begin{figure*}
-	%\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-data-space.pdf}
-	\includegraphics[width=\textwidth]{experiments/eval-figs/eval-4-\EvaluationHash-data-space.pdf}
-	\caption{Detailed chemical abundances from the $N =$ 1,072 stars in \Galah\ \citep{Buder:2018} that have \ExpThreeNumAbundances\ chemical abundances (Section~\ref{sec:exp4}). Each star is coloured by its $K$th inferred component from the lower-dimensional latent space, with the same colouring as per Figure~\ref{fig:exp3-latent-space}.}
-    \label{fig:exp3-data-space}
-\end{figure*}
 
 Earlier we described how the latent factors we estimate can only be identified up until an orthogonal rotation. If we want to interpret the latent factors estimated from \Galah\ data, then we must specify
 some target factor loads such that we can identify which factors are most similar to the yields we expect.
@@ -1142,10 +1055,25 @@ We specified the following target latent factors where:
 \begin{itemize}
 	\item The first factor load should have non-zero entries in Eu and La (e.g., the $r$-process).
 	\item The second factor load should have non-zero entries in Ba, Y, and La (e.g., the $s$-process).
-	\item The third factor load should have non-zero entries in Fe-peak elements Sc, V, Mn, Fe, Ni, Cu, and Zn.
-	\item The fourth factor load should have non-zero entries in the $\alpha$-element tracers Si, Ca, and Ti.
-	\item The fifth factor load should have non-zero entries in the light odd-Z elements Na, Al, and K.
+	\item The third factor load should have non-zero entries in Fe-peak elements V, Mn, Fe, Ni, Zn, and Ti.
+	\item The fourth factor load should have non-zero entries in the odd-Z elements Na, Al, K, Sc, and Cu.
+	\item The fifth factor load should have non-zero entries in the $\alpha$-element tracers Si, Ca, and Mg.
+%	\item The first factor load should have non-zero entries in Eu and La (e.g., the $r$-process).
+%	\item The second factor load should have non-zero entries in Ba, Y, and La (e.g., the $s$-process).
+%	\item The third factor load should have non-zero entries in Fe-peak elements Sc, V, Mn, Fe, Ni, Cu, and Zn.
+%	\item The fourth factor load should have non-zero entries in the $\alpha$-element tracers Si, Ca, and Ti.
+%	\item The fifth factor load should have non-zero entries in the light odd-Z elements Na, Al, and K.
 \end{itemize}
+
+\begin{figure*}[t!]
+	%\includegraphics[width=\textwidth]{experiments/exp1-compare-all.pdf}
+	\includegraphics[width=\textwidth]{experiments/eval-figs/eval-1-compare-all.pdf}
+	\caption{The estimated factor loads $\factorloads$ (left), factor scores $\factorscores$ (middle),
+    		 and specific variances $\specificvariance$ (right) compared to the 
+		 	 true data generating values
+		 	 for Experiment~1 (Section~\ref{sec:exp-1}). The agreement is excellent.}
+    \label{fig:exp1-compare}
+\end{figure*}
 
 We initially set each non-zero entry in these target factor loads $\factorloads_\textrm{target}$ to $E^{-\frac{1}{2}}$, where $E$ is the number of non-zero entries in that factor load, to ensure that $\factorloads_\textrm{target}$ is mutually orthogonal.
 We solved for the $\NumLatentFactors$ unknown angles to produce a valid rotation matrix $\vec{R}$ that would make our estimated loads $\factorloads$ as close as possible to the target loads $\factorloads_\textrm{target}$, and then applied that rotation to the model. The target loads and (rotated) estimated loads are shown in Figure~\ref{fig:exp3-factor-loads}. Note that the purpose of this procedure is not to `find' the target loads that we expect, but to provide as little information needed in order to identify and describe all factor loads within an astrophysical context. This procedure still requires that the factors be mutually orthogonal and that they describe the data. For these reasons, we will not always recover the exact target loads we seek: we will only be able to identify factor loads that are closest to the target loads.
@@ -1166,17 +1094,29 @@ data dimension as:
 \end{equation}
 The fractional contributions to each element are shown in the right hand side of
 Figure~\ref{fig:exp3-factor-loads}. We identify the first factor $\mathbf{L}_1$ 
-as being most similar to the r-process, and here it is the dominant contributor to Eu, a typical r-process tracer. Surprisingly we also find that this factor load is a reasonable  contributor to the Fe-peak element Sc. The specific scatter in Sc is 0.03~dex (Figure~\ref{fig:exp3-specific-scatter}), suggesting that the Sc abundances are well-described by this latent factor model.
+as being most similar to the r-process, and here it is the dominant contributor to Eu, a typical r-process tracer. Surprisingly we also find that this factor load is a reasonable contributor to the odd-Z element Sc. The specific scatter in Sc is 0.03~dex (Figure~\ref{fig:exp3-specific-scatter}), suggesting that the Sc abundances are well-described by this latent factor model.
  
 
-The second latent factor $\mathbf{L}_2$ here is most representative of the slow neutron capture process (s-process), with dominant contributions to Ba, Y, and La. This factor has some support at other elements, notably K. Most Sc is contributed by $\mathbf{L}_3$, our Fe-peak latent factor. In fact $\mathbf{L}_3$ is the primary contributor to nearly all Fe-peak elements, with close to negligible contributions from other factors. The exception here is Zn, where a near-equal contribution comes from $\mathbf{L}_5$.
-The third latent factor $\mathbf{L}_4$ is reasonably well behaved. It is the dominant contributor to the $\alpha$-element tracers Si, Ca, and Ti, and surprisingly, Al. It also seems to contribute a non-zero fraction to Eu, with negligible contributions elsewhere.
+The second latent factor $\mathbf{L}_2$ here is most representative of the slow neutron capture process (s-process), with dominant contributions to Ba, and Y. This factor has some support at other elements, notably K. $\mathbf{L}_3$ is the primary contributor to nearly all Fe-peak elements, with close to negligible contributions from other factors. The exception here is Cu, where a near-equal contribution comes from $\mathbf{L}_4$.
+The fifth latent factor $\mathbf{L}_5$ is the dominant contributor to the $\alpha$-element tracers Si, Ca, and Ti, and surprisingly, Al. 
 The specific scatter after accounting for these latent factors is smallest
 for Fe (0.01~dex) and largest for K (0.13~dex; Figure~\ref{fig:exp3-specific-scatter}). The typical scatter in most elements is about 0.05~dex.
 
 In Figure~\ref{fig:exp3-latent-space} we show the inferred clustering in latent space,
-where the separation between components is arguably best seen in the splitting between $\factorscores_5$ with respect to $\factorscores_2$ or $\factorscores_3$. When projected to data space (Figure~\ref{fig:exp3-data-space}) the third component (dark green) is seen to have relatively higher abundance ratios of [K,Ba,Zn/Fe] at a given [Fe/H],
-and lower abundance ratios of [V/Fe]. This is consistent with the clustering in latent space.
+where the separation between components is arguably best seen in the splitting between $\factorscores_6$ with respect to $\factorscores_2$ or $\factorscores_3$. When projected to data space (Figure~\ref{fig:exp3-data-space}) the third component (light green) is seen to have relatively higher abundance ratios of [K,Ba,Zn/Fe] at a given [Fe/H]. This is consistent with the clustering in latent space.
+
+
+\begin{figure*}[t!]
+	%\includegraphics[width=\textwidth]{experiments/exp-missing-data-not-at-random-inflated-40percent.png}
+	\includegraphics[width=\textwidth]{experiments/eval-figs/eval-3-missing-data-40.pdf}
+	\caption{The estimated factor loads $\factorloads$ (left), factor scores $\factorscores$ (middle),
+    		 and specific variances $\specificvariance$ (right) compared to the 
+		 	 true data generating values
+		 	 for Experiment~2 (Section~\ref{sec:toy-model-missing-data}). Here 40\% of the data are missing at random.
+			 The agreement remains excellent,
+			 despite the large fraction of missing data entries. Note that the scales on the top panels are 2-10 times larger than those in Figure~\ref{fig:exp1-compare}.}
+    \label{fig:exp1-missing-data}
+\end{figure*}
 
 
 \subsection{\Galah\ survey data with an increasing number of stars with missing data entries} \label{sec:exp10}
@@ -1214,6 +1154,65 @@ With this data set we find that $K = 16$ components are preferred in latent spac
 
 
 
+\begin{figure}
+%	\includegraphics[width=0.45\textwidth]{experiments/exp3-\ExperimentHash-gridsearch-ll.pdf}
+	%\includegraphics[width=0.45\textwidth]{experiments/exp3-\ExperimentHash-gridsearch-bic.pdf}
+	%\includegraphics[width=0.45\textwidth]{experiments/exp3-\ExperimentHash-gridsearch-mml.pdf}
+
+	%TODO: Re-do this image and show the correct colorbar to be consistent with Fig 1
+	\includegraphics[width=0.45\textwidth]{experiments/eval-figs/eval-4-\EvaluationHash-gridsearch-mml.pdf}
+    \caption{The top panel shows the negative log likelihood 
+			 $-\log{\mathcal{L}\left(\data|\vec\Psi\right)}$ 
+			 evaluated at each combination of latent factors 
+			 $\NumLatentFactors$ and number of clusters 
+			 $\NumComponents$ using \Galah\ data in
+			 Experiment~3.  The middle panel shows 
+			 the BIC for those combinations, and the lower panel shows the 
+			 message length. The white marker indicates the
+			 lowest value in each panel, showing the
+			 preferred number of latent factors and components.}
+    \label{fig:exp3-gridsearch}
+\end{figure}
+
+\begin{figure*}
+	%\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-latent-factors-and-contributions-with-targets.pdf}
+	\includegraphics[width=\textwidth]{experiments/eval-figs/eval-4-\EvaluationHash-latent-factors-and-contributions-with-targets.pdf}
+	\caption{Latent factors inferred from 1,072 stars in \Galah\
+			 \citep[][thick lines]{Buder:2018} with \ExpThreeNumAbundances\ abundance measurements. Left panels show the absolute entries for each
+			 factor load, where the thin lines indicate the target latent factors (see Section~\ref{sec:exp4}). On the right we show the absolute fractional contributions
+			 to each element, ordered by the loads that contribute most.}
+    \label{fig:exp3-factor-loads}
+\end{figure*}
+
+
+\begin{figure}
+	%\includegraphics[width=0.45\textwidth]{experiments/exp3-\ExperimentHash-specific-scatter.pdf}
+	\includegraphics[width=0.45\textwidth]{experiments/eval-figs/eval-4-\EvaluationHash-specific-scatter.pdf}
+	\caption{Specific scatter (e.g., $\sqrt{\specificvariance}$) remaining in the \Galah\ data \citep{Buder:2018}
+			 after accounting for the contributions by all
+			 latent factors.}
+    \label{fig:exp3-specific-scatter}
+\end{figure}
+
+
+
+
+\begin{figure*}
+	%\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-latent-space.pdf}
+	\includegraphics[width=\textwidth]{experiments/eval-figs/eval-4-\EvaluationHash-latent-space.pdf}
+	\caption{The factor scores $\factorscores$ estimated in Experiment~3 (Section~\ref{sec:exp4} using $N =$ 1,072 stars in the \Galah\ data \citep{Buder:2018} that have \ExpThreeNumAbundances\ abundance measurements. Here each star is coloured by its inferred $K$th component.}
+    \label{fig:exp3-latent-space}
+\end{figure*}
+
+
+\begin{figure*}
+	%\includegraphics[width=\textwidth]{experiments/exp3-\ExperimentHash-data-space.pdf}
+	\includegraphics[width=\textwidth]{experiments/eval-figs/eval-4-\EvaluationHash-data-space.pdf}
+	\caption{Detailed chemical abundances from the $N =$ 1,072 stars in \Galah\ \citep{Buder:2018} that have \ExpThreeNumAbundances\ chemical abundances (Section~\ref{sec:exp4}). Each star is coloured by its $K$th inferred component from the lower-dimensional latent space, with the same colouring as per Figure~\ref{fig:exp3-latent-space}.}
+    \label{fig:exp3-data-space}
+\end{figure*}
+
+
 \begin{figure*}[t!]
 	\includegraphics[width=0.95\textwidth]{experiments/exp10-comparison.pdf}
 	\caption{Latent factors found in Section~\ref{sec:exp10} using different subsets
@@ -1224,7 +1223,7 @@ With this data set we find that $K = 16$ components are preferred in latent spac
 \end{figure*}
 
 
-\vspace{1em}
+
 \section{Discussion} \label{sec:discussion}
 
 We have introduced a model to simultaneously account for the lower
@@ -1379,18 +1378,8 @@ from the $s$-process, $r$-process, et cetera). Interestingly we find that deviat
 expected yields occur in elements where observations and galactic chemical evolution models
 are most discrepant (e.g., K, Sc). While we advise caution in directly interpreting
 those latent factors as being nucleosynthetic yields, our
-model does provide the first data-driven approach to nucleosynthesis and chemical tagging. We advocate that more data, and the inclusion of weakly informative priors -- joint probabilities using astrometry and a simplified model of the Milky Way -- would help in realising the full potential of chemical tagging.\\
+model does provide the first data-driven approach to nucleosynthesis and chemical tagging. We advocate that more data, and the inclusion of weakly informative priors -- joint probabilities using astrometry and a simplified model of the Milky Way -- would help in realising the full potential of chemical tagging.
 
-
-\vspace{2em}
-
-
-%This \emph{Article} was compiled from the \texttt{git} commit \todo{\texttt{HASH}}.
-%The analysis, results, and figures presented in this \emph{Article} can be reproduced in full 
-%using the following commands in a modern terminal:\vspace{1em}\\
-%\texttt{git clone https://github.com/andycasey/mcfa}\\
-%\texttt{cd mcfa/}\\
-%\todo{\texttt{sh article/build.sh}}
 
 
 \acknowledgements
