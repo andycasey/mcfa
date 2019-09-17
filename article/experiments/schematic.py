@@ -447,7 +447,7 @@ noise = true_theta["psi"].reshape((1, D))
 draw_matrix_values(ax, noise, x, y, D, 1, edge_kwds=edge_kwds)
 
 
-ax.text(x + D/2, equation_y_text, r"$\mathbf{\Psi}^\top$", **text_kwds)
+ax.text(x + D/2, equation_y_text, r"$\mathbf{D}^\top$", **text_kwds)
 
 ax.text(x + D/2, data_text_y, r"$\textrm{noise}$", **text_kwds)
 
