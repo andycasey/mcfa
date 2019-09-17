@@ -193,9 +193,10 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
 
     RESPONSE:
 
-
-    %%% ARC UPDATE AS REQUESTED.
-
+    We have moved Ti from the alpha element list to the Fe-peak element list. 
+    We have also moved Sc and Cu to the odd-Z elements. 
+    V has been removed as per item #14.
+    
 
 13. REVIEWER:
 
