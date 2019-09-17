@@ -379,6 +379,26 @@ help build intuition for the model parameters, and provide context
 within the astrophysical problem it is being applied.
 
 
+\begin{figure*}
+	\includegraphics[width=\textwidth]{experiments/schematic.png}
+	\caption{A schematic that visualises the model components.
+			 The data are shown on the left in greyscale, and magnified on the
+			 right where each star (row) is coloured by its identified
+			 component in latent space.
+			 For each chemical abundance (column) there is a mean value and
+			 variance that is independent of the latent space.
+			 The latent factors $\factorloads$ are analogous to nucleosynthetic
+			 yields and are common to all stars. The factor scores $\factorscores$
+			 have an entry for each yield, for each star (row). The latent scores are modelled
+			 by a mix of multivariate normal distributions of $\NumComponents$
+			 components, which are coloured accordingly. The matrices of factor 
+			 scores $\factorscores$ and factor loads $\factorloads$ are 
+			 visualised at the bottom. For clarity here we show transposed
+			 matrices (e.g., see Eq. \ref{eq:generative-model}).}
+	\label{fig:schematic}
+\end{figure*}
+
+
 Including latent factors in the model description allows us to account for 
 processes that affect multiple elemental abundances. In this way we are 
 accounting for the fact that the data dimensions are not independent of
@@ -434,6 +454,8 @@ $\factorscores$. These quantities can only be determined up until
 orthogonality in $\factorloads$. However, as we will describe in Section \ref{sec:expectation-maximization}, with suitable priors on $\vec\Psi$ 
 one can efficiently estimate the model parameters using the expectation-maximization
 algorithm \citep{Dempster:1977}. 
+
+\vspace{1em}
 
 \subsection{Initialisation} \label{sec:initialisation}
 
@@ -743,8 +765,8 @@ as $|\mathcal{F}(\scoremeans)||\mathcal{F}(\scorecovs)|$ \citep{Oliver:1996,Figu
 
 \begin{eqnarray}
 	I(\scoremeans,\scorecovs) &=& -\sum_{\numcomponents=1}^{\NumComponents}\log{p(\scoremeans_k,\scorecovs_k)} + \frac{1}{2}\sum_{\numcomponents=1}^{\NumComponents}\log{|\mathcal{F}(\scoremeans_k,\scorecovs_k)|} \nonumber \\
-	&=& \frac{1}{2}\sum_{\numcomponents=1}^{\NumComponents}\log\left[(\NumData\weight_k)^{\frac{1}{2}\NumLatentFactors(\NumLatentFactors+3)}2^{-\NumData}|\scorecovs_k|^{-(\NumData + 2)}\right] \nonumber \\
-	&& \cdots \,\, -\sum_{\numcomponents=1}^{\NumComponents}\log{|\scorecovs_k|}^{\frac{1}{2}(\NumLatentFactors + 1)} \\
+%	&=& \frac{1}{2}\sum_{\numcomponents=1}^{\NumComponents}\log\left[(\NumData\weight_k)^{\frac{1}{2}\NumLatentFactors(\NumLatentFactors+3)}2^{-\NumData}|\scorecovs_k|^{-(\NumData + 2)}\right] \nonumber \\
+%	&& \cdots \,\, -\sum_{\numcomponents=1}^{\NumComponents}\log{|\scorecovs_k|}^{\frac{1}{2}(\NumLatentFactors + 1)} \\
 I(\scoremeans,\scorecovs) &=& \frac{1}{4}\NumLatentFactors(\NumLatentFactors+3)\sum_{\numcomponents=1}^\NumComponents\log{\NumData\weight_k} - \frac{KD}{2}\log{2} \nonumber \\ 
 && \cdots \,\, -\frac{1}{2}(2\NumLatentFactors+3)\sum_{k=1}^{K}\log{|\scorecovs_k|}  \quad . \label{eq:prior_xi_omega} 
 \end{eqnarray}
@@ -772,14 +794,14 @@ Wishart joint prior density gives highest support for mutually orthogonal vector
 	p(\factorloads) = \frac{|\factorloads\transpose\factorloads|^{\frac{1}{2}(\NumDimensions - \NumLatentFactors - 1)}}{2^{\frac{\NumDimensions\NumLatentFactors}{2}}|\vec{W}|^{\frac{\NumDimensions}{2}}\Gamma(\frac{\NumDimensions}{2})}\exp\left[-\frac{1}{2}\textrm{Tr}(\vec{W}^{-1}\factorloads\transpose\factorloads)\right] \quad .
 \end{equation}
 
-
-\begin{widetext}
 \noindent{}Thus the message length to encode $\factorloads$ is given by
+\begin{widetext}
 \begin{eqnarray}
 I(\factorloads)	&=& \frac{1}{2}\textrm{Tr}(\textrm{Cov}(\factorloads\transpose)^{-1}\factorloads\transpose\factorloads) - \frac{1}{2}(\NumDimensions - \NumLatentFactors - 1)\log{|\factorloads\transpose\factorloads|} + \frac{1}{2}\NumDimensions\NumLatentFactors\log{2} + \frac{1}{2}\NumDimensions\log{|\textrm{Cov(\factorloads)}|} - \Gamma\left(\frac{\NumDimensions}{2}\right) \quad . \label{eq:prior_L}
 \end{eqnarray}
-
-\noindent{}Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{eq:prior_xi_omega}, and \ref{eq:prior_L} with equation \ref{eq:mml} leads to the full message length:
+%\end{widetext}
+Combining equations \ref{eq:prior_J}, \ref{eq:prior_K}, \ref{eq:prior_pi}, \ref{eq:prior_xi_omega}, and \ref{eq:prior_L} with equation \ref{eq:mml} leads to the full message length:
+%\begin{widetext}
 \begin{eqnarray}
 	I(\vec\Psi, \vec\data) &=& -\log\likelihood(\vec\data|\vec\Psi)
  +\frac{1}{4}\left(\NumLatentFactors + 4\right)\left(\NumLatentFactors - 1\right)\sum_{\numcomponents=1}^\NumComponents\log\weight_\numcomponents + \left(\NumComponents - \frac{1}{2}\right)\log{\NumData}
@@ -788,6 +810,15 @@ I(\factorloads)	&=& \frac{1}{2}\textrm{Tr}(\textrm{Cov}(\factorloads\transpose)^
 && \cdots +\frac{Q}{2}\log\kappa_q +\frac{1}{2}\left[\NumLatentFactors(\NumDimensions + 2) + \NumComponents(2-\NumData)\right]\log{2}  \quad . \label{eq:message-length}
  \end{eqnarray}
 \end{widetext}
+
+%\hphantom{asdfasdf\\ asdf \\}
+%\vspace{5em}
+%\hphantom{asdfasdf\\ asdf \\}
+%\vspace{5em}
+
+%\newpage
+
+%\vspace{2em}
 
 %\begin{figure}
 %	\includegraphics[width=0.45\textwidth]{experiments/exp1-gridsearch-ll-contours.pdf}
@@ -880,7 +911,7 @@ and   $\NumComponents_\textrm{max} = 20$ (e.g., twice the true values of $\NumLa
 			 lowest value in each panel. A line connects to the true value (black point) to guide the eye.}
     \label{fig:experiment-1-gridsearch}
 \end{figure*}
-
+\vspace{-50em}
 
 
 
@@ -898,19 +929,6 @@ but the addition of just \emph{one latent factor} improves the log likelihood mo
 is known, but this toy model does illustrate how 
 clustering in high dimensional data can be better described by latent factors with 
 clustering in the lower dimensional latent space.
-
-
-
-
-\begin{figure*}[t!]
-	%\includegraphics[width=\textwidth]{experiments/exp1-compare-all.pdf}
-	\includegraphics[width=\textwidth]{experiments/eval-figs/eval-1-compare-all.pdf}
-	\caption{The estimated factor loads $\factorloads$ (left), factor scores $\factorscores$ (middle),
-    		 and specific variances $\specificvariance$ (right) compared to the 
-		 	 true data generating values
-		 	 for Experiment~1 (Section~\ref{sec:exp-1}). The agreement is excellent.}
-    \label{fig:exp1-compare}
-\end{figure*}
 
 
 
@@ -946,6 +964,16 @@ values, but they only differ by an orthogonal rotation. We discuss the impact of
 
 
 
+\begin{figure*}
+	%\includegraphics[width=\textwidth]{experiments/exp1-compare-all.pdf}
+	\includegraphics[width=\textwidth]{experiments/eval-figs/eval-1-compare-all.pdf}
+	\caption{The estimated factor loads $\factorloads$ (left), factor scores $\factorscores$ (middle),
+    		 and specific variances $\specificvariance$ (right) compared to the 
+		 	 true data generating values
+		 	 for Experiment~1 (Section~\ref{sec:exp-1}). The agreement is excellent.}
+    \label{fig:exp1-compare}
+\end{figure*}
+
 
 We took the model with the preferred number of latent factors and components found
 from a grid search ($\NumComponents = 10$, $\NumLatentFactors = 5$; which are also
@@ -964,6 +992,7 @@ to the true values. The agreement is excellent in all model parameters.
 
 
  
+
 
 
 
@@ -1382,6 +1411,12 @@ This research has made use of NASA's Astrophysics Data System.
     \package{TOPCAT} \citep{Taylor:2005}
 }
 
+
+
+\bibliographystyle{aasjournal}
+\bibliography{mcfa}
+
+
 \appendix
 
 Documentation for the software that accompanies this paper is available at \url{https://mcfa.rtfd.io}. 
@@ -1432,8 +1467,5 @@ fig_latent = mpl_utils.plot_latent_space(model, X)
 fig_data = mpl_utils.plot_data_space(model, X)
 \end{minted}
 
-
-\bibliographystyle{aasjournal}
-\bibliography{mcfa}
 
 \end{document}

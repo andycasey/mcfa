@@ -312,7 +312,7 @@ ax.text(-2.5 - 2, 0, r"$\textrm{stars}$", fontsize=10, rotation=90)
 text_kwds = dict(horizontalalignment="center", verticalalignment="center")
 data_text_y = ys + h + 3
 ax.text(xs + w/2, data_text_y, r"$\textrm{data}$", **text_kwds)
-ax.text(xs + w/2, equation_y_text, r"$\mathbf{Y}$", **text_kwds)
+ax.text(xs + w/2, equation_y_text, r"$\mathbf{X}^\top$", **text_kwds)
 
 
 # draw lines connecting
@@ -334,7 +334,7 @@ edge_kwds = dict(lw=0.75, c="#000000", zorder=10)
 draw_matrix_values(ax, mean, D + space, N-1, D, 1, edge_kwds=edge_kwds, vmin=-0.5, vmax=2)
 
 ax.text(D + space + D/2, data_text_y, r"$\textrm{mean}$", **text_kwds)
-ax.text(D + space + D/2, equation_y_text, r"$\boldsymbol{\mu}$", **text_kwds)
+ax.text(D + space + D/2, equation_y_text, r"$\boldsymbol{\mu}^\top$", **text_kwds)
 
 #boldsymbol{\mathbf{#1}}
 ax.text(D + space + D + space/2., N/2, r"$+$", **text_kwds)
@@ -398,7 +398,7 @@ ax.text(x + 0.5 + 2.2, y - 1, r"$3$", fontsize=6, **text_kwds)
 
 #scores, x, y, D, J)
 ax.text(x + D/2, data_text_y, "$\\textrm{latent}$\n$\\textrm{scores}$", **text_kwds)
-ax.text(x + D/2, equation_y_text, r"$\mathbf{S}$", **text_kwds)
+ax.text(x + D/2, equation_y_text, r"$\mathbf{S}^\top$", **text_kwds)
 
 #ax.text(x + D/2, data_text_y - 1.2, r"$\textrm{scores}$", **text_kwds)
 
@@ -432,7 +432,7 @@ ax.text(x - 1, y, r"$3$", fontsize=6, horizontalalignment="center", verticalalig
 latent_factors_y = -16
 draw_latent_factors(ax, true_theta["A"], x, latent_factors_y, D, 3)
 ax.text(x + D/2, data_text_y, "$\\textrm{latent}$\n$\\textrm{factors}$", **text_kwds)
-ax.text(x + D/2, equation_y_text, r"$\mathbf{L}$", **text_kwds)
+ax.text(x + D/2, equation_y_text, r"$\mathbf{L^\top}$", **text_kwds)
 
 ax.text(x + D + space/2., N/2, r"$+$", **text_kwds)
 
@@ -447,7 +447,7 @@ noise = true_theta["psi"].reshape((1, D))
 draw_matrix_values(ax, noise, x, y, D, 1, edge_kwds=edge_kwds)
 
 
-ax.text(x + D/2, equation_y_text, r"$\mathbf{\Psi}$", **text_kwds)
+ax.text(x + D/2, equation_y_text, r"$\mathbf{\Psi}^\top$", **text_kwds)
 
 ax.text(x + D/2, data_text_y, r"$\textrm{noise}$", **text_kwds)
 
@@ -521,6 +521,7 @@ ax.set_ylim(ys,ys +wh)
 fig.tight_layout()
 plt.show()
 
-basename = __file__[:-3] + ".pdf"
-fig.savefig(basename, dpi=300)
+
+fig.savefig(__file__[:-3] + ".png", dpi=300)
+fig.savefig(__file__[:-3] + ".pdf", dpi=300)
 
