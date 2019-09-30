@@ -4,12 +4,12 @@ RESPONSE SUMMARY:
  1. Done!
  2. Done!
  3. Done!
- 4. Response written. Just include schematic diagram.
+ 4. Done!
  5. Done!
  6. Done!
  7. Done!
  8. Need to justify S/N choice --> text will depend on #12.
- 9. Need to add text about N ~ 1000 stars in the toy model (awaiting figure to finish)
+ 9. Done!
 10. Done!
 11. Done!
 12. Waiting for eval-5.py to finish, then consider re-running with S/N > 40.
@@ -65,7 +65,7 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
 
     RESPONSE:
 
-    We have included a schematic to try to help visualise the method.
+    We have included a schematic to try to help visualise the method (new Figure 1).
 
     We have also added an Appendix that references the online documentation, and includes a code example. This code will generate fake data, fit those data, and produce some figures. 
 
@@ -156,10 +156,9 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
 
     RESPONSE:
 
-    We have updated Figure 1 to show the grid search using N = 100,000 'stars' and N = 1,000 'stars'. We have also updated the text (see PDF changes).
+    We have updated Figure 1 to show the grid search using N = 100,000 'stars' and N = 5,000 'stars'. We have also added the following paragraphs to Section 2:
 
-    % ARC comment on changes
-
+    "We repeated this toy model experiment using a smaller sample size ($N = 5,000$) to be more representative of the sample sizes in later \Galah\ experiments (Section~\ref{sec:exp4}). The results of the grid search are also shown in Figure~\ref{fig:experiment-1-gridsearch}. Here BIC estimates the true number of latent factors correctly, but tends to underestimate the true number of clusters, more so than the message length. Although the difference between the true number of components and that given by the shortest message length is not large, this does serve to illustrate that in this example a larger number of data points are required to `resolve' the true number of components in latent space."
 
 10. REVIEWER:
 
@@ -194,9 +193,10 @@ The paper is well written and is, in my opinion, certainly worth publication. Ho
 
     RESPONSE:
 
-
-    %%% ARC UPDATE AS REQUESTED.
-
+    We have moved Ti from the alpha element list to the Fe-peak element list. 
+    We have also moved Sc and Cu to the odd-Z elements. 
+    V has been removed as per item #14.
+    
 
 13. REVIEWER:
 
